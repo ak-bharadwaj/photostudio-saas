@@ -9,10 +9,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/repo-size/ak-bharadwaj/photostudio-saas?style=flat-square&color=blue" alt="Repo Size" />
-  <img src="https://img.shields.io/github/license/ak-bharadwaj/photostudio-saas?style=flat-square&color=green" alt="License" />
+  <img src="https://img.shields.io/github/repo-size/ak-bharadwaj/photostudio-saas?style=for-the-badge&color=blue" alt="Repo Size" />
+  <img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="License" />
   <img src="https://img.shields.io/github/last-commit/ak-bharadwaj/photostudio-saas?style=flat-square&color=orange" alt="Last Commit" />
-  <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" />
 </p>
 
 ---
@@ -149,5 +148,5 @@ pnpm exec turbo run build
 
 <div align="center">
   <p>Built for the next generation of visual storytellers.</p>
-  <p>MIT License © 2026 PhotoStudio SaaS Team</p>
+  <p>Proprietary License © 2026 PhotoStudio SaaS Team</p>
 </div>
