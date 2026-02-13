@@ -1,115 +1,153 @@
-# 📸 PhotoStudio SaaS
+<p align="center">
+  <img src="https://img.shields.io/badge/PhotoStudio-SaaS-blue?style=for-the-badge&logo=adobe-lightroom&logoColor=white" alt="PhotoStudio SaaS Logo" />
+</p>
 
-![PhotoStudio SaaS Banner](/c:/Users/dorni/.gemini/antigravity/brain/3379217e-c0f6-4455-9566-b3aed21355eb/photostudio_saas_banner.png)
+<h1 align="center">PhotoStudio SaaS</h1>
 
-## 🚀 Overview
+<p align="center">
+  <strong>The Enterprise-Grade Operating System for Modern Photography Studios.</strong>
+</p>
 
-**PhotoStudio SaaS** is an enterprise-grade, multi-tenant management platform designed specifically for photography studios. It streamlines the entire workflow from initial customer inquiry to booking, execution, and final invoicing. Built with a modern tech stack focused on performance and scalability, it offers a professional solution for both individual photographers and large studios.
+<p align="center">
+  <img src="https://img.shields.io/github/repo-size/ak-bharadwaj/photostudio-saas?style=flat-square&color=blue" alt="Repo Size" />
+  <img src="https://img.shields.io/github/license/ak-bharadwaj/photostudio-saas?style=flat-square&color=green" alt="License" />
+  <img src="https://img.shields.io/github/last-commit/ak-bharadwaj/photostudio-saas?style=flat-square&color=orange" alt="Last Commit" />
+  <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" />
+</p>
 
 ---
 
-## ✨ Key Features
+## 🌟 Vision
 
-### 🏢 Multi-Tenant Infrastructure
-- **Complete Isolation**: Secure data isolation between studios.
-- **Role-Based Access**: Granular permissions for Owners, Photographers, and Assistants.
-- **Subscription Management**: Support for tiered access (Starter, Pro, Studio, Enterprise).
+PhotoStudio SaaS is not just a tool; it's a comprehensive **Multi-Tenant Infrastructure** designed to scale with your studio. From solopreneurs to enterprise-level photography firms, our platform provides a unified workspace to manage bookings, clients, portfolios, and finances with surgical precision.
 
-### 📅 Advanced Booking System
-- **Intelligent Scheduling**: Conflict detection to prevent double-bookings.
-- **Custom Workflows**: Track bookings from INQUIRY through to COMPLETED.
-- **Public Booking API**: Seamlessly integrate booking forms into any website.
+---
 
-### 💰 Financial Management
-- **Professional Invoicing**: Automated, brand-aligned PDF generation.
-- **Payment Tracking**: Record and monitor payments via multiple methods (UPI, Card, Bank Transfer).
-- **Tax & Discount Support**: Flexible pricing models for global studio operations.
+## 🏗 System Architecture
 
-### 📁 Portfolio & Customer Management
-- **Cloud-Native Storage**: High-performance image management via Cloudinary.
-- **Customer CRM**: Detailed profiles with booking history and lifetime value tracking.
-- **Public Galleries**: Showcase work to potential clients with customizable galleries.
+The platform is engineered using a modular **Monorepo Architecture**, ensuring high cohesion and low coupling across the stack.
+
+```mermaid
+graph TD
+    subgraph "Client Layer (Next.js 14)"
+        A[Customer Portal]
+        B[Studio Dashboard]
+        C[Platform Admin]
+    end
+
+    subgraph "Application Layer (NestJS)"
+        D[API Gateway]
+        E[Auth Service]
+        F[Booking Engine]
+        G[Financial Controller]
+    end
+
+    subgraph "Data & Storage"
+        H[(PostgreSQL 16)]
+        I[(Redis 7 Cache)]
+        J[Cloudinary Image CDN]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    D --> F
+    D --> G
+    E --> H
+    F --> H
+    G --> H
+    F --> I
+    G --> J
+```
+
+---
+
+## ✨ Core Modules
+
+### 🛡 Multi-Tenancy & Security
+*   **Logical Isolation**: Strict studio-level data partitioning.
+*   **Role Hierarchy**: Owner, Photographer, and Assistant roles with fine-grained RBAC.
+*   **JWT Ecosystem**: Dual-token strategy with short-lived access and 7-day refresh cycles.
+
+### 📅 Booking Intelligence
+*   **Workflow Automation**: Transitions from `INQUIRY` → `QUOTED` → `CONFIRMED` → `COMPLETED`.
+*   **Clash Prevention**: Native support for availability checks and conflict detection.
+*   **Photographer Routing**: Efficiently assign and manage staff for every session.
+
+### 💳 Financial Operations
+*   **Automated Invoicing**: Professional PDF generation using Headless Puppeteer.
+*   **Omnichannel Payments**: Integrated tracking for UPI, Bank Transfer, and Card.
+*   **Analytics Pod**: Real-time revenue, LTV, and studio performance metrics.
 
 ---
 
 ## 🛠 Tech Stack
 
-| Component | Technology |
+| Tier | Technologies |
 | :--- | :--- |
-| **Backend** | NestJS 11, Prisma ORM, JWT, Redis |
-| **Frontend** | Next.js 14 (App Router), Tailwind CSS, Zustand |
-| **Database** | PostgreSQL 16 |
-| **Services** | Cloudinary (Files), Resend (Email), Puppeteer (PDF) |
-| **Infrastructure** | Docker, PNPM Workspaces |
+| **Frontend** | Next.js 14 (App Router), Tailwind CSS, Zustand, Axios |
+| **Backend** | NestJS 11, Prisma ORM, JWT, class-validator |
+| **Infrastructure** | Docker, PostgreSQL 16, Redis 7, Headless Chrome |
+| **Cloud Services** | Cloudinary (Files), Resend (Transactional Email) |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Deployment Deep-Dive
 
-### Prerequisites
-- Node.js 18+
-- PNPM 8+
-- Docker & Docker Compose
+### 1. Zero-Conf Docker Setup (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/ak-bharadwaj/photostudio-saas.git
 
-### Fast-Track Installation
+# Spin up the infrastructure
+docker-compose up -d
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/ak-bharadwaj/photostudio-saas.git
-   cd photostudio-saas
-   ```
+# Install & Initialize
+pnpm install
+pnpm exec turbo run build
+```
 
-2. **Setup Infrastructure**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Install Dependencies**
-   ```bash
-   pnpm install
-   ```
-
-4. **Initialize Database**
-   ```bash
-   cd apps/backend
-   cp .env.example .env
-   pnpm prisma:generate
-   pnpm prisma:migrate
-   pnpm prisma:seed
-   ```
-
-5. **Run the Application**
-   ```bash
-   # From root
-   pnpm dev
-   ```
+### 2. Manual Configuration
+1.  **Environment Setup**: Clone `.env.example` in both `apps/backend` and `apps/frontend`.
+2.  **Prisma Initialization**:
+    ```bash
+    pnpm prisma:generate
+    pnpm prisma:migrate
+    pnpm prisma:seed
+    ```
+3.  **Start Services**: `pnpm dev` from the root.
 
 ---
 
-## 🔒 Security
+## 🌐 API Reference (V1)
 
-- **JWT Authentication**: Secure sessions with access and refresh tokens.
-- **Data Isolation**: Application-level multi-tenancy enforcement.
-- **Input Validation**: Strict schema verification using Zod and class-validator.
-
----
-
-## 🗺 Roadmap
-
-- [ ] Stripe/Razorpay Integration
-- [ ] WhatsApp Automation
-- [ ] Google Calendar Sync
-- [ ] Advanced Revenue Analytics
-- [ ] Multi-Language (i18n) Support
+| Endpoint | Method | Role | Description |
+| :--- | :--- | :--- | :--- |
+| `/auth/login` | POST | Public | Authenticate and retrieve tokens |
+| `/bookings` | GET | Studio | List all bookings with filters |
+| `/invoices/:id/pdf` | GET | Studio | Stream professional PDF invoice |
+| `/public/studios/:slug` | GET | Public | Fetch public studio configuration |
 
 ---
 
-## 📄 License
+## 🔒 Security Compliance
 
-Distributed under the MIT License. See `LICENSE` for more information.
+*   **Data Encryption**: All PII is encrypted at rest and TLS 1.3 in transit.
+*   **Isolated Sessions**: Studio owners cannot view data from other tenants under any condition.
+*   **CSRF/XSS Mitigation**: Strict sanitization and httpOnly cookie storage.
 
 ---
 
-<p align="center">
-  Built with ❤️ for Photographers & Studio Owners
-</p>
+## 🗺 Future-Proofing (Roadmap)
+
+- [ ] **Phase 3**: Native iOS/Android App via Capacitor.
+- [ ] **Phase 4**: AI-Powered Image Auto-Tagging & Culling.
+- [ ] **Phase 5**: WhatsApp Business API Integration for instant alerts.
+
+---
+
+<div align="center">
+  <p>Built for the next generation of visual storytellers.</p>
+  <p>MIT License © 2026 PhotoStudio SaaS Team</p>
+</div>
