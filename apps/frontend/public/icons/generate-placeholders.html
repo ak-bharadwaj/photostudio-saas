@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PWA Icon Placeholder Generator</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    canvas { border: 1px solid #ccc; margin: 10px; }
+    .container { display: flex; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <h1>PWA Icon Placeholder Generator</h1>
+  <p>This generates simple placeholder icons. Replace with actual icons before production!</p>
+  <button onclick="generateIcons()">Generate Icons</button>
+  <div id="container" class="container"></div>
+
+  <script>
+    const sizes = [16, 32, 72, 96, 128, 144, 152, 180, 192, 384, 512];
+    
+    function generateIcons() {
+      const container = document.getElementById('container');
+      container.innerHTML = '';
+      
+      sizes.forEach(size => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Camera icon (simple representation)
+        ctx.fillStyle = 'white';
+        const iconSize = size * 0.6;
+        const offset = (size - iconSize) / 2;
+        
+        // Camera body
+        ctx.fillRect(offset, offset + iconSize * 0.3, iconSize, iconSize * 0.5);
+        
+        // Camera lens
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2 + iconSize * 0.1, iconSize * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Camera viewfinder
+        ctx.fillRect(offset + iconSize * 0.7, offset + iconSize * 0.1, iconSize * 0.2, iconSize * 0.15);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.download = `icon-${size}x${size}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.textContent = `${size}x${size}`;
+        link.style.display = 'block';
+        
+        const wrapper = document.createElement('div');
+        wrapper.style.margin = '10px';
+        wrapper.style.textAlign = 'center';
+        wrapper.appendChild(canvas);
+        wrapper.appendChild(document.createElement('br'));
+        wrapper.appendChild(link);
+        
+        container.appendChild(wrapper);
+      });
+    }
+  </script>
+</body>
+</html>

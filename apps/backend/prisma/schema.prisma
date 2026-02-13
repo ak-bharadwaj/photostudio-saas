@@ -1,0 +1,315 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ADMIN & STUDIO MANAGEMENT
+// ============================================
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model Studio {
+  id                   String            @id @default(uuid())
+  name                 String
+  slug                 String            @unique
+  email                String
+  phone                String
+  logoUrl              String?           @map("logo_url")
+  brandingConfig       Json?             @map("branding_config")
+  subscriptionTier     SubscriptionTier  @default(STARTER) @map("subscription_tier")
+  subscriptionExpiresAt DateTime?        @map("subscription_expires_at")
+  status               StudioStatus      @default(ACTIVE)
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  users         User[]
+  customers     Customer[]
+  services      Service[]
+  bookings      Booking[]
+  invoices      Invoice[]
+  portfolioItems PortfolioItem[]
+  workflows     Workflow[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("studios")
+}
+
+enum SubscriptionTier {
+  STARTER
+  PROFESSIONAL
+  STUDIO
+  ENTERPRISE
+}
+
+enum StudioStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  TRIAL
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id           String   @id @default(uuid())
+  studioId     String   @map("studio_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(PHOTOGRAPHER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  studio   Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  bookings Booking[] @relation("AssignedBookings")
+
+  @@index([studioId])
+  @@index([email])
+  @@map("users")
+}
+
+enum UserRole {
+  OWNER
+  PHOTOGRAPHER
+  ASSISTANT
+}
+
+// ============================================
+// CUSTOMER MANAGEMENT
+// ============================================
+
+model Customer {
+  id        String   @id @default(uuid())
+  studioId  String   @map("studio_id")
+  name      String
+  email     String?
+  phone     String
+  metadata  Json?    // Additional custom fields
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  studio   Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  invoices Invoice[]
+
+  @@unique([studioId, phone])
+  @@index([studioId])
+  @@index([email])
+  @@index([createdAt])
+  @@index([studioId, name])
+  @@map("customers")
+}
+
+// ============================================
+// SERVICES
+// ============================================
+
+model Service {
+  id              String   @id @default(uuid())
+  studioId        String   @map("studio_id")
+  name            String
+  description     String?  @db.Text
+  price           Decimal  @db.Decimal(10, 2)
+  durationMinutes Int      @map("duration_minutes")
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  studio   Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([studioId])
+  @@index([isActive])
+  @@index([studioId, isActive])
+  @@map("services")
+}
+
+// ============================================
+// BOOKINGS
+// ============================================
+
+model Booking {
+  id              String        @id @default(uuid())
+  studioId        String        @map("studio_id")
+  customerId      String        @map("customer_id")
+  serviceId       String        @map("service_id")
+  assignedToUserId String?      @map("assigned_to_user_id")
+  scheduledAt     DateTime      @map("scheduled_at")
+  status          BookingStatus @default(INQUIRY)
+  customerNotes   String?       @db.Text @map("customer_notes")
+  internalNotes   String?       @db.Text @map("internal_notes")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  studio      Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  customer    Customer            @relation(fields: [customerId], references: [id])
+  service     Service             @relation(fields: [serviceId], references: [id])
+  assignedTo  User?               @relation("AssignedBookings", fields: [assignedToUserId], references: [id])
+  invoices    Invoice[]
+  statusLogs  BookingStatusLog[]
+
+  @@index([studioId])
+  @@index([customerId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([createdAt])
+  @@index([studioId, status])
+  @@index([studioId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  INQUIRY
+  QUOTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model BookingStatusLog {
+  id        String        @id @default(uuid())
+  bookingId String        @map("booking_id")
+  status    BookingStatus
+  notes     String?       @db.Text
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_status_logs")
+}
+
+// ============================================
+// INVOICES & PAYMENTS
+// ============================================
+
+model Invoice {
+  id            String        @id @default(uuid())
+  studioId      String        @map("studio_id")
+  bookingId     String?       @map("booking_id")
+  customerId    String        @map("customer_id")
+  invoiceNumber String        @unique @map("invoice_number")
+  lineItems     Json          // Array of {description, quantity, rate, amount}
+  subtotal      Decimal       @db.Decimal(10, 2)
+  tax           Decimal       @default(0) @db.Decimal(10, 2)
+  discount      Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime?     @map("due_date")
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  studio   Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  booking  Booking?  @relation(fields: [bookingId], references: [id])
+  customer Customer  @relation(fields: [customerId], references: [id])
+  payments Payment[]
+
+  @@index([studioId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([createdAt])
+  @@index([dueDate])
+  @@index([studioId, status])
+  @@index([status, dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  invoiceId     String        @map("invoice_id")
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod @map("payment_method")
+  transactionId String?       @map("transaction_id")
+  notes         String?       @db.Text
+  paidAt        DateTime      @default(now()) @map("paid_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CARD
+  OTHER
+}
+
+// ============================================
+// PORTFOLIO
+// ============================================
+
+model PortfolioItem {
+  id          String   @id @default(uuid())
+  studioId    String   @map("studio_id")
+  title       String
+  description String?  @db.Text
+  imageUrl    String   @map("image_url")
+  category    String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isVisible   Boolean  @default(true) @map("is_visible")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@index([isVisible])
+  @@index([category])
+  @@index([studioId, isVisible])
+  @@map("portfolio_items")
+}
+
+// ============================================
+// WORKFLOWS (Future)
+// ============================================
+
+model Workflow {
+  id        String   @id @default(uuid())
+  studioId  String   @map("studio_id")
+  name      String
+  trigger   String   // e.g., "booking_confirmed"
+  actions   Json     // Array of actions to execute
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@map("workflows")
+}

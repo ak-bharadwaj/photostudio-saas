@@ -1,0 +1,12 @@
+{
+  "name": "photo-studio-saas",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "build": "pnpm --recursive build",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
