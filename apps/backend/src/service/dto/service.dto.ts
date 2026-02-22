@@ -31,6 +31,14 @@ export class CreateServiceDto {
   @IsNumber()
   @IsOptional()
   sortOrder?: number;
+
+  @IsString()
+  @IsOptional()
+  occasion?: string;
+
+  @IsString()
+  @IsOptional()
+  coverImage?: string;
 }
 
 export class UpdateServiceDto {
@@ -59,4 +67,12 @@ export class UpdateServiceDto {
   @IsNumber()
   @IsOptional()
   sortOrder?: number;
+
+  @IsString()
+  @IsOptional()
+  occasion?: string;
+
+  @IsString()
+  @IsOptional()
+  coverImage?: string;
 }

@@ -97,6 +97,10 @@ export class UpdateStudioDto {
   @IsOptional()
   brandingConfig?: any;
 
+  @IsString()
+  @IsOptional()
+  defaultTerms?: string;
+
   @IsEnum(SubscriptionTier)
   @IsOptional()
   subscriptionTier?: SubscriptionTier;

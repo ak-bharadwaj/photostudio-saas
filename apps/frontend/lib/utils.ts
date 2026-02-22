@@ -5,29 +5,45 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | null | undefined): string {
+  const val = amount || 0;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(amount);
+    maximumFractionDigits: 0,
+  }).format(val);
 }
 
-export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(date));
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return 'N/A';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(d);
+  } catch (error) {
+    return 'Invalid Date';
+  }
 }
 
-export function formatDateTime(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date));
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return 'N/A';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+  } catch (error) {
+    return 'Invalid Date';
+  }
 }
 
 export function getStatusColor(status: string): string {
@@ -39,25 +55,26 @@ export function getStatusColor(status: string): string {
     IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
     COMPLETED: 'bg-gray-100 text-gray-800',
     CANCELLED: 'bg-red-100 text-red-800',
-    
+
     // Invoice statuses
     DRAFT: 'bg-gray-100 text-gray-800',
     SENT: 'bg-blue-100 text-blue-800',
     PARTIALLY_PAID: 'bg-yellow-100 text-yellow-800',
     PAID: 'bg-green-100 text-green-800',
     OVERDUE: 'bg-red-100 text-red-800',
-    
+
     // Studio statuses
     ACTIVE: 'bg-green-100 text-green-800',
     SUSPENDED: 'bg-red-100 text-red-800',
     EXPIRED: 'bg-gray-100 text-gray-800',
     TRIAL: 'bg-blue-100 text-blue-800',
   };
-  
+
   return colors[status] || 'bg-gray-100 text-gray-800';
 }
 
-export function formatPhoneNumber(phone: string): string {
+export function formatPhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return 'N/A';
   const cleaned = phone.replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
   if (match) {

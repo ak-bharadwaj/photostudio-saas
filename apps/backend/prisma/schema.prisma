@@ -32,23 +32,40 @@ model Studio {
   phone                String
   logoUrl              String?           @map("logo_url")
   brandingConfig       Json?             @map("branding_config")
+  defaultTerms         String?           @db.Text @map("default_terms")
   subscriptionTier     SubscriptionTier  @default(STARTER) @map("subscription_tier")
   subscriptionExpiresAt DateTime?        @map("subscription_expires_at")
-  status               StudioStatus      @default(ACTIVE)
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
+  billingModel         BillingModel      @default(SUBSCRIPTION) @map("billing_model")
+  commissionRate       Decimal?          @db.Decimal(10, 2) @map("commission_rate")
+  commissionType       CommissionType?   @default(PERCENTAGE) @map("commission_type")
+  currency             String            @default("INR")
+  taxRate               Decimal?          @db.Decimal(5, 2) @default(18.00) @map("tax_rate")
+  status                StudioStatus      @default(ACTIVE)
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
 
   users         User[]
   customers     Customer[]
   services      Service[]
   bookings      Booking[]
   invoices      Invoice[]
+  commissions   Commission[]
   portfolioItems PortfolioItem[]
   workflows     Workflow[]
 
   @@index([slug])
   @@index([status])
   @@map("studios")
+}
+
+enum BillingModel {
+  SUBSCRIPTION
+  COMMISSION
+}
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED
 }
 
 enum SubscriptionTier {
@@ -63,6 +80,37 @@ enum StudioStatus {
   SUSPENDED
   EXPIRED
   TRIAL
+}
+
+// ============================================
+// COMMISSION TRACKING
+// ============================================
+
+model Commission {
+  id        String           @id @default(uuid())
+  studioId  String           @map("studio_id")
+  bookingId String?          @map("booking_id")
+  invoiceId String           @map("invoice_id")
+  amount    Decimal          @db.Decimal(10, 2)
+  status    CommissionStatus @default(PENDING)
+  notes     String?          @db.Text
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  studio  Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([studioId])
+  @@index([invoiceId])
+  @@index([status])
+  @@map("commissions")
+}
+
+enum CommissionStatus {
+  PENDING
+  COLLECTED
+  CANCELLED
 }
 
 // ============================================
@@ -129,6 +177,8 @@ model Service {
   studioId        String   @map("studio_id")
   name            String
   description     String?  @db.Text
+  occasion        String?  // e.g., "Wedding", "Maternity", "Corporate", "Portrait"
+  coverImage      String?  @map("cover_image")
   price           Decimal  @db.Decimal(10, 2)
   durationMinutes Int      @map("duration_minutes")
   isActive        Boolean  @default(true) @map("is_active")
@@ -159,6 +209,8 @@ model Booking {
   status          BookingStatus @default(INQUIRY)
   customerNotes   String?       @db.Text @map("customer_notes")
   internalNotes   String?       @db.Text @map("internal_notes")
+  acceptedTerms   Boolean       @default(false) @map("accepted_terms")
+  contractUrl     String?       @map("contract_url")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -167,6 +219,7 @@ model Booking {
   service     Service             @relation(fields: [serviceId], references: [id])
   assignedTo  User?               @relation("AssignedBookings", fields: [assignedToUserId], references: [id])
   invoices    Invoice[]
+  commissions Commission[]
   statusLogs  BookingStatusLog[]
 
   @@index([studioId])
@@ -223,10 +276,11 @@ model Invoice {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  studio   Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  booking  Booking?  @relation(fields: [bookingId], references: [id])
-  customer Customer  @relation(fields: [customerId], references: [id])
-  payments Payment[]
+  studio      Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  booking     Booking?     @relation(fields: [bookingId], references: [id])
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  payments    Payment[]
+  commissions Commission[]
 
   @@index([studioId])
   @@index([invoiceNumber])

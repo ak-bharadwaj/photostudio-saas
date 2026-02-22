@@ -11,7 +11,7 @@ import { NotificationService } from "../notification/notification.service";
 import { QueueService } from "../queue/queue.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 import { InvoiceStatus } from "@prisma/client";
-import { Decimal } from "@prisma/client/runtime/library";
+import { Decimal } from "@prisma/client/runtime/client";
 
 @Injectable()
 export class InvoiceService {
@@ -23,7 +23,7 @@ export class InvoiceService {
     private pdfService: PdfService,
     private notificationService: NotificationService,
     private queueService: QueueService,
-  ) {}
+  ) { }
 
   async create(dto: CreateInvoiceDto, studioId: string) {
     // Verify customer belongs to studio
@@ -54,7 +54,18 @@ export class InvoiceService {
 
     // Calculate totals
     const subtotal = dto.lineItems.reduce((sum, item) => sum + item.amount, 0);
-    const tax = dto.tax || 0;
+
+    // Auto-calculate tax if not provided
+    let tax = dto.tax;
+    if (tax === undefined || tax === null) {
+      const studio = await this.prisma.studio.findUnique({
+        where: { id: studioId },
+        select: { taxRate: true },
+      });
+      const taxRate = Number(studio?.taxRate || 0);
+      tax = (subtotal * taxRate) / 100;
+    }
+
     const discount = dto.discount || 0;
     const total = subtotal + tax - discount;
 
@@ -84,7 +95,15 @@ export class InvoiceService {
             service: true,
           },
         },
-        studio: true,
+        studio: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            taxRate: true,
+          },
+        },
       },
     });
 

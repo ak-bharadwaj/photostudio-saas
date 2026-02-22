@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { authApi } from './api';
 
 interface User {
@@ -15,7 +15,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  
+
   login: (email: string, password: string) => Promise<void>;
   adminLogin: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -23,7 +23,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
@@ -32,15 +32,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     try {
       set({ isLoading: true, error: null });
-      
+
       const response = await authApi.login(email, password);
-      const { accessToken, refreshToken, user } = response.data;
-      
+      const { accessToken, refreshToken, user, userType } = response.data;
+
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      
+
+      // Handle the unified user object from the backend
+      const userData = userType === 'admin' ? { ...user, isAdmin: true } : user;
+
       set({
-        user,
+        user: userData,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -54,27 +57,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   adminLogin: async (email: string, password: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const response = await authApi.adminLogin(email, password);
-      const { accessToken, refreshToken, admin } = response.data;
-      
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      
-      set({
-        user: { ...admin, isAdmin: true },
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Admin login failed',
-        isLoading: false,
-      });
-      throw error;
-    }
+    // Redirect to the unified login
+    const store = useAuthStore.getState();
+    return store.login(email, password);
   },
 
   logout: async () => {
@@ -102,8 +87,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true });
       const response = await authApi.me();
+      const userData = response.data.user || response.data;
       set({
-        user: response.data,
+        user: userData,
         isAuthenticated: true,
         isLoading: false,
       });

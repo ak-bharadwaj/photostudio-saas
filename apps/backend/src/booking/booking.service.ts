@@ -13,8 +13,12 @@ import {
   CreateBookingDto,
   UpdateBookingDto,
   UpdateBookingStatusDto,
+  CreateInternalBookingDto,
 } from "./dto/booking.dto";
 import { BookingStatus } from "@prisma/client";
+
+import { PdfService } from "../pdf/pdf.service";
+import { UploadService } from "../upload/upload.service";
 
 @Injectable()
 export class BookingService {
@@ -25,7 +29,94 @@ export class BookingService {
     private cacheService: CacheService,
     private notificationService: NotificationService,
     private queueService: QueueService,
-  ) {}
+    private pdfService: PdfService,
+    private uploadService: UploadService,
+  ) { }
+  async createInternal(dto: CreateInternalBookingDto, studioId: string) {
+    const studio = await this.prisma.studio.findUnique({
+      where: { id: studioId },
+    });
+
+    if (!studio) {
+      throw new NotFoundException("Studio not found");
+    }
+
+    // Find service
+    const service = await this.prisma.service.findFirst({
+      where: {
+        id: parseInt(dto.serviceId),
+        studioId: studio.id,
+      },
+    });
+
+    if (!service) {
+      throw new NotFoundException("Service not found");
+    }
+
+    // Find customer
+    const customer = await this.prisma.customer.findFirst({
+      where: {
+        id: parseInt(dto.customerId),
+        studioId: studio.id,
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    // Check for schedule conflicts
+    const scheduledAt = new Date(dto.scheduledDate);
+    const conflictingBooking = await this.prisma.booking.findFirst({
+      where: {
+        studioId: studio.id,
+        scheduledAt,
+        status: {
+          in: ["INQUIRY", "QUOTED", "CONFIRMED"],
+        },
+      },
+    });
+
+    if (conflictingBooking) {
+      throw new ConflictException(
+        "This time slot is already booked. Please choose another time.",
+      );
+    }
+
+    // Create booking
+    const booking = await this.prisma.$transaction(async (tx) => {
+      const newBooking = await tx.booking.create({
+        data: {
+          studioId: studio.id,
+          customerId: customer.id,
+          serviceId: service.id,
+          scheduledAt,
+          status: "CONFIRMED", // Internal bookings are usually confirmed
+          customerNotes: dto.notes,
+        },
+        include: {
+          customer: true,
+          service: true,
+          studio: true,
+        },
+      });
+
+      await tx.bookingStatusLog.create({
+        data: {
+          bookingId: newBooking.id,
+          status: "CONFIRMED",
+          notes: "Booking created manually by staff",
+        },
+      });
+
+      return newBooking;
+    });
+
+    await this.cacheService.del(`studio:${studio.id}:bookings`);
+
+    return booking;
+  }
+
 
   async create(dto: CreateBookingDto) {
     // Find studio by slug
@@ -218,6 +309,10 @@ export class BookingService {
             name: true,
             email: true,
             phone: true,
+            defaultTerms: true,
+            brandingConfig: true,
+            billingModel: true,
+            currency: true,
           },
         },
         assignedTo: {
@@ -339,6 +434,44 @@ export class BookingService {
 
     // Invalidate cache
     await this.cacheService.del(`studio:${booking.studioId}:bookings`);
+
+    // Handle contract generation if confirmed
+    if (dto.status === "CONFIRMED") {
+      try {
+        const fullBooking = await this.findOne(id, booking.studioId);
+
+        const pdfBuffer = await this.pdfService.generateContractPdf({
+          studioName: fullBooking.studio.name,
+          studioEmail: fullBooking.studio.email,
+          studioPhone: fullBooking.studio.phone,
+          customerName: fullBooking.customer.name,
+          customerEmail: fullBooking.customer.email || undefined,
+          customerPhone: fullBooking.customer.phone,
+          serviceName: fullBooking.service.name,
+          serviceDescription: fullBooking.service.description || undefined,
+          scheduledAt: fullBooking.scheduledAt,
+          price: Number(fullBooking.service.price),
+          terms: fullBooking.studio.defaultTerms || "Standard Terms Apply",
+          bookingId: fullBooking.id,
+          acceptedAt: new Date(),
+        });
+
+        const contractUrl = await this.uploadService.uploadContractPDF(
+          booking.studioId,
+          fullBooking.id,
+          pdfBuffer,
+        );
+
+        await this.prisma.booking.update({
+          where: { id },
+          data: { contractUrl },
+        });
+
+        this.logger.log(`Contract generated and uploaded for booking ${id}`);
+      } catch (error: any) {
+        this.logger.error("Failed to generate/upload contract:", error.stack);
+      }
+    }
 
     // Send status update email to customer
     if (updated.customer.email) {

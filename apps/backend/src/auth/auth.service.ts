@@ -19,7 +19,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   // ============================================
   // ADMIN AUTHENTICATION
@@ -89,7 +89,39 @@ export class AuthService {
   // USER AUTHENTICATION
   // ============================================
 
-  async userLogin(dto: UserLoginDto) {
+  async login(dto: UserLoginDto) {
+    // 1. Try Admin
+    const admin = await this.prisma.admin.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (admin) {
+      const isPasswordValid = await bcrypt.compare(
+        dto.password,
+        admin.passwordHash,
+      );
+
+      if (isPasswordValid) {
+        const tokens = await this.generateTokens({
+          sub: admin.id,
+          email: admin.email,
+          type: "admin",
+        });
+
+        return {
+          user: {
+            id: admin.id,
+            email: admin.email,
+            name: admin.name,
+            role: "ADMIN",
+          },
+          ...tokens,
+          userType: "admin",
+        };
+      }
+    }
+
+    // 2. Try User
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       include: { studio: true },
@@ -99,10 +131,6 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    if (user.studio.status !== "ACTIVE") {
-      throw new UnauthorizedException("Studio is not active");
-    }
-
     const isPasswordValid = await bcrypt.compare(
       dto.password,
       user.passwordHash,
@@ -110,6 +138,11 @@ export class AuthService {
 
     if (!isPasswordValid) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // Check studio status for non-admins (allow ACTIVE and TRIAL)
+    if (user.studio.status !== "ACTIVE" && user.studio.status !== "TRIAL") {
+      throw new UnauthorizedException("Studio is not active");
     }
 
     const tokens = await this.generateTokens({
@@ -133,7 +166,12 @@ export class AuthService {
         },
       },
       ...tokens,
+      userType: "user",
     };
+  }
+
+  async userLogin(dto: UserLoginDto) {
+    return this.login(dto);
   }
 
   async userRegister(dto: UserRegisterDto, studioId: string) {

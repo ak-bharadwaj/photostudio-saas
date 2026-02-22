@@ -21,14 +21,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { InvoiceStatus } from "@prisma/client";
-
-interface UserPayload {
-  id: string;
-  email: string;
-  role?: "OWNER" | "PHOTOGRAPHER" | "ASSISTANT";
-  studioId?: string;
-  isAdmin?: boolean;
-}
+import { UserPayload } from "../common/interfaces/user-payload.interface";
 
 @Controller("invoices")
 @UseGuards(RolesGuard)
@@ -42,10 +35,10 @@ export class InvoiceController {
     @Body() createInvoiceDto: CreateInvoiceDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.invoiceService.create(createInvoiceDto, user.studioId);
+    return this.invoiceService.create(createInvoiceDto, user.studioId!);
   }
 
   @Get()
@@ -55,7 +48,7 @@ export class InvoiceController {
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("status") status?: InvoiceStatus,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
@@ -63,7 +56,7 @@ export class InvoiceController {
     const limitNum = limit || 10;
 
     return this.invoiceService.findAll(
-      user.studioId,
+      user.studioId!,
       pageNum,
       limitNum,
       status,
@@ -72,18 +65,18 @@ export class InvoiceController {
 
   @Get("stats")
   getStats(@CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.invoiceService.getStats(user.studioId);
+    return this.invoiceService.getStats(user.studioId!);
   }
 
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.invoiceService.findOne(id, user.studioId);
+    return this.invoiceService.findOne(id, user.studioId!);
   }
 
   @Get(":id/pdf")
@@ -92,12 +85,12 @@ export class InvoiceController {
     @CurrentUser() user: UserPayload,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    const pdfBuffer = await this.invoiceService.generatePdf(id, user.studioId);
-    const invoice = await this.invoiceService.findOne(id, user.studioId);
+    const pdfBuffer = await this.invoiceService.generatePdf(id, user.studioId!);
+    const invoice = await this.invoiceService.findOne(id, user.studioId!);
 
     res.set({
       "Content-Type": "application/pdf",
@@ -111,10 +104,10 @@ export class InvoiceController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
   @Roles("OWNER") // Only owners can send invoices
   sendInvoice(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.invoiceService.sendInvoice(id, user.studioId);
+    return this.invoiceService.sendInvoice(id, user.studioId!);
   }
 
   @Patch(":id")
@@ -124,18 +117,18 @@ export class InvoiceController {
     @Body() updateInvoiceDto: UpdateInvoiceDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.invoiceService.update(id, updateInvoiceDto, user.studioId);
+    return this.invoiceService.update(id, updateInvoiceDto, user.studioId!);
   }
 
   @Delete(":id")
   @Roles("OWNER") // Only owners can delete invoices
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.invoiceService.remove(id, user.studioId);
+    return this.invoiceService.remove(id, user.studioId!);
   }
 }

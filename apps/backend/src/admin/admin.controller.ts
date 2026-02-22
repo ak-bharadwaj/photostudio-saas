@@ -14,6 +14,7 @@ import {
   CreateAdminDto,
   AdminLoginDto,
   UpdateStudioDto,
+  CreateStudioWithOwnerDto,
 } from "./dto/admin.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Public } from "../auth/decorators/public.decorator";
@@ -36,6 +37,12 @@ export class AdminController {
   }
 
   // Studio Management
+  @UseGuards(JwtAuthGuard)
+  @Post("studios")
+  async createStudio(@Body() createStudioDto: CreateStudioWithOwnerDto) {
+    return this.adminService.createStudioWithOwner(createStudioDto);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("studios")
   async getAllStudios(

@@ -4,7 +4,7 @@ import { startOfDay, endOfDay, subDays, format } from "date-fns";
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get revenue over time (daily breakdown)
@@ -233,67 +233,107 @@ export class AnalyticsService {
    * Get overview stats
    */
   async getOverviewStats(studioId: string, startDate: Date, endDate: Date) {
-    const [totalBookings, totalRevenue, pendingInvoices, completedBookings] =
-      await Promise.all([
-        // Total bookings
-        this.prisma.booking.count({
-          where: {
-            studioId,
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
+    const [
+      totalBookings,
+      totalRevenue,
+      pendingInvoices,
+      completedBookings,
+      inquiryCount,
+      upcomingShoots,
+    ] = await Promise.all([
+      // Total bookings
+      this.prisma.booking.count({
+        where: {
+          studioId,
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
           },
-        }),
+        },
+      }),
 
-        // Total revenue (sum of payments)
-        this.prisma.payment.aggregate({
-          where: {
-            invoice: {
-              studioId,
-            },
-            paidAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
-          _sum: {
-            amount: true,
-          },
-        }),
-
-        // Pending invoices
-        this.prisma.invoice.count({
-          where: {
+      // Total revenue (sum of payments)
+      this.prisma.payment.aggregate({
+        where: {
+          invoice: {
             studioId,
-            status: {
-              in: ["SENT", "OVERDUE"],
-            },
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
           },
-        }),
+          paidAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
 
-        // Completed bookings
-        this.prisma.booking.count({
-          where: {
-            studioId,
-            status: "COMPLETED",
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
+      // Pending invoices
+      this.prisma.invoice.count({
+        where: {
+          studioId,
+          status: {
+            in: ["SENT", "OVERDUE", "PARTIALLY_PAID"],
           },
-        }),
-      ]);
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+
+      // Completed bookings
+      this.prisma.booking.count({
+        where: {
+          studioId,
+          status: "COMPLETED",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+
+      // Inquiry count
+      this.prisma.booking.count({
+        where: {
+          studioId,
+          status: "INQUIRY",
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+
+      // Upcoming shoots count
+      this.prisma.booking.count({
+        where: {
+          studioId,
+          scheduledAt: {
+            gte: new Date(),
+          },
+          status: {
+            in: ["CONFIRMED", "IN_PROGRESS"],
+          },
+        },
+      }),
+    ]);
+
+    // Calculate conversion rate
+    const conversionRate =
+      totalBookings > 0
+        ? ((completedBookings + upcomingShoots) / totalBookings) * 100
+        : 0;
 
     return {
       totalBookings,
       totalRevenue: Number((totalRevenue._sum.amount || 0).toString()),
       pendingInvoices,
       completedBookings,
+      inquiryCount,
+      upcomingShoots,
+      conversionRate: Number(conversionRate.toFixed(2)),
     };
   }
 }

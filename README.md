@@ -81,60 +81,99 @@ graph TD
 
 ---
 
+## 📂 Project Structure
+
+```text
+.
+├── apps
+│   ├── backend          # NestJS 11 Engine, Prisma, PostgreSQL, Redis
+│   └── frontend         # Next.js 14 Dashboard & Booking Pages
+├── packages
+│   ├── config           # Shared ESLint/TS configurations
+│   └── ui               # (Planned) Shared component library
+├── docker-compose.yml   # Infrastructure (DB, Cache)
+└── package.json         # Workspace management (PNPM)
+```
+
+---
+
+## 🔑 Test Credentials (Demo)
+
+After running `pnpm run prisma:seed`, use these for verification:
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **Platform Admin** | `admin@photostudio.com` | `Admin@123` |
+| **Studio Owner** | `owner@lensandlight.com` | `Demo@123` |
+| **Photographer** | `photographer@lensandlight.com` | `Demo@123` |
+
+---
+
 ## 🛠 Tech Stack
 
 | Tier | Technologies |
 | :--- | :--- |
 | **Frontend** | Next.js 14 (App Router), Tailwind CSS, Zustand, Axios |
-| **Backend** | NestJS 11, Prisma ORM, JWT, class-validator |
-| **Infrastructure** | Docker, PostgreSQL 16, Redis 7, Headless Chrome |
-| **Cloud Services** | Cloudinary (Files), Resend (Transactional Email) |
+| **Backend** | NestJS 11, Prisma ORM (PostgreSQL), Redis (Cache), Puppeteer |
+| **Infrastructure** | Docker, PostgreSQL 16, Redis 7, Cloudinary (CDN) |
+| **Security** | JWT (Dual-Token), CSRF Middleware, RBAC |
 
 ---
 
-## 🚀 Deployment Deep-Dive
+## 🏗 Setup: Free-Tier & Native (Non-Docker)
 
-### 1. Zero-Conf Docker Setup (Recommended)
-```bash
-# Clone the repository
-git clone https://github.com/ak-bharadwaj/photostudio-saas.git
+This platform is designed to run entirely on **Free Tier** services. You do **not** need to pay for any infrastructure to get started.
 
-# Spin up the infrastructure
-docker-compose up -d
+### 1. Prerequisites (Native Setup)
+If you prefer not to use Docker, ensure you have the following installed on your machine:
+*   **Node.js 18+** & **PNPM** (`npm install -g pnpm`)
+*   **PostgreSQL 16** (Use **[Supabase](https://supabase.com)** for a free, managed database)
+*   **Redis** (Use **[Upstash](https://upstash.com)** for a free, managed cache)
 
-# Install & Initialize
-pnpm install
-pnpm exec turbo run build
-```
-
-### 2. Manual Configuration
-1.  **Environment Setup**: Clone `.env.example` in both `apps/backend` and `apps/frontend`.
-2.  **Prisma Initialization**:
+### 2. Manual Configuration (No Docker)
+1.  **Clone & Install**:
+    ```bash
+    pnpm install
+    ```
+2.  **Environment Setup**:
+    *   Copy `apps/backend/.env.example` to `apps/backend/.env`.
+    *   Copy `apps/frontend/.env.example` to `apps/frontend/.env`.
+3.  **Database URL**: Update `DATABASE_URL` in `apps/backend/.env` with your **Supabase Connection String**.
+    *   *Tip: Use the Node.js connection string from Supabase settings (e.g., `postgresql://postgres:[password]@db.abc.supabase.co:5432/postgres`).*
+4.  **Database Initialization**:
     ```bash
     pnpm prisma:generate
     pnpm prisma:migrate
     pnpm prisma:seed
     ```
-3.  **Start Services**: `pnpm dev` from the root.
+5.  **Start Platform**:
+    ```bash
+    pnpm dev
+    ```
 
 ---
 
-## 🌐 API Reference (V1)
+## ☁️ Recommended Free Stack
+*   **Database**: **[Supabase](https://supabase.com)** (PostgreSQL - 500MB Free)
+*   **Caching**: [Upstash](https://upstash.com) (Redis - 10k requests/day Free)
+*   **Image Hosting**: [Cloudinary](https://cloudinary.com) (Generous Free media storage)
+*   **Transactional Email**: [Resend](https://resend.com) (3,000 emails/month Free)
 
-| Endpoint | Method | Role | Description |
-| :--- | :--- | :--- | :--- |
-| `/auth/login` | POST | Public | Authenticate and retrieve tokens |
-| `/bookings` | GET | Studio | List all bookings with filters |
-| `/invoices/:id/pdf` | GET | Studio | Stream professional PDF invoice |
-| `/public/studios/:slug` | GET | Public | Fetch public studio configuration |
+---
+
+## 📂 Project Structure
+... (rest of the file)
+
+## 🌐 API Quick Links
+*   **Postman/Insomnia**: Import the schema from `/apps/backend/src/main.ts` (Swagger enabled in dev).
+*   **Performance**: Run `k6` tests via `cd apps/backend && pnpm run test:e2e`.
 
 ---
 
 ## 🔒 Security Compliance
-
-*   **Data Encryption**: All PII is encrypted at rest and TLS 1.3 in transit.
-*   **Isolated Sessions**: Studio owners cannot view data from other tenants under any condition.
-*   **CSRF/XSS Mitigation**: Strict sanitization and httpOnly cookie storage.
+*   **Tenant Shield**: Strict studio isolation via Prisma middleware.
+*   **Billing Security**: Access blocked automatically for `EXPIRED` or `INACTIVE` subscriptions.
+*   **Safety**: CSRF tokens enforced for all data-mutation operations.
 
 ---
 

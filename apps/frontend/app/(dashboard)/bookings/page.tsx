@@ -18,17 +18,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 interface Booking {
-  id: number;
-  bookingDate: string;
+  id: string | number;
+  scheduledAt: string;
+  bookingDate?: string;
   status: string;
   notes?: string;
   customer: {
-    id: number;
+    id: string | number;
     name: string;
     email: string;
   };
   service: {
-    id: number;
+    id: string | number;
     name: string;
     price: number;
   };
@@ -86,9 +87,9 @@ export default function BookingsPage() {
       setIsLoading(true);
       const params: any = { limit: 100 };
       if (statusFilter) params.status = statusFilter;
-      
+
       const response = await bookingsApi.getAll(params);
-      setBookings(response.data.data);
+      setBookings(response.data?.data || []);
     } catch (error) {
       console.error('Failed to load bookings:', error);
       addToast('error', 'Failed to load bookings');
@@ -100,7 +101,7 @@ export default function BookingsPage() {
   const loadCustomers = async () => {
     try {
       const response = await customersApi.getAll({ limit: 1000 });
-      setCustomers(response.data.data);
+      setCustomers(response.data?.data || []);
     } catch (error) {
       console.error('Failed to load customers:', error);
     }
@@ -109,7 +110,7 @@ export default function BookingsPage() {
   const loadServices = async () => {
     try {
       const response = await servicesApi.getAll({ limit: 1000, isActive: true });
-      setServices(response.data.data);
+      setServices(response.data?.data || []);
     } catch (error) {
       console.error('Failed to load services:', error);
     }
@@ -118,13 +119,13 @@ export default function BookingsPage() {
   const onCreateBooking = async (data: BookingFormData) => {
     try {
       setIsSubmitting(true);
-      await bookingsApi.create({
-        customerId: parseInt(data.customerId),
-        serviceId: parseInt(data.serviceId),
-        bookingDate: data.bookingDate,
+      await bookingsApi.createInternal({
+        customerId: data.customerId,
+        serviceId: data.serviceId,
+        scheduledDate: data.bookingDate,
         notes: data.notes,
       });
-      
+
       addToast('success', 'Booking created successfully');
       setIsCreateModalOpen(false);
       reset();
@@ -136,12 +137,13 @@ export default function BookingsPage() {
     }
   };
 
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesSearch = 
-      booking.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.service.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+  const filteredBookings = (bookings || []).filter((booking) => {
+    if (!booking?.customer || !booking?.service) return false;
+    const matchesSearch =
+      (booking.customer.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.customer.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.service.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+
     return matchesSearch;
   });
 
@@ -208,14 +210,14 @@ export default function BookingsPage() {
       {/* Bookings Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Bookings ({filteredBookings.length})</CardTitle>
+          <CardTitle>All Bookings ({(filteredBookings || []).length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
               <LoadingSpinner size="lg" />
             </div>
-          ) : filteredBookings.length === 0 ? (
+          ) : (filteredBookings || []).length === 0 ? (
             <div className="text-center py-8">
               <Calendar className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-semibold text-gray-900">No bookings</h3>
@@ -250,7 +252,7 @@ export default function BookingsPage() {
                       </div>
                     </TableCell>
                     <TableCell>{booking.service.name}</TableCell>
-                    <TableCell>{formatDate(booking.bookingDate)}</TableCell>
+                    <TableCell>{formatDate(booking.scheduledAt || (booking as any).bookingDate)}</TableCell>
                     <TableCell>
                       <Badge {...getBookingStatusBadge(booking.status)}>
                         {booking.status}

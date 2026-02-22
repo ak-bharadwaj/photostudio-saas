@@ -60,7 +60,7 @@ export default function CustomersPage() {
     try {
       setIsLoading(true);
       const response = await customersApi.getAll({ limit: 1000 });
-      setCustomers(response.data.data);
+      setCustomers(response.data?.data || []);
     } catch (error) {
       console.error('Failed to load customers:', error);
       addToast('error', 'Failed to load customers');
@@ -73,7 +73,7 @@ export default function CustomersPage() {
     try {
       setIsSubmitting(true);
       await customersApi.create(data);
-      
+
       addToast('success', 'Customer created successfully');
       setIsCreateModalOpen(false);
       reset();
@@ -85,12 +85,13 @@ export default function CustomersPage() {
     }
   };
 
-  const filteredCustomers = customers.filter((customer) => {
+  const filteredCustomers = (customers || []).filter((customer) => {
+    if (!customer) return false;
     const search = searchTerm.toLowerCase();
     return (
-      customer.name.toLowerCase().includes(search) ||
-      customer.email.toLowerCase().includes(search) ||
-      customer.phone?.toLowerCase().includes(search)
+      (customer.name || '').toLowerCase().includes(search) ||
+      (customer.email || '').toLowerCase().includes(search) ||
+      (customer.phone || '').toLowerCase().includes(search)
     );
   });
 
@@ -126,14 +127,14 @@ export default function CustomersPage() {
       {/* Customers Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Customers ({filteredCustomers.length})</CardTitle>
+          <CardTitle>All Customers ({(filteredCustomers || []).length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
               <LoadingSpinner size="lg" />
             </div>
-          ) : filteredCustomers.length === 0 ? (
+          ) : (filteredCustomers || []).length === 0 ? (
             <div className="text-center py-8">
               <Users className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-semibold text-gray-900">No customers</h3>
@@ -164,7 +165,7 @@ export default function CustomersPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-gray-400" />
-                        <a 
+                        <a
                           href={`mailto:${customer.email}`}
                           className="text-blue-600 hover:underline"
                         >
@@ -176,7 +177,7 @@ export default function CustomersPage() {
                       {customer.phone ? (
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4 text-gray-400" />
-                          <a 
+                          <a
                             href={`tel:${customer.phone}`}
                             className="text-blue-600 hover:underline"
                           >

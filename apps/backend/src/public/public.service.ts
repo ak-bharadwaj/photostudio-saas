@@ -9,7 +9,7 @@ import { BookingStatus } from "@prisma/client";
 
 @Injectable()
 export class PublicService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get public studio information by slug (for booking page)
@@ -25,6 +25,7 @@ export class PublicService {
         phone: true,
         logoUrl: true,
         brandingConfig: true,
+        defaultTerms: true,
         status: true,
         services: {
           where: { isActive: true },
@@ -34,6 +35,8 @@ export class PublicService {
             description: true,
             price: true,
             durationMinutes: true,
+            occasion: true,
+            coverImage: true,
           },
           orderBy: { sortOrder: "asc" },
         },
@@ -162,6 +165,7 @@ export class PublicService {
         scheduledAt,
         status: BookingStatus.INQUIRY,
         customerNotes: dto.customerNotes,
+        acceptedTerms: dto.acceptedTerms ?? false,
       },
       include: {
         service: true,
@@ -250,7 +254,7 @@ export class PublicService {
     });
 
     // Generate available slots (9 AM - 6 PM, assuming studio hours)
-    const slots = [];
+    const slots: any[] = [];
     const currentTime = new Date();
 
     for (let hour = 9; hour < 18; hour++) {
@@ -264,10 +268,10 @@ export class PublicService {
         }
 
         // Check if slot conflicts with existing bookings
-        const hasConflict = existingBookings.some((booking) => {
+        const hasConflict = existingBookings.some((booking: any) => {
           const bookingEnd = new Date(
             booking.scheduledAt.getTime() +
-              booking.service.durationMinutes * 60000,
+            booking.service.durationMinutes * 60000,
           );
           const slotEnd = new Date(
             slotTime.getTime() + service.durationMinutes * 60000,

@@ -4,6 +4,7 @@ import {
   MinLength,
   IsEnum,
   IsOptional,
+  IsObject,
 } from "class-validator";
 
 export enum AdminRole {
@@ -39,9 +40,85 @@ export class UpdateStudioDto {
 
   @IsString()
   @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
   status?: string;
 
   @IsString()
   @IsOptional()
   subscriptionTier?: string;
+
+  @IsString()
+  @IsOptional()
+  defaultTerms?: string;
+
+  @IsObject()
+  @IsOptional()
+  brandingConfig?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  billingModel?: string;
+
+  @IsOptional()
+  commissionRate?: number;
+
+  @IsString()
+  @IsOptional()
+  commissionType?: string;
+
+  @IsString()
+  @IsOptional()
+  currency?: string;
+
+  @IsString()
+  @IsOptional()
+  subscriptionExpiresAt?: string;
+
+  @IsOptional()
+  taxRate?: number;
+}
+
+export class CreateStudioWithOwnerDto {
+  // Studio details
+  @IsString()
+  studioName: string;
+
+  @IsString()
+  slug: string;
+
+  @IsEmail()
+  studioEmail: string;
+
+  @IsString()
+  studioPhone: string;
+
+  @IsString()
+  @IsOptional()
+  subscriptionTier?: string;
+
+  @IsObject()
+  @IsOptional()
+  brandingConfig?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  defaultTerms?: string;
+
+  // Owner details
+  @IsString()
+  ownerName: string;
+
+  @IsEmail()
+  ownerEmail: string;
+
+  @IsString()
+  @MinLength(8)
+  ownerPassword: string;
 }

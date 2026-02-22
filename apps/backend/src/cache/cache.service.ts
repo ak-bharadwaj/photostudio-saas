@@ -5,23 +5,41 @@ import { Redis } from "ioredis";
 export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
   private redis: Redis;
+  private memoryCache = new Map<string, { value: string; expiry: number }>();
 
   constructor() {
-    this.redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-      maxRetriesPerRequest: 3,
-    });
+    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
-    this.redis.on("error", (error) => {
-      this.logger.error("Redis connection error:", error.stack);
-    });
+    // Check if it's a placeholder
+    if (redisUrl.includes("********")) {
+      this.logger.warn("Redis URL contains placeholders. Using in-memory fallback.");
+      this.redis = null as any;
+      return;
+    }
 
-    this.redis.on("connect", () => {
-      this.logger.log("Redis connected successfully");
-    });
+    try {
+      this.redis = new Redis(redisUrl, {
+        retryStrategy: (times) => {
+          if (times > 3) {
+            this.logger.error("Redis max retries reached. Switching to in-memory fallback.");
+            return null; // Stop retrying
+          }
+          return Math.min(times * 50, 2000);
+        },
+        maxRetriesPerRequest: 3,
+      });
+
+      this.redis.on("error", (error) => {
+        this.logger.error("Redis error, using in-memory fallback:", error.message);
+      });
+
+      this.redis.on("connect", () => {
+        this.logger.log("Redis connected successfully");
+      });
+    } catch (e) {
+      this.logger.error("Failed to initialize Redis, using in-memory fallback");
+      this.redis = null as any;
+    }
   }
 
   async onModuleDestroy() {
@@ -33,6 +51,13 @@ export class CacheService implements OnModuleDestroy {
    */
   async get<T>(key: string): Promise<T | null> {
     try {
+      if (!this.redis) {
+        const item = this.memoryCache.get(key);
+        if (item && item.expiry > Date.now()) {
+          return JSON.parse(item.value);
+        }
+        return null;
+      }
       const data = await this.redis.get(key);
       return data ? JSON.parse(data) : null;
     } catch (error: any) {
@@ -46,7 +71,15 @@ export class CacheService implements OnModuleDestroy {
    */
   async set(key: string, value: any, ttlSeconds: number): Promise<void> {
     try {
-      await this.redis.setex(key, ttlSeconds, JSON.stringify(value));
+      const stringifiedValue = JSON.stringify(value);
+      if (!this.redis) {
+        this.memoryCache.set(key, {
+          value: stringifiedValue,
+          expiry: Date.now() + ttlSeconds * 1000,
+        });
+        return;
+      }
+      await this.redis.setex(key, ttlSeconds, stringifiedValue);
     } catch (error: any) {
       this.logger.error(`Error setting cache key ${key}:`, error.stack);
     }

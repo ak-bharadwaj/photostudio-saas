@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { invoicesApi, paymentsApi } from '@/lib/api';
+import { formatDate, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -76,10 +77,12 @@ export default function InvoiceDetailsPage() {
     try {
       const response = await invoicesApi.getOne(params.id as string);
       setInvoice(response.data);
-      setPaymentData((prev) => ({ 
-        ...prev, 
-        amount: response.data.total - getTotalPaid(response.data.payments) 
-      }));
+      if (response.data) {
+        setPaymentData((prev) => ({
+          ...prev,
+          amount: (response.data.total || 0) - getTotalPaid(response.data.payments || [])
+        }));
+      }
     } catch (error: any) {
       addToast('error', error.response?.data?.message || 'Failed to load invoice');
       router.push('/invoices');
@@ -89,7 +92,7 @@ export default function InvoiceDetailsPage() {
   };
 
   const getTotalPaid = (payments: Payment[]) => {
-    return payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    return (payments || []).reduce((sum, p) => sum + Number(p?.amount || 0), 0);
   };
 
   const getStatusColor = (status: string) => {
@@ -158,8 +161,8 @@ export default function InvoiceDetailsPage() {
   if (loading) return <LoadingPage />;
   if (!invoice) return <div>Invoice not found</div>;
 
-  const totalPaid = getTotalPaid(invoice.payments);
-  const balance = invoice.total - totalPaid;
+  const totalPaid = getTotalPaid(invoice.payments || []);
+  const balance = (invoice.total || 0) - totalPaid;
 
   return (
     <div className="space-y-6">
@@ -168,7 +171,7 @@ export default function InvoiceDetailsPage() {
         <div>
           <h1 className="text-3xl font-bold">{invoice.invoiceNumber}</h1>
           <p className="text-gray-500">
-            Created on {new Date(invoice.createdAt).toLocaleDateString()}
+            Created on {formatDate(invoice.createdAt)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -209,7 +212,7 @@ export default function InvoiceDetailsPage() {
                 <Badge color={getStatusColor(invoice.status)}>{invoice.status}</Badge>
                 {invoice.dueDate && (
                   <p className="text-sm text-gray-500 mt-2">
-                    Due: {new Date(invoice.dueDate).toLocaleDateString()}
+                    Due: {formatDate(invoice.dueDate)}
                   </p>
                 )}
               </div>
@@ -234,12 +237,12 @@ export default function InvoiceDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoice.lineItems.map((item, index) => (
+                {(invoice.lineItems || []).map((item, index) => (
                   <tr key={index} className="border-b">
-                    <td className="py-3">{item.description}</td>
-                    <td className="py-3 text-right">{item.quantity}</td>
-                    <td className="py-3 text-right">${Number(item.rate).toFixed(2)}</td>
-                    <td className="py-3 text-right">${Number(item.amount).toFixed(2)}</td>
+                    <td className="py-3">{item?.description || 'N/A'}</td>
+                    <td className="py-3 text-right">{item?.quantity || 0}</td>
+                    <td className="py-3 text-right">{formatCurrency(item?.rate)}</td>
+                    <td className="py-3 text-right">{formatCurrency(item?.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -249,33 +252,33 @@ export default function InvoiceDetailsPage() {
             <div className="mt-6 ml-auto w-64 space-y-2">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal:</span>
-                <span>${Number(invoice.subtotal).toFixed(2)}</span>
+                <span>{formatCurrency(invoice.subtotal)}</span>
               </div>
               {invoice.discount > 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span>Discount:</span>
-                  <span>-${Number(invoice.discount).toFixed(2)}</span>
+                  <span>-{formatCurrency(invoice.discount)}</span>
                 </div>
               )}
               {invoice.tax > 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span>Tax:</span>
-                  <span>${Number(invoice.tax).toFixed(2)}</span>
+                  <span>{formatCurrency(invoice.tax)}</span>
                 </div>
               )}
               <div className="flex justify-between text-xl font-bold pt-2 border-t">
                 <span>Total:</span>
-                <span>${Number(invoice.total).toFixed(2)}</span>
+                <span>{formatCurrency(invoice.total)}</span>
               </div>
               {totalPaid > 0 && (
                 <>
                   <div className="flex justify-between text-green-600">
                     <span>Paid:</span>
-                    <span>-${totalPaid.toFixed(2)}</span>
+                    <span>-{formatCurrency(totalPaid)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Balance Due:</span>
-                    <span>${balance.toFixed(2)}</span>
+                    <span>{formatCurrency(balance)}</span>
                   </div>
                 </>
               )}
@@ -298,15 +301,15 @@ export default function InvoiceDetailsPage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Amount:</span>
-                <span className="font-semibold">${Number(invoice.total).toFixed(2)}</span>
+                <span className="font-semibold">{formatCurrency(invoice.total)}</span>
               </div>
               <div className="flex justify-between text-green-600">
                 <span>Amount Paid:</span>
-                <span className="font-semibold">${totalPaid.toFixed(2)}</span>
+                <span className="font-semibold">{formatCurrency(totalPaid)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-3 border-t">
                 <span>Balance:</span>
-                <span>${balance.toFixed(2)}</span>
+                <span>{formatCurrency(balance)}</span>
               </div>
             </div>
             {balance > 0 && (
@@ -320,18 +323,18 @@ export default function InvoiceDetailsPage() {
           </Card>
 
           {/* Payment History */}
-          {invoice.payments.length > 0 && (
+          {(invoice.payments || []).length > 0 && (
             <Card className="p-6">
               <h3 className="font-semibold mb-4">Payment History</h3>
               <div className="space-y-3">
                 {invoice.payments.map((payment) => (
                   <div key={payment.id} className="pb-3 border-b last:border-0">
                     <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium">${Number(payment.amount).toFixed(2)}</span>
+                      <span className="font-medium">{formatCurrency(payment.amount)}</span>
                       <Badge color="gray">{payment.paymentMethod}</Badge>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {new Date(payment.paidAt).toLocaleDateString()}
+                      {formatDate(payment.paidAt)}
                     </p>
                     {payment.transactionId && (
                       <p className="text-xs text-gray-500">ID: {payment.transactionId}</p>

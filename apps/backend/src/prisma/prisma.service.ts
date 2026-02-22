@@ -6,34 +6,39 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { tenantExtension } from "../common/tenant";
+
+import { Pool } from "pg";
+
+function createBasePrismaClient() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
+}
+
+// Create the extended client type
+const extendedClient = createBasePrismaClient().$extends(tenantExtension);
+type ExtendedPrismaClient = typeof extendedClient;
 
 @Injectable()
-export class PrismaService
-  extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
+export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
-  private queryCount = 0;
-  private readonly SLOW_QUERY_THRESHOLD_MS = 100;
+  private _baseClient: PrismaClient;
+  private _client: ExtendedPrismaClient;
 
   constructor() {
-    super({
-      log: [
-        { emit: "event", level: "query" },
-        { emit: "event", level: "info" },
-        { emit: "event", level: "warn" },
-        { emit: "event", level: "error" },
-      ],
-    });
+    this._baseClient = createBasePrismaClient();
+    this._client = this._baseClient.$extends(tenantExtension);
   }
 
   async onModuleInit() {
-    await this.$connect();
-    this.setupQueryLogging();
+    await this._baseClient.$connect();
+    this.logger.log("Database connected successfully");
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await this._baseClient.$disconnect();
   }
 
   async enableShutdownHooks(app: INestApplication) {
@@ -42,75 +47,45 @@ export class PrismaService
     });
   }
 
-  /**
-   * Setup query performance logging to detect slow queries and potential N+1 issues
-   */
-  private setupQueryLogging() {
-    // Track query execution time
-    (this.$on as any)("query", (e: any) => {
-      this.queryCount++;
-      const duration = e.duration;
+  // Proxy all model accessors to the extended client
+  get admin() { return (this._client as any).admin; }
+  get studio() { return (this._client as any).studio; }
+  get user() { return (this._client as any).user; }
+  get customer() { return (this._client as any).customer; }
+  get service() { return (this._client as any).service; }
+  get booking() { return (this._client as any).booking; }
+  get bookingStatusLog() { return (this._client as any).bookingStatusLog; }
+  get invoice() { return (this._client as any).invoice; }
+  get payment() { return (this._client as any).payment; }
+  get commission() { return (this._client as any).commission; }
+  get portfolioItem() { return (this._client as any).portfolioItem; }
+  get workflow() { return (this._client as any).workflow; }
 
-      // Log slow queries
-      if (duration > this.SLOW_QUERY_THRESHOLD_MS) {
-        this.logger.warn(
-          `Slow query detected (${duration}ms): ${e.query.substring(0, 100)}...`,
-        );
-      }
+  // Proxy $ methods to the base client
+  get $transaction() { return (this._baseClient as any).$transaction.bind(this._baseClient); }
+  get $queryRaw() { return (this._baseClient as any).$queryRaw.bind(this._baseClient); }
+  get $executeRaw() { return (this._baseClient as any).$executeRaw.bind(this._baseClient); }
 
-      // Detect potential N+1 queries (more than 10 queries in quick succession)
-      if (this.queryCount > 10) {
-        this.logger.warn(
-          `Potential N+1 query issue detected: ${this.queryCount} queries executed`,
-        );
-      }
-    });
-
-    // Reset query counter periodically (every 5 seconds)
-    setInterval(() => {
-      if (this.queryCount > 20) {
-        this.logger.warn(
-          `High query count in last 5s: ${this.queryCount} queries`,
-        );
-      }
-      this.queryCount = 0;
-    }, 5000);
-
-    // Log info messages
-    (this.$on as any)("info", (e: any) => {
-      this.logger.log(e.message);
-    });
-
-    // Log warnings
-    (this.$on as any)("warn", (e: any) => {
-      this.logger.warn(e.message);
-    });
-
-    // Log errors
-    (this.$on as any)("error", (e: any) => {
-      this.logger.error(e.message);
-    });
-  }
+  async $connect() { return this._baseClient.$connect(); }
+  async $disconnect() { return this._baseClient.$disconnect(); }
 
   async cleanDatabase() {
     if (process.env.NODE_ENV === "production") {
       throw new Error("Cannot clean database in production");
     }
 
-    const models = Reflect.ownKeys(this).filter((key) => {
-      const keyStr = String(key);
-      return keyStr[0] !== "_" && keyStr[0] !== "$";
-    });
-
-    return Promise.all(
-      models.map((modelKey) => {
-        const key = modelKey as keyof PrismaService;
-        const model = this[key];
-        if (model && typeof model === "object" && "deleteMany" in model) {
-          return (model as any).deleteMany();
-        }
-        return Promise.resolve();
-      }),
-    );
+    // Delete in order to respect FK constraints
+    await (this._baseClient as any).bookingStatusLog.deleteMany();
+    await (this._baseClient as any).payment.deleteMany();
+    await (this._baseClient as any).commission.deleteMany();
+    await (this._baseClient as any).invoice.deleteMany();
+    await (this._baseClient as any).booking.deleteMany();
+    await (this._baseClient as any).portfolioItem.deleteMany();
+    await (this._baseClient as any).workflow.deleteMany();
+    await (this._baseClient as any).service.deleteMany();
+    await (this._baseClient as any).customer.deleteMany();
+    await (this._baseClient as any).user.deleteMany();
+    await (this._baseClient as any).studio.deleteMany();
+    await (this._baseClient as any).admin.deleteMany();
   }
 }

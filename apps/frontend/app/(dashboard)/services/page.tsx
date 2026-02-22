@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,12 +8,26 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
-import { servicesApi } from '@/lib/api';
+import { servicesApi, uploadApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
-import { Plus, Edit2, Trash2, GripVertical, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, GripVertical, ToggleLeft, ToggleRight, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+
+const OCCASION_OPTIONS = [
+  { value: '', label: 'None (General)' },
+  { value: 'wedding', label: 'Wedding' },
+  { value: 'portrait', label: 'Portrait' },
+  { value: 'family', label: 'Family' },
+  { value: 'event', label: 'Event' },
+  { value: 'baby', label: 'Baby / Newborn' },
+  { value: 'graduation', label: 'Graduation' },
+  { value: 'corporate', label: 'Corporate' },
+  { value: 'fashion', label: 'Fashion' },
+  { value: 'birthday', label: 'Birthday / Party' },
+  { value: 'product', label: 'Product' },
+];
 
 interface Service {
   id: number;
@@ -23,6 +37,8 @@ interface Service {
   duration?: number;
   isActive: boolean;
   displayOrder: number;
+  occasion?: string;
+  coverImage?: string;
 }
 
 const serviceSchema = z.object({
@@ -30,6 +46,7 @@ const serviceSchema = z.object({
   description: z.string().optional(),
   price: z.string().min(1, 'Price is required'),
   duration: z.string().optional(),
+  occasion: z.string().optional(),
 });
 
 type ServiceFormData = z.infer<typeof serviceSchema>;
@@ -42,6 +59,10 @@ export default function ServicesPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string>('');
+  const [coverImagePreview, setCoverImagePreview] = useState<string>('');
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
 
   const {
@@ -61,13 +82,66 @@ export default function ServicesPage() {
     try {
       setIsLoading(true);
       const response = await servicesApi.getAll({ limit: 1000 });
-      setServices(response.data.data.sort((a: Service, b: Service) => a.displayOrder - b.displayOrder));
+      const data = response.data?.data || [];
+      setServices([...data].sort((a: Service, b: Service) => (a.displayOrder || 0) - (b.displayOrder || 0)));
     } catch (error) {
       console.error('Failed to load services:', error);
       addToast('error', 'Failed to load services');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      addToast('error', 'Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('error', 'Image must be less than 5MB');
+      return;
+    }
+
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCoverImagePreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    try {
+      setIsUploadingCover(true);
+      const response = await uploadApi.uploadServiceCover(file);
+      setCoverImageUrl(response.data.url);
+      addToast('success', 'Cover image uploaded');
+    } catch (error) {
+      console.error('Failed to upload cover image:', error);
+      addToast('error', 'Failed to upload cover image');
+      setCoverImagePreview('');
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
+
+  const removeCoverImage = () => {
+    setCoverImageUrl('');
+    setCoverImagePreview('');
+    if (coverFileInputRef.current) {
+      coverFileInputRef.current.value = '';
+    }
+  };
+
+  const resetFormState = () => {
+    reset();
+    setCoverImageUrl('');
+    setCoverImagePreview('');
   };
 
   const onCreateService = async (data: ServiceFormData) => {
@@ -77,12 +151,14 @@ export default function ServicesPage() {
         name: data.name,
         description: data.description,
         price: parseFloat(data.price),
-        duration: data.duration ? parseInt(data.duration) : undefined,
+        durationMinutes: data.duration ? parseInt(data.duration) : undefined,
+        occasion: data.occasion || undefined,
+        coverImage: coverImageUrl || undefined,
       });
-      
+
       addToast('success', 'Service created successfully');
       setIsCreateModalOpen(false);
-      reset();
+      resetFormState();
       loadServices();
     } catch (error: any) {
       addToast('error', error.response?.data?.message || 'Failed to create service');
@@ -100,13 +176,15 @@ export default function ServicesPage() {
         name: data.name,
         description: data.description,
         price: parseFloat(data.price),
-        duration: data.duration ? parseInt(data.duration) : undefined,
+        durationMinutes: data.duration ? parseInt(data.duration) : undefined,
+        occasion: data.occasion || undefined,
+        coverImage: coverImageUrl || undefined,
       });
-      
+
       addToast('success', 'Service updated successfully');
       setIsEditModalOpen(false);
       setSelectedService(null);
-      reset();
+      resetFormState();
       loadServices();
     } catch (error: any) {
       addToast('error', error.response?.data?.message || 'Failed to update service');
@@ -149,7 +227,10 @@ export default function ServicesPage() {
       description: service.description || '',
       price: service.price.toString(),
       duration: service.duration?.toString() || '',
+      occasion: service.occasion || '',
     });
+    setCoverImageUrl(service.coverImage || '');
+    setCoverImagePreview(service.coverImage || '');
     setIsEditModalOpen(true);
   };
 
@@ -157,6 +238,150 @@ export default function ServicesPage() {
     setSelectedService(service);
     setIsDeleteModalOpen(true);
   };
+
+  const getOccasionLabel = (occasion?: string) => {
+    if (!occasion) return null;
+    const option = OCCASION_OPTIONS.find(o => o.value === occasion);
+    return option?.label || occasion;
+  };
+
+  const renderCoverImageField = () => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Cover Image (Optional)
+      </label>
+      {(coverImagePreview || coverImageUrl) ? (
+        <div className="relative rounded-lg overflow-hidden border border-gray-200">
+          <img
+            src={coverImagePreview || coverImageUrl}
+            alt="Cover preview"
+            className="w-full h-40 object-cover"
+          />
+          <button
+            type="button"
+            onClick={removeCoverImage}
+            className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1 shadow-sm"
+          >
+            <X className="h-4 w-4 text-gray-600" />
+          </button>
+          {isUploadingCover && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <LoadingSpinner size="sm" />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          onClick={() => coverFileInputRef.current?.click()}
+          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+        >
+          {isUploadingCover ? (
+            <div className="flex flex-col items-center">
+              <LoadingSpinner size="sm" />
+              <span className="mt-2 text-sm text-gray-500">Uploading...</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
+              <span className="text-sm text-gray-600">Click to upload cover image</span>
+              <span className="text-xs text-gray-400 mt-1">JPG, PNG, WebP up to 5MB</span>
+            </div>
+          )}
+        </div>
+      )}
+      <input
+        ref={coverFileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleCoverImageUpload}
+        className="hidden"
+      />
+    </div>
+  );
+
+  const renderServiceForm = (onSubmit: (data: ServiceFormData) => void, submitLabel: string) => (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Input
+        label="Service Name"
+        placeholder="Wedding Photography"
+        error={errors.name?.message}
+        {...register('name')}
+      />
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Description (Optional)
+        </label>
+        <textarea
+          {...register('description')}
+          rows={3}
+          className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+          placeholder="Describe your service..."
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Price"
+          type="number"
+          step="0.01"
+          placeholder="999.99"
+          error={errors.price?.message}
+          {...register('price')}
+        />
+
+        <Input
+          label="Duration (minutes)"
+          type="number"
+          placeholder="120"
+          error={errors.duration?.message}
+          {...register('duration')}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Occasion Category
+        </label>
+        <select
+          {...register('occasion')}
+          className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+        >
+          {OCCASION_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          Services with the same occasion are grouped together on your public booking page.
+        </p>
+      </div>
+
+      {renderCoverImageField()}
+
+      <div className="flex items-center justify-end gap-3 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            if (submitLabel === 'Create Service') {
+              setIsCreateModalOpen(false);
+            } else {
+              setIsEditModalOpen(false);
+              setSelectedService(null);
+            }
+            resetFormState();
+          }}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || isUploadingCover}>
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
 
   return (
     <div className="space-y-6">
@@ -166,7 +391,7 @@ export default function ServicesPage() {
           <h1 className="text-3xl font-bold text-gray-900">Services</h1>
           <p className="mt-2 text-gray-600">Manage your photography services and packages</p>
         </div>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
+        <Button onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />
           New Service
         </Button>
@@ -177,13 +402,13 @@ export default function ServicesPage() {
         <div className="flex justify-center py-8">
           <LoadingSpinner size="lg" />
         </div>
-      ) : services.length === 0 ? (
+      ) : (services || []).length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
               <h3 className="mt-2 text-sm font-semibold text-gray-900">No services</h3>
               <p className="mt-1 text-sm text-gray-500">Get started by creating your first service.</p>
-              <Button className="mt-4" onClick={() => setIsCreateModalOpen(true)}>
+              <Button className="mt-4" onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Service
               </Button>
@@ -192,8 +417,17 @@ export default function ServicesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((service) => (
-            <Card key={service.id} className="relative">
+          {(services || []).map((service) => (
+            <Card key={service.id} className="relative overflow-hidden">
+              {service.coverImage && (
+                <div className="h-36 overflow-hidden">
+                  <img
+                    src={service.coverImage}
+                    alt={service.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -202,6 +436,11 @@ export default function ServicesPage() {
                       <Badge variant={service.isActive ? 'success' : 'default'}>
                         {service.isActive ? 'Active' : 'Inactive'}
                       </Badge>
+                      {service.occasion && (
+                        <Badge variant="info">
+                          {getOccasionLabel(service.occasion)}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <button className="text-gray-400 hover:text-gray-600 cursor-move">
@@ -213,7 +452,7 @@ export default function ServicesPage() {
                 {service.description && (
                   <p className="text-sm text-gray-600">{service.description}</p>
                 )}
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">Price</span>
@@ -221,7 +460,7 @@ export default function ServicesPage() {
                       {formatCurrency(service.price)}
                     </span>
                   </div>
-                  
+
                   {service.duration && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-500">Duration</span>
@@ -240,7 +479,7 @@ export default function ServicesPage() {
                     <Edit2 className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
-                  
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -252,7 +491,7 @@ export default function ServicesPage() {
                       <ToggleLeft className="h-5 w-5 text-gray-400" />
                     )}
                   </Button>
-                  
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -272,65 +511,13 @@ export default function ServicesPage() {
         isOpen={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
-          reset();
+          resetFormState();
         }}
         title="Create New Service"
         description="Add a new photography service or package"
         size="lg"
       >
-        <form onSubmit={handleSubmit(onCreateService)} className="space-y-4">
-          <Input
-            label="Service Name"
-            placeholder="Wedding Photography"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description (Optional)
-            </label>
-            <textarea
-              {...register('description')}
-              rows={3}
-              className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="Describe your service..."
-            />
-          </div>
-
-          <Input
-            label="Price"
-            type="number"
-            step="0.01"
-            placeholder="999.99"
-            error={errors.price?.message}
-            {...register('price')}
-          />
-
-          <Input
-            label="Duration (Optional, in minutes)"
-            type="number"
-            placeholder="120"
-            error={errors.duration?.message}
-            {...register('duration')}
-          />
-
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                reset();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
-              Create Service
-            </Button>
-          </div>
-        </form>
+        {renderServiceForm(onCreateService, 'Create Service')}
       </Modal>
 
       {/* Edit Service Modal */}
@@ -339,66 +526,13 @@ export default function ServicesPage() {
         onClose={() => {
           setIsEditModalOpen(false);
           setSelectedService(null);
-          reset();
+          resetFormState();
         }}
         title="Edit Service"
         description="Update service information"
         size="lg"
       >
-        <form onSubmit={handleSubmit(onUpdateService)} className="space-y-4">
-          <Input
-            label="Service Name"
-            placeholder="Wedding Photography"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description (Optional)
-            </label>
-            <textarea
-              {...register('description')}
-              rows={3}
-              className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="Describe your service..."
-            />
-          </div>
-
-          <Input
-            label="Price"
-            type="number"
-            step="0.01"
-            placeholder="999.99"
-            error={errors.price?.message}
-            {...register('price')}
-          />
-
-          <Input
-            label="Duration (Optional, in minutes)"
-            type="number"
-            placeholder="120"
-            error={errors.duration?.message}
-            {...register('duration')}
-          />
-
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsEditModalOpen(false);
-                setSelectedService(null);
-                reset();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
-              Update Service
-            </Button>
-          </div>
-        </form>
+        {renderServiceForm(onUpdateService, 'Update Service')}
       </Modal>
 
       {/* Delete Confirmation Modal */}
@@ -430,7 +564,7 @@ export default function ServicesPage() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               variant="danger"
               onClick={handleDelete}
               isLoading={isSubmitting}

@@ -28,7 +28,8 @@ interface Invoice {
   };
   booking?: {
     id: number;
-    bookingDate: string;
+    scheduledAt: string;
+    bookingDate?: string;
   };
 }
 
@@ -48,9 +49,9 @@ export default function InvoicesPage() {
       setIsLoading(true);
       const params: any = { limit: 100 };
       if (statusFilter) params.status = statusFilter;
-      
+
       const response = await invoicesApi.getAll(params);
-      setInvoices(response.data.data);
+      setInvoices(response.data?.data || []);
     } catch (error) {
       console.error('Failed to load invoices:', error);
       addToast('error', 'Failed to load invoices');
@@ -85,12 +86,13 @@ export default function InvoicesPage() {
     }
   };
 
-  const filteredInvoices = invoices.filter((invoice) => {
+  const filteredInvoices = (invoices || []).filter((invoice) => {
+    if (!invoice?.customer) return false;
     const search = searchTerm.toLowerCase();
     return (
-      invoice.invoiceNumber.toLowerCase().includes(search) ||
-      invoice.customer.name.toLowerCase().includes(search) ||
-      invoice.customer.email.toLowerCase().includes(search)
+      (invoice.invoiceNumber || '').toLowerCase().includes(search) ||
+      (invoice.customer.name || '').toLowerCase().includes(search) ||
+      (invoice.customer.email || '').toLowerCase().includes(search)
     );
   });
 
@@ -104,13 +106,13 @@ export default function InvoicesPage() {
   ];
 
   // Calculate stats
-  const totalRevenue = invoices
-    .filter(inv => inv.status === 'PAID')
-    .reduce((sum, inv) => sum + inv.totalAmount, 0);
-  
-  const pendingAmount = invoices
-    .filter(inv => ['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.status))
-    .reduce((sum, inv) => sum + (inv.totalAmount - inv.paidAmount), 0);
+  const totalRevenue = (invoices || [])
+    .filter(inv => inv?.status === 'PAID')
+    .reduce((sum, inv) => sum + (inv?.totalAmount || 0), 0);
+
+  const pendingAmount = (invoices || [])
+    .filter(inv => inv && ['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.status))
+    .reduce((sum, inv) => sum + ((inv?.totalAmount || 0) - (inv?.paidAmount || 0)), 0);
 
   return (
     <div className="space-y-6">
@@ -137,7 +139,7 @@ export default function InvoicesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{invoices.length}</div>
+            <div className="text-2xl font-bold">{(invoices || []).length}</div>
           </CardContent>
         </Card>
 
@@ -202,7 +204,7 @@ export default function InvoicesPage() {
             <div className="flex justify-center py-8">
               <LoadingSpinner size="lg" />
             </div>
-          ) : filteredInvoices.length === 0 ? (
+          ) : (filteredInvoices || []).length === 0 ? (
             <div className="text-center py-8">
               <FileText className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-semibold text-gray-900">No invoices</h3>
@@ -235,7 +237,7 @@ export default function InvoicesPage() {
                 {filteredInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">
-                      <Link 
+                      <Link
                         href={`/invoices/${invoice.id}`}
                         className="text-blue-600 hover:underline"
                       >
@@ -267,19 +269,19 @@ export default function InvoicesPage() {
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        
+
                         {invoice.status === 'DRAFT' && (
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleSendInvoice(invoice.id)}
                           >
                             <Send className="h-4 w-4" />
                           </Button>
                         )}
-                        
-                        <Button 
-                          variant="ghost" 
+
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
                         >

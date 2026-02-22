@@ -14,19 +14,20 @@ import { ArrowLeft, Calendar, User, Wrench, FileText, Trash2 } from 'lucide-reac
 import Link from 'next/link';
 
 interface Booking {
-  id: number;
-  bookingDate: string;
+  id: string | number;
+  scheduledAt: string;
+  bookingDate?: string;
   status: string;
   notes?: string;
   cancellationReason?: string;
   customer: {
-    id: number;
+    id: string | number;
     name: string;
     email: string;
     phone?: string;
   };
   service: {
-    id: number;
+    id: string | number;
     name: string;
     description?: string;
     price: number;
@@ -127,7 +128,7 @@ export default function BookingDetailsPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Booking Details</h1>
-            <p className="mt-1 text-gray-600">Booking #{booking.id}</p>
+            <p className="mt-1 text-gray-600">Booking #{booking?.id}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -153,8 +154,8 @@ export default function BookingDetailsPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Booking Information</CardTitle>
-                <Badge {...getBookingStatusBadge(booking.status)}>
-                  {booking.status}
+                <Badge {...getBookingStatusBadge(booking?.status || 'INQUIRY')}>
+                  {booking?.status}
                 </Badge>
               </div>
             </CardHeader>
@@ -163,7 +164,7 @@ export default function BookingDetailsPage() {
                 <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Booking Date</p>
-                  <p className="text-base text-gray-900">{formatDate(booking.bookingDate)}</p>
+                  <p className="text-base text-gray-900">{formatDate(booking?.scheduledAt || (booking as any)?.bookingDate)}</p>
                 </div>
               </div>
 
@@ -171,15 +172,15 @@ export default function BookingDetailsPage() {
                 <Wrench className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-500">Service</p>
-                  <p className="text-base font-semibold text-gray-900">{booking.service.name}</p>
-                  {booking.service.description && (
+                  <p className="text-base font-semibold text-gray-900">{booking?.service?.name || 'N/A'}</p>
+                  {booking?.service?.description && (
                     <p className="text-sm text-gray-600 mt-1">{booking.service.description}</p>
                   )}
                   <div className="flex items-center gap-4 mt-2">
                     <p className="text-sm text-gray-900">
-                      <span className="font-medium">Price:</span> {formatCurrency(booking.service.price)}
+                      <span className="font-medium">Price:</span> {formatCurrency(booking?.service?.price || 0)}
                     </p>
-                    {booking.service.duration && (
+                    {booking?.service?.duration && (
                       <p className="text-sm text-gray-900">
                         <span className="font-medium">Duration:</span> {booking.service.duration} minutes
                       </p>
@@ -221,16 +222,16 @@ export default function BookingDetailsPage() {
             <CardContent className="space-y-3">
               <div>
                 <p className="text-sm font-medium text-gray-500">Name</p>
-                <Link 
-                  href={`/customers/${booking.customer.id}`}
+                <Link
+                  href={`/customers/${booking?.customer?.id}`}
                   className="text-base text-blue-600 hover:underline"
                 >
-                  {booking.customer.name}
+                  {booking?.customer?.name || 'Unknown'}
                 </Link>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Email</p>
-                <a 
+                <a
                   href={`mailto:${booking.customer.email}`}
                   className="text-base text-gray-900 hover:text-blue-600"
                 >
@@ -240,7 +241,7 @@ export default function BookingDetailsPage() {
               {booking.customer.phone && (
                 <div>
                   <p className="text-sm font-medium text-gray-500">Phone</p>
-                  <a 
+                  <a
                     href={`tel:${booking.customer.phone}`}
                     className="text-base text-gray-900 hover:text-blue-600"
                   >
@@ -300,7 +301,7 @@ export default function BookingDetailsPage() {
             <Button variant="outline" onClick={() => setIsStatusModalOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleStatusUpdate}
               isLoading={isUpdating}
               disabled={!newStatus || isUpdating}
@@ -336,7 +337,7 @@ export default function BookingDetailsPage() {
             <Button variant="outline" onClick={() => setIsCancelModalOpen(false)}>
               Keep Booking
             </Button>
-            <Button 
+            <Button
               variant="danger"
               onClick={handleCancelBooking}
               isLoading={isUpdating}

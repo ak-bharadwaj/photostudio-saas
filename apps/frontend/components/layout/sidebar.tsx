@@ -17,6 +17,8 @@ import {
   BarChart3,
   ChevronLeft,
   Camera,
+  Palette,
+  Share2,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
@@ -30,6 +32,8 @@ interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** If set, only show for these roles */
+  roles?: string[];
 }
 
 const navigation: NavItem[] = [
@@ -40,6 +44,8 @@ const navigation: NavItem[] = [
   { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Payments', href: '/payments', icon: CreditCard },
   { name: 'Portfolio', href: '/portfolio', icon: Image },
+  { name: 'Branding', href: '/branding', icon: Palette, roles: ['OWNER'] },
+  { name: 'Share Links', href: '/share-links', icon: Share2, roles: ['OWNER'] },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -123,7 +129,9 @@ export const Sidebar: React.FC = () => {
 
       {/* ---- Navigation ---- */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
-        {navigation.map((item) => {
+        {navigation
+          .filter((item) => !item.roles || (user?.role && item.roles.includes(user.role)))
+          .map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
 

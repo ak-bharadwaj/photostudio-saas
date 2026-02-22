@@ -7,7 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
-  Request,
+  ForbiddenException,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -21,6 +21,8 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Throttle } from "@nestjs/throttler";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { UserPayload } from "../common/interfaces/user-payload.interface";
 
 @ApiTags("User Management")
 @ApiBearerAuth()
@@ -35,9 +37,14 @@ export class UserController {
   @ApiResponse({ status: 201, description: "User created successfully" })
   @ApiResponse({ status: 403, description: "Only owners can create users" })
   @ApiResponse({ status: 409, description: "Email already exists" })
-  create(@Body() createUserDto: CreateUserDto, @Request() req: any) {
-    const { studioId, role } = req.user;
-    return this.userService.create(createUserDto, studioId, role);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.create(createUserDto, user.studioId!, user.role!);
   }
 
   @Get()
@@ -46,9 +53,11 @@ export class UserController {
     status: 200,
     description: "List of users retrieved successfully",
   })
-  findAll(@Request() req: any) {
-    const { studioId } = req.user;
-    return this.userService.findAll(studioId);
+  findAll(@CurrentUser() user: UserPayload) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.findAll(user.studioId!);
   }
 
   @Get("statistics")
@@ -57,18 +66,22 @@ export class UserController {
     status: 200,
     description: "User statistics retrieved successfully",
   })
-  getStatistics(@Request() req: any) {
-    const { studioId } = req.user;
-    return this.userService.getStatistics(studioId);
+  getStatistics(@CurrentUser() user: UserPayload) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.getStatistics(user.studioId!);
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get a specific user by ID" })
   @ApiResponse({ status: 200, description: "User retrieved successfully" })
   @ApiResponse({ status: 404, description: "User not found" })
-  findOne(@Param("id") id: string, @Request() req: any) {
-    const { studioId } = req.user;
-    return this.userService.findOne(id, studioId);
+  findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.findOne(id, user.studioId!);
   }
 
   @Patch(":id")
@@ -80,10 +93,18 @@ export class UserController {
   update(
     @Param("id") id: string,
     @Body() updateUserDto: UpdateUserDto,
-    @Request() req: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const { studioId, role, userId } = req.user;
-    return this.userService.update(id, updateUserDto, studioId, role, userId);
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.update(
+      id,
+      updateUserDto,
+      user.studioId!,
+      user.role!,
+      user.id,
+    );
   }
 
   @Patch(":id/toggle-active")
@@ -95,9 +116,16 @@ export class UserController {
     description: "Only owners can toggle user status",
   })
   @ApiResponse({ status: 404, description: "User not found" })
-  toggleActive(@Param("id") id: string, @Request() req: any) {
-    const { studioId, role, userId } = req.user;
-    return this.userService.toggleActive(id, studioId, role, userId);
+  toggleActive(@Param("id") id: string, @CurrentUser() user: UserPayload) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.toggleActive(
+      id,
+      user.studioId!,
+      user.role!,
+      user.id,
+    );
   }
 
   @Patch(":id/password")
@@ -109,14 +137,16 @@ export class UserController {
   changePassword(
     @Param("id") id: string,
     @Body() changePasswordDto: ChangePasswordDto,
-    @Request() req: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const { studioId, userId } = req.user;
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
     return this.userService.changePassword(
       id,
       changePasswordDto,
-      studioId,
-      userId,
+      user.studioId!,
+      user.id,
     );
   }
 
@@ -130,8 +160,10 @@ export class UserController {
     status: 400,
     description: "Cannot delete user with assigned bookings",
   })
-  remove(@Param("id") id: string, @Request() req: any) {
-    const { studioId, role, userId } = req.user;
-    return this.userService.remove(id, studioId, role, userId);
+  remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+    return this.userService.remove(id, user.studioId!, user.role!, user.id);
   }
 }

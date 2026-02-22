@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { SidebarProvider } from '@/components/layout/sidebar-context';
 import { MobileHeader } from '@/components/layout/mobile-header';
+import { BgMeshEngine } from '@/components/ui/bg-mesh-engine';
 import { useAuthStore } from '@/lib/auth-store';
 import { LoadingPage } from '@/components/ui/loading';
 
@@ -13,11 +14,15 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [mounted, setMounted] = React.useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading, loadUser } = useAuthStore();
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    setMounted(true);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
     if (!token) {
       router.push('/login');
       return;
@@ -28,31 +33,34 @@ export default function DashboardLayout({
     }
   }, [user, isLoading, loadUser, router]);
 
-  if (isLoading) {
-    return <LoadingPage message="Loading your dashboard..." />;
+  if (!mounted || isLoading) {
+    return <LoadingPage message="Setting up your studio..." />;
   }
 
   if (!user) {
     return null;
   }
 
+  const isSimplified = pathname === '/onboarding';
+
   return (
     <SidebarProvider>
-      <div className="flex h-screen bg-[var(--background-secondary)] overflow-hidden">
-        {/* Sidebar — handles its own responsive behavior */}
-        <Sidebar />
+      <div className="relative flex h-screen overflow-hidden">
+        {/* Dynamic Background */}
+        <BgMeshEngine />
 
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Mobile header with hamburger */}
+        {/* Sidebar */}
+        {!isSimplified && <Sidebar />}
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-[1]">
+          {/* Mobile Header */}
           <MobileHeader />
 
-          {/* Scrollable content */}
-          <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-              <div className="page-enter">
-                {children}
-              </div>
+          {/* Scrollable Content */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8 animate-luxury-in">
+              {children}
             </div>
           </main>
         </div>

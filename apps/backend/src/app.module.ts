@@ -1,8 +1,8 @@
-import { Module } from "@nestjs/common";
+import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
-import { BullModule } from "@nestjs/bull";
+// import { BullModule } from "@nestjs/bull";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -23,8 +23,10 @@ import { AdminModule } from "./admin/admin.module";
 import { PublicModule } from "./public/public.module";
 import { CustomerPortalModule } from "./customer-portal/customer-portal.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
-import { QueueModule } from "./queue/queue.module";
+// import { QueueModule } from "./queue/queue.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
+import { TenantInterceptor } from "./common/tenant";
+import { CsrfMiddleware } from "./common/middleware/csrf.middleware";
 import configuration from "./config/configuration";
 
 @Module({
@@ -39,6 +41,7 @@ import configuration from "./config/configuration";
         limit: 100, // 100 requests per ttl
       },
     ]),
+    /*
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -49,6 +52,7 @@ import configuration from "./config/configuration";
       }),
       inject: [ConfigService],
     }),
+    */
     PrismaModule,
     CacheModule,
     AuthModule,
@@ -67,7 +71,7 @@ import configuration from "./config/configuration";
     PublicModule,
     CustomerPortalModule,
     AnalyticsModule,
-    QueueModule,
+    // QueueModule,
   ],
   controllers: [AppController],
   providers: [
@@ -80,6 +84,14 @@ import configuration from "./config/configuration";
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TenantInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CsrfMiddleware).forRoutes("*");
+  }
+}

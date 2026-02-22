@@ -3,10 +3,12 @@ import {
   Get,
   Query,
   UseGuards,
-  Req,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { UserPayload } from "../common/interfaces/user-payload.interface";
 import { AnalyticsService } from "./analytics.service";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import {
@@ -31,11 +33,15 @@ export class AnalyticsController {
   @ApiQuery({ name: "startDate", required: false, type: String })
   @ApiQuery({ name: "endDate", required: false, type: String })
   async getOverview(
-    @Req() req: any,
+    @CurrentUser() user: UserPayload,
     @Query("startDate") startDateStr?: string,
     @Query("endDate") endDateStr?: string,
   ) {
-    const studioId = req.user.studioId;
+    const studioId = user.studioId;
+
+    if (!studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
 
     // Default to last 30 days if no dates provided
     const endDate = endDateStr
@@ -49,7 +55,7 @@ export class AnalyticsController {
       throw new BadRequestException("startDate must be before endDate");
     }
 
-    return this.analyticsService.getOverviewStats(studioId, startDate, endDate);
+    return this.analyticsService.getOverviewStats(studioId!, startDate, endDate);
   }
 
   /**
@@ -60,11 +66,15 @@ export class AnalyticsController {
   @ApiQuery({ name: "startDate", required: false, type: String })
   @ApiQuery({ name: "endDate", required: false, type: String })
   async getRevenue(
-    @Req() req: any,
+    @CurrentUser() user: UserPayload,
     @Query("startDate") startDateStr?: string,
     @Query("endDate") endDateStr?: string,
   ) {
-    const studioId = req.user.studioId;
+    const studioId = user.studioId;
+
+    if (!studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
 
     // Default to last 30 days
     const endDate = endDateStr
@@ -79,7 +89,7 @@ export class AnalyticsController {
     }
 
     return this.analyticsService.getRevenueOverTime(
-      studioId,
+      studioId!,
       startDate,
       endDate,
     );
@@ -93,11 +103,15 @@ export class AnalyticsController {
   @ApiQuery({ name: "startDate", required: false, type: String })
   @ApiQuery({ name: "endDate", required: false, type: String })
   async getBookingsByStatus(
-    @Req() req: any,
+    @CurrentUser() user: UserPayload,
     @Query("startDate") startDateStr?: string,
     @Query("endDate") endDateStr?: string,
   ) {
-    const studioId = req.user.studioId;
+    const studioId = user.studioId;
+
+    if (!studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
 
     // Default to last 30 days
     const endDate = endDateStr
@@ -112,7 +126,7 @@ export class AnalyticsController {
     }
 
     return this.analyticsService.getBookingsByStatus(
-      studioId,
+      studioId!,
       startDate,
       endDate,
     );
@@ -126,11 +140,15 @@ export class AnalyticsController {
   @ApiQuery({ name: "startDate", required: false, type: String })
   @ApiQuery({ name: "endDate", required: false, type: String })
   async getServicePerformance(
-    @Req() req: any,
+    @CurrentUser() user: UserPayload,
     @Query("startDate") startDateStr?: string,
     @Query("endDate") endDateStr?: string,
   ) {
-    const studioId = req.user.studioId;
+    const studioId = user.studioId;
+
+    if (!studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
 
     // Default to last 30 days
     const endDate = endDateStr
@@ -145,7 +163,7 @@ export class AnalyticsController {
     }
 
     return this.analyticsService.getServicePerformance(
-      studioId,
+      studioId!,
       startDate,
       endDate,
     );
@@ -159,11 +177,15 @@ export class AnalyticsController {
   @ApiQuery({ name: "startDate", required: false, type: String })
   @ApiQuery({ name: "endDate", required: false, type: String })
   async getCustomerInsights(
-    @Req() req: any,
+    @CurrentUser() user: UserPayload,
     @Query("startDate") startDateStr?: string,
     @Query("endDate") endDateStr?: string,
   ) {
-    const studioId = req.user.studioId;
+    const studioId = user.studioId;
+
+    if (!studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
 
     // Default to last 30 days
     const endDate = endDateStr
@@ -178,7 +200,7 @@ export class AnalyticsController {
     }
 
     return this.analyticsService.getCustomerInsights(
-      studioId,
+      studioId!,
       startDate,
       endDate,
     );

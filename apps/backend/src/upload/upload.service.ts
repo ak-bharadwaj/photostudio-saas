@@ -67,6 +67,56 @@ export class UploadService {
   }
 
   /**
+   * Upload service cover image
+   */
+  async uploadServiceCover(
+    studioId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const result = await this.uploadToCloudinary(file.buffer, {
+        folder: `studios/${studioId}/services`,
+        transformation: [
+          { width: 800, height: 600, crop: "limit" },
+          { quality: "auto" },
+          { fetch_format: "auto" },
+        ],
+        allowed_formats: ["jpg", "png", "webp"],
+      });
+
+      return result.secure_url;
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to upload service cover image: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Upload contract PDF
+   */
+  async uploadContractPDF(
+    studioId: string,
+    bookingId: string,
+    buffer: Buffer,
+  ): Promise<string> {
+    try {
+      const result = await this.uploadToCloudinary(buffer, {
+        folder: `studios/${studioId}/contracts`,
+        resource_type: "raw",
+        public_id: `contract_${bookingId}`,
+        allowed_formats: ["pdf"],
+      });
+
+      return result.secure_url;
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to upload contract PDF: ${error.message}`,
+      );
+    }
+  }
+
+  /**
    * Upload invoice PDF
    */
   async uploadInvoicePDF(
@@ -126,10 +176,18 @@ export class UploadService {
   /**
    * Helper method to upload to Cloudinary
    */
-  private uploadToCloudinary(
-    buffer: Buffer,
+  private async uploadToCloudinary( // Added async
+    fileBuffer: Buffer, // Renamed parameter from 'buffer' to 'fileBuffer'
     options: any,
-  ): Promise<UploadApiResponse> {
+  ): Promise<UploadApiResponse> { // Kept original return type
+    const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
+
+    if (!cloudinaryUrl || cloudinaryUrl.includes("your_cloudinary_url_here")) {
+      throw new BadRequestException(
+        "Storage service not configured. Please update CLOUDINARY_URL in the backend .env file.",
+      );
+    }
+
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         options,
@@ -144,7 +202,7 @@ export class UploadService {
         },
       );
 
-      uploadStream.end(buffer);
+      uploadStream.end(fileBuffer);
     });
   }
 }

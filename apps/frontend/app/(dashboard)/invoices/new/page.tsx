@@ -58,8 +58,8 @@ export default function NewInvoicePage() {
         customersApi.getAll(),
         servicesApi.getAll(),
       ]);
-      setCustomers(customersRes.data);
-      setServices(servicesRes.data);
+      setCustomers(customersRes.data?.data || customersRes.data || []);
+      setServices(servicesRes.data?.data || servicesRes.data || []);
     } catch (error: any) {
       addToast('error', 'Failed to load data');
     } finally {
@@ -82,12 +82,12 @@ export default function NewInvoicePage() {
   const updateLineItem = (index: number, field: keyof LineItem, value: any) => {
     const updated = [...lineItems];
     updated[index] = { ...updated[index], [field]: value };
-    
+
     // Recalculate amount
     if (field === 'quantity' || field === 'rate') {
       updated[index].amount = updated[index].quantity * updated[index].rate;
     }
-    
+
     setLineItems(updated);
   };
 
@@ -334,7 +334,7 @@ export default function NewInvoicePage() {
           <div className="space-y-6">
             <Card className="p-6 sticky top-6">
               <h2 className="text-lg font-semibold mb-4">Invoice Summary</h2>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal:</span>
@@ -401,7 +401,7 @@ export default function NewInvoicePage() {
               </div>
 
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
-                <strong>Note:</strong> "Save as Draft" will create the invoice without sending it to the customer. 
+                <strong>Note:</strong> "Save as Draft" will create the invoice without sending it to the customer.
                 "Create & Send" will immediately email the invoice.
               </div>
             </Card>

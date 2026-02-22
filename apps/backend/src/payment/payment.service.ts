@@ -5,12 +5,12 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto } from "./dto/payment.dto";
-import { Decimal } from "@prisma/client/runtime/library";
+import { Decimal } from "@prisma/client/runtime/client";
 import { InvoiceStatus } from "@prisma/client";
 
 @Injectable()
 export class PaymentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(dto: CreatePaymentDto, studioId: string) {
     // Verify invoice belongs to studio
@@ -75,6 +75,41 @@ export class PaymentService {
         where: { id: dto.invoiceId },
         data: { status: newStatus },
       });
+
+      // Handle Commission calculation if the invoice is now PAID
+      if (newStatus === "PAID") {
+        const studio = await tx.studio.findUnique({
+          where: { id: studioId },
+          select: {
+            id: true,
+            billingModel: true,
+            commissionRate: true,
+            commissionType: true,
+          },
+        });
+
+        if (studio && studio.billingModel === "COMMISSION" && studio.commissionRate) {
+          let commissionAmount = 0;
+          if (studio.commissionType === "PERCENTAGE") {
+            commissionAmount = (Number(invoice.total) * Number(studio.commissionRate)) / 100;
+          } else {
+            commissionAmount = Number(studio.commissionRate);
+          }
+
+          if (commissionAmount > 0) {
+            await tx.commission.create({
+              data: {
+                studioId,
+                invoiceId: dto.invoiceId,
+                bookingId: invoice.bookingId,
+                amount: new Decimal(commissionAmount),
+                status: "PENDING",
+                notes: `Commission calculated for ${studio.commissionType === "PERCENTAGE" ? studio.commissionRate + "%" : "₹" + studio.commissionRate} rate`,
+              },
+            });
+          }
+        }
+      }
 
       return payment;
     });

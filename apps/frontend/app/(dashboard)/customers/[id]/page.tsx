@@ -37,7 +37,8 @@ interface CustomerStats {
 
 interface Booking {
   id: number;
-  bookingDate: string;
+  scheduledAt: string;
+  bookingDate?: string;
   status: string;
   service: {
     name: string;
@@ -92,11 +93,11 @@ export default function CustomerDetailsPage() {
       setIsLoading(true);
       const response = await customersApi.getOne(params.id as string);
       setCustomer(response.data);
-      
+
       // Load stats
       const statsResponse = await customersApi.getStats(params.id as string);
       setStats(statsResponse.data);
-      
+
       // Reset form with customer data
       reset({
         name: response.data.name,
@@ -120,7 +121,7 @@ export default function CustomerDetailsPage() {
     try {
       setIsSubmitting(true);
       await customersApi.update(customer.id.toString(), data);
-      
+
       addToast('success', 'Customer updated successfully');
       setIsEditModalOpen(false);
       loadCustomerData();
@@ -151,7 +152,7 @@ export default function CustomerDetailsPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{customer.name}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{customer?.name}</h1>
             <p className="mt-1 text-gray-600">Customer Details</p>
           </div>
         </div>
@@ -241,11 +242,11 @@ export default function CustomerDetailsPage() {
                 <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Email</p>
-                  <a 
-                    href={`mailto:${customer.email}`}
+                  <a
+                    href={`mailto:${customer?.email}`}
                     className="text-base text-blue-600 hover:underline"
                   >
-                    {customer.email}
+                    {customer?.email}
                   </a>
                 </div>
               </div>
@@ -255,11 +256,11 @@ export default function CustomerDetailsPage() {
                   <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Phone</p>
-                    <a 
-                      href={`tel:${customer.phone}`}
+                    <a
+                      href={`tel:${customer?.phone}`}
                       className="text-base text-blue-600 hover:underline"
                     >
-                      {formatPhoneNumber(customer.phone)}
+                      {formatPhoneNumber(customer?.phone || '')}
                     </a>
                   </div>
                 </div>

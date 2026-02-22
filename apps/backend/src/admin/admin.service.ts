@@ -7,10 +7,12 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
+import { SubscriptionTier } from "@prisma/client";
 import {
   CreateAdminDto,
   AdminLoginDto,
   UpdateStudioDto,
+  CreateStudioWithOwnerDto,
 } from "./dto/admin.dto";
 
 @Injectable()
@@ -18,7 +20,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   // Admin Authentication
   async createAdmin(createAdminDto: CreateAdminDto) {
@@ -78,6 +80,66 @@ export class AdminService {
       refreshToken,
       admin: adminData,
     };
+  }
+
+  // Studio Onboarding (Admin creates studio + owner)
+  async createStudioWithOwner(dto: CreateStudioWithOwnerDto) {
+    // Check if slug is already taken
+    const existingStudio = await this.prisma.studio.findUnique({
+      where: { slug: dto.slug },
+    });
+
+    if (existingStudio) {
+      throw new ConflictException("Studio slug already exists");
+    }
+
+    // Check if owner email is already in use
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.ownerEmail },
+    });
+
+    if (existingUser) {
+      throw new ConflictException("Owner email already in use");
+    }
+
+    // Hash owner password
+    const passwordHash = await bcrypt.hash(dto.ownerPassword, 12);
+
+    // Create studio with owner in a transaction
+    const studio = await this.prisma.$transaction(async (tx: any) => {
+      const newStudio = await tx.studio.create({
+        data: {
+          name: dto.studioName,
+          slug: dto.slug,
+          email: dto.studioEmail,
+          phone: dto.studioPhone,
+          subscriptionTier: (dto.subscriptionTier as SubscriptionTier) || "STARTER",
+          status: "TRIAL",
+          brandingConfig: dto.brandingConfig || {},
+          defaultTerms: dto.defaultTerms,
+          subscriptionExpiresAt: new Date(
+            Date.now() + 14 * 24 * 60 * 60 * 1000,
+          ), // 14 days trial
+        },
+      });
+
+      // Create owner user for the studio
+      await tx.user.create({
+        data: {
+          email: dto.ownerEmail,
+          name: dto.ownerName,
+          passwordHash,
+          studioId: newStudio.id,
+          role: "OWNER",
+          isActive: true,
+        },
+      });
+
+      return newStudio;
+    });
+
+    // Return the studio with the owner info
+    return this.getStudioById(studio.id);
   }
 
   // Studio Management
@@ -159,9 +221,27 @@ export class AdminService {
 
     const updateData: any = {};
     if (updateStudioDto.name) updateData.name = updateStudioDto.name;
+    if (updateStudioDto.email) updateData.email = updateStudioDto.email;
+    if (updateStudioDto.phone) updateData.phone = updateStudioDto.phone;
     if (updateStudioDto.status) updateData.status = updateStudioDto.status;
     if (updateStudioDto.subscriptionTier)
       updateData.subscriptionTier = updateStudioDto.subscriptionTier;
+    if (updateStudioDto.defaultTerms !== undefined)
+      updateData.defaultTerms = updateStudioDto.defaultTerms;
+    if (updateStudioDto.brandingConfig)
+      updateData.brandingConfig = updateStudioDto.brandingConfig;
+    if (updateStudioDto.billingModel)
+      updateData.billingModel = updateStudioDto.billingModel;
+    if (updateStudioDto.commissionRate !== undefined)
+      updateData.commissionRate = updateStudioDto.commissionRate;
+    if (updateStudioDto.commissionType)
+      updateData.commissionType = updateStudioDto.commissionType;
+    if (updateStudioDto.currency)
+      updateData.currency = updateStudioDto.currency;
+    if (updateStudioDto.subscriptionExpiresAt)
+      updateData.subscriptionExpiresAt = new Date(updateStudioDto.subscriptionExpiresAt);
+    if (updateStudioDto.taxRate !== undefined)
+      updateData.taxRate = updateStudioDto.taxRate;
 
     return this.prisma.studio.update({
       where: { id },
@@ -224,8 +304,9 @@ export class AdminService {
       totalStudios,
       activeStudios,
       totalBookings,
-      totalRevenue,
-      studiosWithSubscription,
+      totalGMV,
+      totalPlatformRevenue,
+      tierDistribution,
     ] = await Promise.all([
       this.prisma.studio.count(),
       this.prisma.studio.count({ where: { status: "ACTIVE" } }),
@@ -233,6 +314,9 @@ export class AdminService {
       this.prisma.invoice.aggregate({
         where: { status: "PAID" },
         _sum: { total: true },
+      }),
+      this.prisma.commission.aggregate({
+        _sum: { amount: true },
       }),
       this.prisma.studio.groupBy({
         by: ["subscriptionTier"],
@@ -244,13 +328,14 @@ export class AdminService {
       studios: {
         total: totalStudios,
         active: activeStudios,
-        byTier: studiosWithSubscription,
+        byTier: tierDistribution,
       },
       bookings: {
         total: totalBookings,
       },
       revenue: {
-        total: totalRevenue._sum?.total?.toNumber() || 0,
+        totalGMV: totalGMV._sum?.total?.toNumber() || 0,
+        platformRevenue: totalPlatformRevenue._sum?.amount?.toNumber() || 0,
       },
     };
   }

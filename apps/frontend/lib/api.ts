@@ -64,16 +64,16 @@ api.interceptors.response.use(
 export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
-  
+
   adminLogin: (email: string, password: string) =>
     api.post('/auth/admin/login', { email, password }),
-  
+
   register: (data: any) =>
     api.post('/auth/register', data),
-  
+
   logout: () =>
     api.post('/auth/logout'),
-  
+
   me: () =>
     api.get('/auth/me'),
 };
@@ -82,22 +82,22 @@ export const authApi = {
 export const studiosApi = {
   getAll: (params?: any) =>
     api.get('/studios', { params }),
-  
+
   getOne: (id: string) =>
     api.get(`/studios/${id}`),
-  
+
   getBySlug: (slug: string) =>
     api.get(`/studios/slug/${slug}`),
-  
+
   getStats: (id: string) =>
     api.get(`/studios/${id}/stats`),
-  
+
   create: (data: any) =>
     api.post('/studios', data),
-  
+
   update: (id: string, data: any) =>
     api.patch(`/studios/${id}`, data),
-  
+
   delete: (id: string) =>
     api.delete(`/studios/${id}`),
 };
@@ -106,22 +106,25 @@ export const studiosApi = {
 export const bookingsApi = {
   getAll: (params?: any) =>
     api.get('/bookings', { params }),
-  
+
   getUpcoming: (params?: any) =>
     api.get('/bookings/upcoming', { params }),
-  
+
   getOne: (id: string) =>
     api.get(`/bookings/${id}`),
-  
+
   create: (data: any) =>
     api.post('/bookings', data),
-  
+
+  createInternal: (data: any) =>
+    api.post('/bookings/internal', data),
+
   update: (id: string, data: any) =>
     api.patch(`/bookings/${id}`, data),
-  
+
   updateStatus: (id: string, data: any) =>
     api.patch(`/bookings/${id}/status`, data),
-  
+
   cancel: (id: string, notes?: string) =>
     api.patch(`/bookings/${id}/cancel`, { notes }),
 };
@@ -130,19 +133,19 @@ export const bookingsApi = {
 export const customersApi = {
   getAll: (params?: any) =>
     api.get('/customers', { params }),
-  
+
   getOne: (id: string) =>
     api.get(`/customers/${id}`),
-  
+
   getStats: (id: string) =>
     api.get(`/customers/${id}/stats`),
-  
+
   create: (data: any) =>
     api.post('/customers', data),
-  
+
   update: (id: string, data: any) =>
     api.patch(`/customers/${id}`, data),
-  
+
   delete: (id: string) =>
     api.delete(`/customers/${id}`),
 };
@@ -151,25 +154,25 @@ export const customersApi = {
 export const servicesApi = {
   getAll: (params?: any) =>
     api.get('/services', { params }),
-  
+
   getOne: (id: string) =>
     api.get(`/services/${id}`),
-  
+
   getStats: (id: string) =>
     api.get(`/services/${id}/stats`),
-  
+
   create: (data: any) =>
     api.post('/services', data),
-  
+
   update: (id: string, data: any) =>
     api.patch(`/services/${id}`, data),
-  
+
   toggleActive: (id: string) =>
     api.patch(`/services/${id}/toggle-active`),
-  
+
   reorder: (serviceIds: string[]) =>
     api.post('/services/reorder', { serviceIds }),
-  
+
   delete: (id: string) =>
     api.delete(`/services/${id}`),
 };
@@ -178,25 +181,25 @@ export const servicesApi = {
 export const invoicesApi = {
   getAll: (params?: any) =>
     api.get('/invoices', { params }),
-  
+
   getStats: () =>
     api.get('/invoices/stats'),
-  
+
   getOne: (id: string) =>
     api.get(`/invoices/${id}`),
-  
+
   downloadPdf: (id: string) =>
     api.get(`/invoices/${id}/pdf`, { responseType: 'blob' }),
-  
+
   create: (data: any) =>
     api.post('/invoices', data),
-  
+
   update: (id: string, data: any) =>
     api.patch(`/invoices/${id}`, data),
-  
+
   send: (id: string) =>
     api.post(`/invoices/${id}/send`),
-  
+
   delete: (id: string) =>
     api.delete(`/invoices/${id}`),
 };
@@ -205,19 +208,19 @@ export const invoicesApi = {
 export const paymentsApi = {
   getAll: (params?: any) =>
     api.get('/payments', { params }),
-  
+
   getStats: () =>
     api.get('/payments/stats'),
-  
+
   getByInvoice: (invoiceId: string) =>
     api.get(`/payments/invoice/${invoiceId}`),
-  
+
   getOne: (id: string) =>
     api.get(`/payments/${id}`),
-  
+
   create: (data: any) =>
     api.post('/payments', data),
-  
+
   delete: (id: string) =>
     api.delete(`/payments/${id}`),
 };
@@ -226,28 +229,28 @@ export const paymentsApi = {
 export const portfolioApi = {
   getAll: (params?: any) =>
     api.get('/portfolio', { params }),
-  
+
   getPublic: (studioId: string) =>
     api.get(`/portfolio/studio/${studioId}`),
-  
+
   getCategories: () =>
     api.get('/portfolio/categories'),
-  
+
   getOne: (id: string) =>
     api.get(`/portfolio/${id}`),
-  
+
   create: (data: any) =>
     api.post('/portfolio', data),
-  
+
   update: (id: string, data: any) =>
     api.patch(`/portfolio/${id}`, data),
-  
+
   toggleVisibility: (id: string) =>
     api.patch(`/portfolio/${id}/toggle-visibility`),
-  
+
   reorder: (itemIds: string[]) =>
     api.post('/portfolio/reorder', { itemIds }),
-  
+
   delete: (id: string) =>
     api.delete(`/portfolio/${id}`),
 };
@@ -255,16 +258,16 @@ export const portfolioApi = {
 export const analyticsApi = {
   getOverview: (params?: { startDate?: string; endDate?: string }) =>
     api.get('/analytics/overview', { params }),
-  
+
   getRevenue: (params?: { startDate?: string; endDate?: string }) =>
     api.get('/analytics/revenue', { params }),
-  
+
   getBookingsByStatus: (params?: { startDate?: string; endDate?: string }) =>
     api.get('/analytics/bookings-by-status', { params }),
-  
+
   getServicePerformance: (params?: { startDate?: string; endDate?: string }) =>
     api.get('/analytics/service-performance', { params }),
-  
+
   getCustomerInsights: (params?: { startDate?: string; endDate?: string }) =>
     api.get('/analytics/customer-insights', { params }),
 };
@@ -277,7 +280,7 @@ export const uploadApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  
+
   uploadPortfolioImage: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -285,5 +288,62 @@ export const uploadApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
+  uploadServiceCover: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/service-cover', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+};
+
+// Admin API (Super Admin panel)
+export const adminApi = {
+  // Studios
+  getStudios: (params?: { page?: number; limit?: number; status?: string; tier?: string }) =>
+    api.get('/admin/studios', { params }),
+
+  getStudio: (id: string) =>
+    api.get(`/admin/studios/${id}`),
+
+  createStudio: (data: {
+    studioName: string;
+    slug: string;
+    studioEmail: string;
+    studioPhone: string;
+    ownerName: string;
+    ownerEmail: string;
+    ownerPassword: string;
+    subscriptionTier?: string;
+    brandingConfig?: Record<string, any>;
+    defaultTerms?: string;
+  }) => api.post('/admin/studios', data),
+
+  updateStudio: (id: string, data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    status?: string;
+    subscriptionTier?: string;
+    defaultTerms?: string;
+    brandingConfig?: Record<string, any>;
+  }) => api.patch(`/admin/studios/${id}`, data),
+
+  suspendStudio: (id: string, reason?: string) =>
+    api.post(`/admin/studios/${id}/suspend`, { reason }),
+
+  activateStudio: (id: string) =>
+    api.post(`/admin/studios/${id}/activate`),
+
+  deleteStudio: (id: string) =>
+    api.delete(`/admin/studios/${id}`),
+
+  // Analytics
+  getAnalytics: () =>
+    api.get('/admin/analytics'),
+
+  getActivities: (limit?: number) =>
+    api.get('/admin/activities', { params: { limit } }),
 };
 

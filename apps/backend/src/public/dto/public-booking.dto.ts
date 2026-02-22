@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsOptional,
   IsEmail,
+  IsBoolean,
 } from "class-validator";
 
 export class CreatePublicBookingDto {
@@ -30,4 +31,8 @@ export class CreatePublicBookingDto {
   @IsOptional()
   @IsString()
   customerNotes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acceptedTerms?: boolean;
 }

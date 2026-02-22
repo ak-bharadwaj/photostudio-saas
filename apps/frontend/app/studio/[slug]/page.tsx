@@ -1,15 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LoadingPage } from '@/components/ui/loading';
 import { useToast } from '@/components/ui/toast';
-import { Calendar, Clock, Mail, Phone, MapPin, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Calendar,
+  Clock,
+  Mail,
+  Phone,
+  Check,
+  Camera,
+  ArrowLeft,
+  ArrowRight,
+  Heart,
+  Star,
+  Users,
+  PartyPopper,
+  Baby,
+  GraduationCap,
+  Briefcase,
+  Sparkles,
+  Gift,
+  ImageIcon,
+  FileText,
+} from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                     */
+/* -------------------------------------------------------------------------- */
 
 interface Service {
   id: string;
@@ -17,6 +42,8 @@ interface Service {
   description?: string;
   price: number;
   durationMinutes: number;
+  occasion?: string;
+  coverImage?: string;
 }
 
 interface PortfolioItem {
@@ -27,6 +54,15 @@ interface PortfolioItem {
   category?: string;
 }
 
+interface BrandingConfig {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  headerText?: string;
+  tagline?: string;
+}
+
 interface Studio {
   id: string;
   name: string;
@@ -34,7 +70,8 @@ interface Studio {
   email: string;
   phone: string;
   logoUrl?: string;
-  brandingConfig?: any;
+  brandingConfig?: BrandingConfig;
+  defaultTerms?: string;
   services: Service[];
   portfolioItems: PortfolioItem[];
 }
@@ -44,12 +81,192 @@ interface TimeSlot {
   available: boolean;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Occasion Icon Map                                                          */
+/* -------------------------------------------------------------------------- */
+
+const OCCASION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  wedding: Heart,
+  portrait: Star,
+  family: Users,
+  event: PartyPopper,
+  baby: Baby,
+  maternity: Baby,
+  graduation: GraduationCap,
+  corporate: Briefcase,
+  fashion: Sparkles,
+  birthday: Gift,
+  product: ImageIcon,
+};
+
+function getOccasionIcon(occasion?: string) {
+  if (!occasion) return Camera;
+  return OCCASION_ICONS[occasion.toLowerCase()] || Camera;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Step indicator                                                            */
+/* -------------------------------------------------------------------------- */
+
+function StepIndicator({
+  currentStep,
+  primaryColor,
+}: {
+  currentStep: number;
+  primaryColor: string;
+}) {
+  const steps = [
+    { num: 1, label: 'Choose Occasion' },
+    { num: 2, label: 'Date & Time' },
+    { num: 3, label: 'Your Details' },
+    { num: 4, label: 'Confirmation' },
+  ];
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-center gap-2">
+        {steps.map((s, idx) => (
+          <div key={s.num} className="flex items-center">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all',
+                  currentStep >= s.num ? 'text-white' : 'bg-gray-200 text-gray-500',
+                )}
+                style={
+                  currentStep >= s.num
+                    ? { backgroundColor: primaryColor }
+                    : undefined
+                }
+              >
+                {currentStep > s.num ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  s.num
+                )}
+              </div>
+              <span
+                className={cn(
+                  'hidden sm:inline text-sm font-medium',
+                  currentStep >= s.num ? 'text-gray-900' : 'text-gray-400',
+                )}
+              >
+                {s.label}
+              </span>
+            </div>
+            {idx < 3 && (
+              <div
+                className={cn('w-10 h-0.5 mx-2 rounded-full transition-colors')}
+                style={{
+                  backgroundColor: currentStep > s.num ? primaryColor : '#e5e7eb',
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Occasion Card                                                             */
+/* -------------------------------------------------------------------------- */
+
+function OccasionCard({
+  service,
+  primaryColor,
+  accentColor,
+  onClick,
+}: {
+  service: Service;
+  primaryColor: string;
+  accentColor: string;
+  onClick: () => void;
+}) {
+  const Icon = getOccasionIcon(service.occasion);
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'group relative overflow-hidden rounded-2xl border border-gray-200',
+        'bg-white text-left transition-all duration-300',
+        'hover:shadow-xl hover:-translate-y-1 hover:border-transparent',
+        'focus:outline-none focus:ring-2 focus:ring-offset-2',
+      )}
+      style={{
+        '--focus-ring': primaryColor,
+      } as React.CSSProperties}
+    >
+      {/* Cover image or gradient */}
+      <div className="relative h-40 overflow-hidden">
+        {service.coverImage ? (
+          <img
+            src={service.coverImage}
+            alt={service.name}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor}20, ${accentColor}30)`,
+            }}
+          >
+            <Icon
+              className="h-16 w-16 transition-transform group-hover:scale-110 duration-300"
+              style={{ color: primaryColor }}
+            />
+          </div>
+        )}
+        {/* Price badge */}
+        <div
+          className="absolute top-3 right-3 px-3 py-1 rounded-full text-white text-sm font-bold shadow-lg"
+          style={{ backgroundColor: primaryColor }}
+        >
+          ${Number(service.price).toFixed(0)}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-900 text-lg mb-1">
+          {service.name}
+        </h3>
+        {service.description && (
+          <p className="text-gray-500 text-sm line-clamp-2 mb-3">
+            {service.description}
+          </p>
+        )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 text-gray-400 text-sm">
+            <Clock className="h-4 w-4" />
+            {service.durationMinutes} min
+          </div>
+          <span
+            className="text-sm font-medium flex items-center gap-1 transition-colors"
+            style={{ color: primaryColor }}
+          >
+            Book Now
+            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Main Page                                                                 */
+/* -------------------------------------------------------------------------- */
+
 export default function PublicBookingPage() {
   const params = useParams();
   const { addToast } = useToast();
   const [studio, setStudio] = useState<Studio | null>(null);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState(1); // 1: Service, 2: DateTime, 3: Customer Info, 4: Confirmation
+  const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
@@ -57,6 +274,7 @@ export default function PublicBookingPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingId, setBookingId] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [customerData, setCustomerData] = useState({
     name: '',
     email: '',
@@ -64,8 +282,39 @@ export default function PublicBookingPage() {
     notes: '',
   });
 
+  // Derived branding
+  const brand = useMemo(() => {
+    const bc = studio?.brandingConfig || {};
+    return {
+      primaryColor: bc.primaryColor || '#1a73e8',
+      secondaryColor: bc.secondaryColor || '#5f6368',
+      accentColor: bc.accentColor || '#7c3aed',
+      fontFamily: bc.fontFamily || 'Inter',
+      headerText: bc.headerText || studio?.name || '',
+      tagline: bc.tagline || '',
+    };
+  }, [studio]);
+
+  // Group services by occasion
+  const occasionGroups = useMemo(() => {
+    if (!studio) return {};
+    const groups: Record<string, Service[]> = {};
+    (studio.services || []).forEach((s) => {
+      const key = s?.occasion || 'Other';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    });
+    return groups;
+  }, [studio]);
+
+  const hasOccasions = useMemo(
+    () => Object.keys(occasionGroups).some((k) => k !== 'Other'),
+    [occasionGroups],
+  );
+
   useEffect(() => {
     loadStudio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.slug]);
 
   const loadStudio = async () => {
@@ -84,10 +333,10 @@ export default function PublicBookingPage() {
     try {
       const response = await axios.get(
         `${API_URL}/public/studios/${params.slug}/services/${serviceId}/available-slots`,
-        { params: { date } }
+        { params: { date } },
       );
       setTimeSlots(response.data.slots || []);
-    } catch (error: any) {
+    } catch {
       addToast('error', 'Failed to load available time slots');
       setTimeSlots([]);
     } finally {
@@ -98,6 +347,7 @@ export default function PublicBookingPage() {
   const handleServiceSelect = (service: Service) => {
     setSelectedService(service);
     setStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDateChange = (date: string) => {
@@ -108,15 +358,16 @@ export default function PublicBookingPage() {
     }
   };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-  };
-
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedService || !selectedTime || !customerData.name || !customerData.phone) {
       addToast('error', 'Please fill all required fields');
+      return;
+    }
+
+    if (studio?.defaultTerms && !acceptedTerms) {
+      addToast('error', 'Please accept the terms and conditions');
       return;
     }
 
@@ -131,11 +382,13 @@ export default function PublicBookingPage() {
           serviceId: selectedService.id,
           scheduledAt: selectedTime,
           customerNotes: customerData.notes || undefined,
-        }
+          acceptedTerms: acceptedTerms,
+        },
       );
-      
+
       setBookingId(response.data.id);
       setStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       addToast('success', 'Booking request submitted successfully!');
     } catch (error: any) {
       addToast('error', error.response?.data?.message || 'Failed to submit booking');
@@ -144,315 +397,518 @@ export default function PublicBookingPage() {
     }
   };
 
+  const resetBooking = () => {
+    setStep(1);
+    setSelectedService(null);
+    setSelectedDate('');
+    setSelectedTime('');
+    setBookingId('');
+    setAcceptedTerms(false);
+    setCustomerData({ name: '', email: '', phone: '', notes: '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (loading) return <LoadingPage message="Loading studio..." />;
-  if (!studio) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Studio Not Found</h1>
-        <p className="text-gray-600">The studio you're looking for doesn't exist or is not accepting bookings.</p>
+  if (!studio)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Camera className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Studio Not Found</h1>
+          <p className="text-gray-600">
+            The studio you&apos;re looking for doesn&apos;t exist or is not accepting bookings.
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   const minDate = new Date().toISOString().split('T')[0];
-  const maxDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 90 days ahead
+  const maxDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-6">
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{ fontFamily: brand.fontFamily + ', sans-serif' }}
+    >
+      {/* ------------------------------------------------------------------ */}
+      {/*  Header                                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <header
+        className="relative overflow-hidden"
+        style={{ backgroundColor: brand.primaryColor }}
+      >
+        <div className="absolute inset-0 opacity-10">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 50%, white 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+            }}
+          />
+        </div>
+        <div className="relative max-w-6xl mx-auto px-4 py-8 sm:py-12">
           <div className="flex items-center gap-4">
-            {studio.logoUrl && (
-              <img src={studio.logoUrl} alt={studio.name} className="h-12 w-12 rounded-full object-cover" />
+            {studio?.logoUrl ? (
+              <img
+                src={studio.logoUrl}
+                alt={studio.name || 'Studio'}
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl object-contain bg-white/20 p-1.5 backdrop-blur-sm"
+              />
+            ) : (
+              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Camera className="h-7 w-7 text-white" />
+              </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{studio.name}</h1>
-              <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Mail className="h-4 w-4" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                {brand.headerText}
+              </h1>
+              {brand.tagline && (
+                <p className="text-white/80 text-sm sm:text-base mt-1">
+                  {brand.tagline}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-4 mt-2 text-sm text-white/70">
+                <a
+                  href={`mailto:${studio.email}`}
+                  className="flex items-center gap-1 hover:text-white transition-colors"
+                >
+                  <Mail className="h-3.5 w-3.5" />
                   {studio.email}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
+                </a>
+                <a
+                  href={`tel:${studio.phone}`}
+                  className="flex items-center gap-1 hover:text-white transition-colors"
+                >
+                  <Phone className="h-3.5 w-3.5" />
                   {studio.phone}
-                </div>
+                </a>
               </div>
             </div>
           </div>
         </div>
       </header>
 
+      {/* ------------------------------------------------------------------ */}
+      {/*  Body                                                              */}
+      {/* ------------------------------------------------------------------ */}
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center gap-2">
-            {[
-              { num: 1, label: 'Select Service' },
-              { num: 2, label: 'Choose Date & Time' },
-              { num: 3, label: 'Your Information' },
-              { num: 4, label: 'Confirmation' },
-            ].map((s, idx) => (
-              <div key={s.num} className="flex items-center">
-                <div className={`flex items-center gap-2 ${step >= s.num ? 'text-blue-600' : 'text-gray-400'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                    step >= s.num ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {step > s.num ? <Check className="h-5 w-5" /> : s.num}
-                  </div>
-                  <span className="hidden sm:inline text-sm font-medium">{s.label}</span>
-                </div>
-                {idx < 3 && <div className={`w-12 h-1 mx-2 ${step > s.num ? 'bg-blue-600' : 'bg-gray-200'}`} />}
-              </div>
-            ))}
-          </div>
-        </div>
+        <StepIndicator currentStep={step} primaryColor={brand.primaryColor} />
 
-        {/* Step 1: Select Service */}
+        {/* ============================================================== */}
+        {/*  Step 1: Choose Occasion / Service                              */}
+        {/* ============================================================== */}
         {step === 1 && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Select a Service</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {studio.services.map((service) => (
-                <Card key={service.id} className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleServiceSelect(service)}>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.name}</h3>
-                  {service.description && (
-                    <p className="text-gray-600 text-sm mb-4">{service.description}</p>
-                  )}
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-1 text-gray-600">
-                      <Clock className="h-4 w-4" />
-                      <span className="text-sm">{service.durationMinutes} min</span>
-                    </div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      ${Number(service.price).toFixed(0)}
+          <div className="animate-fade-in">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                What&apos;s the Occasion?
+              </h2>
+              <p className="text-gray-500 mt-2">
+                Choose from our photography services to get started.
+              </p>
+            </div>
+
+            {/* If services have occasions, group them */}
+            {hasOccasions ? (
+              <div className="space-y-10">
+                {Object.entries(occasionGroups).map(([occasion, services]) => (
+                  <div key={occasion}>
+                    <h3
+                      className="text-lg font-semibold mb-4 flex items-center gap-2"
+                      style={{ color: brand.primaryColor }}
+                    >
+                      {(() => {
+                        const Icon = getOccasionIcon(occasion);
+                        return <Icon className="h-5 w-5" />;
+                      })()}
+                      {occasion.charAt(0).toUpperCase() + occasion.slice(1)}
+                    </h3>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {services.map((service) => (
+                        <OccasionCard
+                          key={service.id}
+                          service={service}
+                          primaryColor={brand.primaryColor}
+                          accentColor={brand.accentColor}
+                          onClick={() => handleServiceSelect(service)}
+                        />
+                      ))}
                     </div>
                   </div>
-                  <Button className="w-full mt-4">Select</Button>
-                </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {(studio.services || []).map((service) => (
+                  <OccasionCard
+                    key={service.id}
+                    service={service}
+                    primaryColor={brand.primaryColor}
+                    accentColor={brand.accentColor}
+                    onClick={() => handleServiceSelect(service)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Step 2: Select Date & Time */}
+        {/* ============================================================== */}
+        {/*  Step 2: Date & Time                                            */}
+        {/* ============================================================== */}
         {step === 2 && selectedService && (
-          <div>
-            <div className="mb-6">
-              <button onClick={() => setStep(1)} className="text-blue-600 hover:underline text-sm">
-                ← Change Service
-              </button>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Date & Time</h2>
-            <div className="max-w-2xl mx-auto">
-              <Card className="p-6 mb-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Selected Service</h3>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="font-semibold text-lg text-blue-900">{selectedService.name}</div>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-blue-700">
-                    <span>{selectedService.durationMinutes} minutes</span>
-                    <span className="font-bold">${Number(selectedService.price).toFixed(2)}</span>
+          <div className="animate-fade-in max-w-2xl mx-auto">
+            <button
+              onClick={() => setStep(1)}
+              className="flex items-center gap-1 text-sm font-medium mb-6 transition-colors"
+              style={{ color: brand.primaryColor }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Change Service
+            </button>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Pick a Date & Time
+            </h2>
+
+            {/* Selected service summary */}
+            <Card className="p-5 mb-6">
+              <div
+                className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ backgroundColor: brand.primaryColor + '10' }}
+              >
+                {(() => {
+                  const Icon = getOccasionIcon(selectedService.occasion);
+                  return (
+                    <div
+                      className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: brand.primaryColor + '20' }}
+                    >
+                      <Icon className="h-5 w-5" style={{ color: brand.primaryColor }} />
+                    </div>
+                  );
+                })()}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-gray-900">
+                    {selectedService.name}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {selectedService.durationMinutes} min
                   </div>
                 </div>
-              </Card>
-
-              <Card className="p-6">
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Date
-                  </label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => handleDateChange(e.target.value)}
-                    min={minDate}
-                    max={maxDate}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                <div
+                  className="text-xl font-bold"
+                  style={{ color: brand.primaryColor }}
+                >
+                  ${Number(selectedService.price).toFixed(0)}
                 </div>
+              </div>
+            </Card>
 
-                {selectedDate && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Time
-                    </label>
-                    {loadingSlots ? (
-                      <div className="text-center py-8 text-gray-500">Loading available times...</div>
-                    ) : timeSlots.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        No available time slots for this date. Please select another date.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-3">
-                        {timeSlots.map((slot) => (
+            <Card className="p-5">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Date
+                </label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  min={minDate}
+                  max={maxDate}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent text-gray-900"
+                  style={{
+                    '--tw-ring-color': brand.primaryColor,
+                  } as React.CSSProperties}
+                />
+              </div>
+
+              {selectedDate && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Available Times
+                  </label>
+                  {loadingSlots ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <div
+                        className="h-8 w-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-2"
+                        style={{ borderColor: brand.primaryColor, borderTopColor: 'transparent' }}
+                      />
+                      Loading available times...
+                    </div>
+                  ) : timeSlots.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      No available slots for this date. Try another day.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {timeSlots.map((slot) => {
+                        const isSelected = selectedTime === slot.time;
+                        return (
                           <button
                             key={slot.time}
-                            onClick={() => handleTimeSelect(slot.time)}
+                            onClick={() => setSelectedTime(slot.time)}
                             disabled={!slot.available}
-                            className={`px-4 py-2 rounded-lg border font-medium transition-colors ${
-                              selectedTime === slot.time
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : slot.available
-                                ? 'bg-white text-gray-900 border-gray-300 hover:border-blue-500'
-                                : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                            }`}
+                            className={cn(
+                              'px-3 py-2 rounded-xl border font-medium text-sm transition-all',
+                              !slot.available && 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed',
+                              slot.available && !isSelected && 'bg-white text-gray-700 border-gray-200 hover:border-gray-400',
+                              isSelected && 'text-white border-transparent shadow-md',
+                            )}
+                            style={
+                              isSelected
+                                ? { backgroundColor: brand.primaryColor }
+                                : undefined
+                            }
                           >
                             {new Date(slot.time).toLocaleTimeString('en-US', {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {selectedTime && (
-                  <Button className="w-full mt-6" onClick={() => setStep(3)}>
-                    Continue to Contact Information
-                  </Button>
-                )}
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Customer Information */}
-        {step === 3 && (
-          <div>
-            <div className="mb-6">
-              <button onClick={() => setStep(2)} className="text-blue-600 hover:underline text-sm">
-                ← Change Date & Time
-              </button>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Information</h2>
-            <div className="max-w-2xl mx-auto">
-              <Card className="p-6 mb-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Booking Summary</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Service:</span>
-                    <span className="font-medium">{selectedService?.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Date:</span>
-                    <span className="font-medium">
-                      {new Date(selectedDate).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
+                        );
                       })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Time:</span>
-                    <span className="font-medium">
-                      {new Date(selectedTime).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">{selectedService?.durationMinutes} minutes</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                    <span>Total:</span>
-                    <span className="text-blue-600">${Number(selectedService?.price).toFixed(2)}</span>
-                  </div>
+                    </div>
+                  )}
                 </div>
-              </Card>
+              )}
 
-              <Card className="p-6">
-                <form onSubmit={handleSubmitBooking} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={customerData.name}
-                      onChange={(e) => setCustomerData({ ...customerData, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email (Optional)
-                    </label>
-                    <input
-                      type="email"
-                      value={customerData.email}
-                      onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="john@example.com"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={customerData.phone}
-                      onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="+1 234 567 8900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Additional Notes (Optional)
-                    </label>
-                    <textarea
-                      value={customerData.notes}
-                      onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Any special requests or requirements..."
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting ? 'Submitting...' : 'Submit Booking Request'}
-                  </Button>
-                </form>
-              </Card>
-            </div>
+              {selectedTime && (
+                <button
+                  onClick={() => {
+                    setStep(3);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full mt-6 py-3 rounded-xl text-white font-medium transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: brand.primaryColor }}
+                >
+                  Continue
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+            </Card>
           </div>
         )}
 
-        {/* Step 4: Confirmation */}
+        {/* ============================================================== */}
+        {/*  Step 3: Customer Information + Terms                           */}
+        {/* ============================================================== */}
+        {step === 3 && (
+          <div className="animate-fade-in max-w-2xl mx-auto">
+            <button
+              onClick={() => setStep(2)}
+              className="flex items-center gap-1 text-sm font-medium mb-6 transition-colors"
+              style={{ color: brand.primaryColor }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Change Date & Time
+            </button>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Almost There!
+            </h2>
+
+            {/* Summary */}
+            <Card className="p-5 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">
+                Booking Summary
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Service</span>
+                  <span className="font-medium">{selectedService?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Date</span>
+                  <span className="font-medium">
+                    {new Date(selectedDate).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Time</span>
+                  <span className="font-medium">
+                    {new Date(selectedTime).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Duration</span>
+                  <span className="font-medium">
+                    {selectedService?.durationMinutes} minutes
+                  </span>
+                </div>
+                <div
+                  className="flex justify-between text-lg font-bold pt-2 border-t border-gray-100"
+                >
+                  <span>Total</span>
+                  <span style={{ color: brand.primaryColor }}>
+                    ${Number(selectedService?.price).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Customer form */}
+            <Card className="p-5">
+              <form onSubmit={handleSubmitBooking} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customerData.name}
+                    onChange={(e) =>
+                      setCustomerData({ ...customerData, name: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent"
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={customerData.email}
+                    onChange={(e) =>
+                      setCustomerData({ ...customerData, email: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent"
+                    placeholder="john@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={customerData.phone}
+                    onChange={(e) =>
+                      setCustomerData({ ...customerData, phone: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent"
+                    placeholder="+1 234 567 8900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Additional Notes (Optional)
+                  </label>
+                  <textarea
+                    value={customerData.notes}
+                    onChange={(e) =>
+                      setCustomerData({ ...customerData, notes: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent resize-y"
+                    placeholder="Any special requests or requirements..."
+                  />
+                </div>
+
+                {/* Terms & Conditions */}
+                {studio.defaultTerms && (
+                  <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <FileText className="h-4 w-4" />
+                      Terms & Conditions
+                    </div>
+                    <div className="max-h-40 overflow-y-auto text-xs text-gray-500 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">
+                      {studio.defaultTerms}
+                    </div>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                        style={{ accentColor: brand.primaryColor }}
+                      />
+                      <span className="text-sm text-gray-700">
+                        I have read and agree to the terms and conditions.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting || (!!studio.defaultTerms && !acceptedTerms)}
+                  className={cn(
+                    'w-full py-3 rounded-xl text-white font-medium transition-all flex items-center justify-center gap-2',
+                    (submitting || (!!studio.defaultTerms && !acceptedTerms)) && 'opacity-50 cursor-not-allowed',
+                  )}
+                  style={{ backgroundColor: brand.primaryColor }}
+                >
+                  {submitting ? (
+                    <>
+                      <div
+                        className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+                      />
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Booking Request'
+                  )}
+                </button>
+              </form>
+            </Card>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/*  Step 4: Confirmation                                           */}
+        {/* ============================================================== */}
         {step === 4 && (
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="bg-green-50 border-2 border-green-200 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
-              <Check className="h-12 w-12 text-green-600" />
+          <div className="animate-fade-in max-w-2xl mx-auto text-center">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+              style={{ backgroundColor: '#dcfce7' }}
+            >
+              <Check className="h-10 w-10 text-green-600" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Booking Request Submitted!</h2>
-            <p className="text-gray-600 mb-2">
-              Thank you for your booking request. We've received your information and will contact you shortly to confirm your appointment.
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              Booking Submitted!
+            </h2>
+            <p className="text-gray-500 mb-2">
+              Thank you for choosing {studio.name}. We&apos;ll contact you shortly
+              to confirm your appointment.
             </p>
-            <p className="text-sm text-gray-500 mb-8">
-              Booking ID: <span className="font-mono font-semibold">{bookingId}</span>
+            <p className="text-sm text-gray-400 mb-8">
+              Booking ID:{' '}
+              <span className="font-mono font-semibold text-gray-600">
+                {bookingId}
+              </span>
             </p>
 
-            <Card className="p-6 text-left mb-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Booking Details</h3>
+            <Card className="p-5 text-left mb-6">
+              <h3 className="font-semibold text-gray-900 mb-4">
+                Booking Details
+              </h3>
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Calendar className="h-5 w-5 mt-0.5" style={{ color: brand.primaryColor }} />
                   <div>
-                    <div className="text-sm text-gray-600">Date & Time</div>
-                    <div className="font-medium">
+                    <div className="text-xs text-gray-400">Date & Time</div>
+                    <div className="font-medium text-gray-900">
                       {new Date(selectedTime).toLocaleString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -465,64 +921,78 @@ export default function PublicBookingPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Camera className="h-5 w-5 mt-0.5" style={{ color: brand.primaryColor }} />
                   <div>
-                    <div className="text-sm text-gray-600">Service</div>
-                    <div className="font-medium">{selectedService?.name}</div>
+                    <div className="text-xs text-gray-400">Service</div>
+                    <div className="font-medium text-gray-900">
+                      {selectedService?.name}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Phone className="h-5 w-5 mt-0.5" style={{ color: brand.primaryColor }} />
                   <div>
-                    <div className="text-sm text-gray-600">Contact</div>
-                    <div className="font-medium">{customerData.phone}</div>
-                    {customerData.email && <div className="text-sm text-gray-500">{customerData.email}</div>}
+                    <div className="text-xs text-gray-400">Contact</div>
+                    <div className="font-medium text-gray-900">
+                      {customerData.phone}
+                    </div>
+                    {customerData.email && (
+                      <div className="text-sm text-gray-500">
+                        {customerData.email}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </Card>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+            <div
+              className="rounded-xl p-4 text-sm text-left"
+              style={{
+                backgroundColor: brand.primaryColor + '10',
+                color: brand.primaryColor,
+              }}
+            >
               <strong>What happens next?</strong>
-              <p className="mt-1">
-                The studio will review your booking and contact you at {customerData.phone} to confirm availability and provide any additional details.
+              <p className="mt-1 opacity-80">
+                The studio will review your booking and contact you at{' '}
+                {customerData.phone} to confirm availability and provide details.
               </p>
             </div>
 
-            <Button 
-              variant="outline" 
-              className="mt-6"
-              onClick={() => {
-                setStep(1);
-                setSelectedService(null);
-                setSelectedDate('');
-                setSelectedTime('');
-                setBookingId('');
-                setCustomerData({ name: '', email: '', phone: '', notes: '' });
-              }}
+            <button
+              onClick={resetBooking}
+              className="mt-6 px-6 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
             >
               Book Another Session
-            </Button>
+            </button>
           </div>
         )}
 
-        {/* Portfolio Section */}
+        {/* ============================================================== */}
+        {/*  Portfolio Section (Step 1 only)                                */}
+        {/* ============================================================== */}
         {step === 1 && studio.portfolioItems.length > 0 && (
           <div className="mt-16">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Our Work</h2>
-            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {studio.portfolioItems.map((item) => (
-                <div key={item.id} className="relative group overflow-hidden rounded-lg aspect-square">
+                <div
+                  key={item.id}
+                  className="relative group overflow-hidden rounded-xl aspect-square"
+                >
                   <img
                     src={item.imageUrl}
                     alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                       <div className="font-semibold">{item.title}</div>
                       {item.category && (
-                        <div className="text-xs text-gray-200">{item.category}</div>
+                        <div className="text-xs text-gray-200 mt-0.5">
+                          {item.category}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -533,16 +1003,29 @@ export default function PublicBookingPage() {
         )}
       </div>
 
-      {/* Footer */}
+      {/* ------------------------------------------------------------------ */}
+      {/*  Footer                                                            */}
+      {/* ------------------------------------------------------------------ */}
       <footer className="bg-white border-t mt-16 py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center text-gray-600 text-sm">
-          <p>&copy; {new Date().getFullYear()} {studio.name}. All rights reserved.</p>
+        <div className="max-w-6xl mx-auto px-4 text-center text-gray-500 text-sm">
+          <p>
+            &copy; {new Date().getFullYear()} {studio.name}. All rights
+            reserved.
+          </p>
           <div className="flex items-center justify-center gap-4 mt-2">
-            <a href={`mailto:${studio.email}`} className="hover:text-blue-600">
+            <a
+              href={`mailto:${studio.email}`}
+              className="transition-colors"
+              style={{ color: brand.primaryColor }}
+            >
               {studio.email}
             </a>
-            <span>•</span>
-            <a href={`tel:${studio.phone}`} className="hover:text-blue-600">
+            <span className="text-gray-300">&bull;</span>
+            <a
+              href={`tel:${studio.phone}`}
+              className="transition-colors"
+              style={{ color: brand.primaryColor }}
+            >
               {studio.phone}
             </a>
           </div>

@@ -5,6 +5,7 @@ import {
   UploadedFile,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -16,13 +17,7 @@ import {
   ApiConsumes,
   ApiBearerAuth,
 } from "@nestjs/swagger";
-
-interface UserPayload {
-  id: string;
-  email: string;
-  role?: string;
-  studioId?: string;
-}
+import { UserPayload } from "../common/interfaces/user-payload.interface";
 
 @ApiTags("upload")
 @ApiBearerAuth()
@@ -43,11 +38,11 @@ export class UploadController {
       throw new BadRequestException("No file uploaded");
     }
 
-    if (!user.studioId) {
-      throw new BadRequestException("User must belong to a studio");
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
     }
 
-    const url = await this.uploadService.uploadStudioLogo(user.studioId, file);
+    const url = await this.uploadService.uploadStudioLogo(user.studioId!, file);
     return { url };
   }
 
@@ -63,12 +58,35 @@ export class UploadController {
       throw new BadRequestException("No file uploaded");
     }
 
-    if (!user.studioId) {
-      throw new BadRequestException("User must belong to a studio");
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
     }
 
     const url = await this.uploadService.uploadPortfolioImage(
-      user.studioId,
+      user.studioId!,
+      file,
+    );
+    return { url };
+  }
+
+  @Post("service-cover")
+  @ApiOperation({ summary: "Upload service cover image" })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadServiceCover(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: UserPayload,
+  ) {
+    if (!file) {
+      throw new BadRequestException("No file uploaded");
+    }
+
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+
+    const url = await this.uploadService.uploadServiceCover(
+      user.studioId!,
       file,
     );
     return { url };

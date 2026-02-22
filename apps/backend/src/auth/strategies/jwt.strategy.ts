@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { PrismaService } from "../../prisma/prisma.service";
+import { UserPayload } from "../../common/interfaces/user-payload.interface";
 
 export interface JwtPayload {
   sub: string;
@@ -29,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload): Promise<UserPayload> {
     if (payload.type === "admin") {
       const admin = await this.prisma.admin.findUnique({
         where: { id: payload.sub },
@@ -44,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         email: admin.email,
         name: admin.name,
         type: "admin",
+        isAdmin: true,
       };
     } else if (payload.type === "user") {
       const user = await this.prisma.user.findUnique({
@@ -55,8 +57,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException("User not found or inactive");
       }
 
-      if (user.studio.status !== "ACTIVE") {
-        throw new UnauthorizedException("Studio is not active");
+      if (user.studio.status !== "ACTIVE" && user.studio.status !== "TRIAL") {
+        throw new UnauthorizedException(`Studio is ${user.studio.status.toLowerCase()}`);
+      }
+
+      if (
+        user.studio.subscriptionExpiresAt &&
+        new Date(user.studio.subscriptionExpiresAt) < new Date()
+      ) {
+        throw new UnauthorizedException("Studio subscription has expired");
       }
 
       return {
@@ -67,6 +76,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         studioId: user.studioId,
         studio: user.studio,
         type: "user",
+        isAdmin: false,
       };
     }
 

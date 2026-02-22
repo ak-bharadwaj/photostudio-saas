@@ -17,14 +17,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
-
-interface UserPayload {
-  id: string;
-  email: string;
-  role?: "OWNER" | "PHOTOGRAPHER" | "ASSISTANT";
-  studioId?: string;
-  isAdmin?: boolean;
-}
+import { UserPayload } from "../common/interfaces/user-payload.interface";
 
 @Controller("studios")
 @UseGuards(RolesGuard)

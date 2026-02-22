@@ -16,14 +16,7 @@ import { CreatePaymentDto } from "./dto/payment.dto";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
-
-interface UserPayload {
-  id: string;
-  email: string;
-  role?: "OWNER" | "PHOTOGRAPHER" | "ASSISTANT";
-  studioId?: string;
-  isAdmin?: boolean;
-}
+import { UserPayload } from "../common/interfaces/user-payload.interface";
 
 @Controller("payments")
 @UseGuards(RolesGuard)
@@ -38,10 +31,10 @@ export class PaymentController {
     @Body() createPaymentDto: CreatePaymentDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.create(createPaymentDto, user.studioId);
+    return this.paymentService.create(createPaymentDto, user.studioId!);
   }
 
   @Get()
@@ -50,22 +43,22 @@ export class PaymentController {
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("paymentMethod") paymentMethod?: string,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
     const params = {
       limit,
       paymentMethod,
     };
-    return this.paymentService.findAll(user.studioId, params);
+    return this.paymentService.findAll(user.studioId!, params);
   }
 
   @Get("stats")
   getStats(@CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.getStats(user.studioId);
+    return this.paymentService.getStats(user.studioId!);
   }
 
   @Get("invoice/:invoiceId")
@@ -73,26 +66,26 @@ export class PaymentController {
     @Param("invoiceId") invoiceId: string,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.findAllByInvoice(invoiceId, user.studioId);
+    return this.paymentService.findAllByInvoice(invoiceId, user.studioId!);
   }
 
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.findOne(id, user.studioId);
+    return this.paymentService.findOne(id, user.studioId!);
   }
 
   @Delete(":id")
   @Roles("OWNER") // Only owners can delete payments
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId) {
+    if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.remove(id, user.studioId);
+    return this.paymentService.remove(id, user.studioId!);
   }
 }

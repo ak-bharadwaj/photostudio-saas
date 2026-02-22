@@ -78,3 +78,22 @@ export class UpdateBookingStatusDto {
   @Transform(({ value }) => value?.trim())
   notes?: string;
 }
+
+export class CreateInternalBookingDto {
+  @IsString()
+  @IsNotEmpty()
+  customerId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  serviceId: string;
+
+  @IsDateString()
+  @IsNotEmpty()
+  scheduledDate: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  notes?: string;
+}
