@@ -92,6 +92,9 @@ import configuration from "./config/configuration";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CsrfMiddleware).forRoutes("*");
+    consumer
+      .apply(CsrfMiddleware)
+      .exclude("public/(.*)")
+      .forRoutes("*");
   }
 }

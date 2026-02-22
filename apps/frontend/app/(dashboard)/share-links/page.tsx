@@ -96,6 +96,8 @@ export default function ShareLinksPage() {
   const [loading, setLoading] = useState(true);
   const [studioSlug, setStudioSlug] = useState('');
   const [studioName, setStudioName] = useState('');
+  const [services, setServices] = useState<any[]>([]);
+  const [branding, setBranding] = useState<any>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,6 +108,8 @@ export default function ShareLinksPage() {
         const res = await studiosApi.getOne(user.studioId);
         setStudioSlug(res.data.slug);
         setStudioName(res.data.name);
+        setServices(res.data.services || []);
+        setBranding(res.data.brandingConfig);
       } catch {
         addToast('error', 'Failed to load studio data');
       } finally {
@@ -126,6 +130,7 @@ export default function ShareLinksPage() {
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const bookingUrl = `${origin}/studio/${studioSlug}`;
+  const primaryColor = branding?.primaryColor || '#1a73e8';
   const qrSize = 280;
 
   const handleDownloadQR = async () => {
@@ -181,7 +186,7 @@ export default function ShareLinksPage() {
     {
       name: 'SMS',
       icon: Smartphone,
-      color: '#1a73e8',
+      color: 'var(--primary)',
       url: `sms:?body=${encodeURIComponent(`Book your photography session with ${studioName}: ${bookingUrl}`)}`,
     },
   ];
@@ -217,7 +222,7 @@ export default function ShareLinksPage() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <div className="flex-1 px-3 py-2.5 bg-[var(--surface-1)] rounded-[var(--radius-md)] border border-[var(--border)] font-mono text-sm text-[var(--foreground)] truncate">
-                  {bookingUrl}
+                  {studioSlug ? bookingUrl : 'Loading link...'}
                 </div>
                 <CopyButton text={bookingUrl} label="Copy Link" />
               </div>
@@ -306,16 +311,16 @@ export default function ShareLinksPage() {
                   </label>
                   <div className="relative">
                     <pre className="px-3 py-2.5 bg-[var(--surface-1)] rounded-[var(--radius-md)] border border-[var(--border)] font-mono text-xs text-[var(--foreground-secondary)] overflow-x-auto whitespace-pre">
-{`<a href="${bookingUrl}" target="_blank"
+                      {`<a href="${bookingUrl}" target="_blank"
   style="display:inline-block;padding:12px 24px;
-  background:#1a73e8;color:#fff;border-radius:8px;
+  background:${primaryColor};color:#fff;border-radius:8px;
   text-decoration:none;font-weight:600;">
   Book a Session
 </a>`}
                     </pre>
                     <div className="absolute top-2 right-2">
                       <CopyButton
-                        text={`<a href="${bookingUrl}" target="_blank" style="display:inline-block;padding:12px 24px;background:#1a73e8;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Book a Session</a>`}
+                        text={`<a href="${bookingUrl}" target="_blank" style="display:inline-block;padding:12px 24px;background:${primaryColor};color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Book a Session</a>`}
                       />
                     </div>
                   </div>
@@ -327,7 +332,7 @@ export default function ShareLinksPage() {
                   </label>
                   <div className="relative">
                     <pre className="px-3 py-2.5 bg-[var(--surface-1)] rounded-[var(--radius-md)] border border-[var(--border)] font-mono text-xs text-[var(--foreground-secondary)] overflow-x-auto whitespace-pre">
-{`<iframe src="${bookingUrl}"
+                      {`<iframe src="${bookingUrl}"
   width="100%" height="800"
   frameborder="0"></iframe>`}
                     </pre>
@@ -338,6 +343,86 @@ export default function ShareLinksPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+          {/* Deep Links Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-5 w-5 text-[var(--primary)]" />
+                <CardTitle>Direct Service Links</CardTitle>
+              </div>
+              <CardDescription>
+                Share direct links to a specific service or occasion.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Services */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-[var(--foreground-tertiary)] uppercase tracking-wider">
+                    By Service
+                  </h4>
+                  <div className="space-y-2">
+                    {services.length > 0 ? (
+                      services.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-0)] hover:bg-[var(--surface-1)] transition-colors">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-[var(--foreground)] truncate">{s.name}</div>
+                            <div className="text-xs text-[var(--foreground-tertiary)] font-mono truncate">?service={s.id}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`${bookingUrl}?service=${s.id}`, '_blank')}
+                              leftIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                              className="h-9 px-3"
+                            >
+                              Test
+                            </Button>
+                            <CopyButton
+                              text={`${bookingUrl}?service=${s.id}`}
+                              label="Link"
+                            />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-[var(--foreground-tertiary)] italic">No services created yet.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Occasions */}
+                {Array.from(new Set(services.map(s => s.occasion).filter(Boolean))).length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+                    <h4 className="text-xs font-semibold text-[var(--foreground-tertiary)] uppercase tracking-wider">
+                      By Category
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(new Set(services.map(s => s.occasion).filter(Boolean))).map((occasion: any) => (
+                        <div key={occasion} className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-0)]">
+                          <span className="text-sm font-medium text-[var(--foreground)]">{occasion}</span>
+                          <div className="flex items-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(`${bookingUrl}?occasion=${encodeURIComponent(occasion)}`, '_blank')}
+                              className="h-7 w-7 p-0 text-[var(--foreground-tertiary)] hover:text-[var(--primary)]"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                            <CopyButton
+                              text={`${bookingUrl}?occasion=${encodeURIComponent(occasion)}`}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

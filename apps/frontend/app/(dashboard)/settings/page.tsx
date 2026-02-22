@@ -46,6 +46,7 @@ export default function SettingsPage() {
     zipCode: '',
     website: '',
     description: '',
+    slug: '',
   });
 
   useEffect(() => {
@@ -57,12 +58,12 @@ export default function SettingsPage() {
       setIsLoading(true);
       const response = await authApi.me();
       const userData = response.data.user;
-      
+
       if (userData.studioId) {
         const studioResponse = await studiosApi.getOne(userData.studioId);
         const studioData = studioResponse.data;
         setStudio(studioData);
-        
+
         // Populate form
         setFormData({
           name: studioData.name || '',
@@ -74,6 +75,7 @@ export default function SettingsPage() {
           zipCode: studioData.zipCode || '',
           website: studioData.website || '',
           description: studioData.description || '',
+          slug: studioData.slug || '',
         });
       }
     } catch (error) {
@@ -91,7 +93,7 @@ export default function SettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!studio) {
       addToast('error', 'Studio not found');
       return;
@@ -112,6 +114,9 @@ export default function SettingsPage() {
       setIsSaving(true);
       await studiosApi.update(studio.id, formData);
       addToast('success', 'Settings saved successfully');
+      if (formData.slug !== studio.slug) {
+        addToast('warning', 'Studio URL has changed. Old links are now invalid.');
+      }
       loadStudio(); // Reload to get updated data
     } catch (error: any) {
       console.error('Failed to save settings:', error);
@@ -209,16 +214,28 @@ export default function SettingsPage() {
                 <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-1">
                   Studio Slug (URL)
                 </label>
-                <Input
-                  id="slug"
-                  name="slug"
-                  type="text"
-                  value={studio.slug}
-                  disabled
-                  className="bg-gray-100"
-                />
+                <div className="flex items-center">
+                  <span className="inline-flex items-center px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                    /studio/
+                  </span>
+                  <Input
+                    id="slug"
+                    name="slug"
+                    type="text"
+                    value={formData.slug}
+                    onChange={(e) => {
+                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                      setFormData(prev => ({ ...prev, slug: value }));
+                    }}
+                    className="rounded-l-none"
+                    placeholder="my-awesome-studio"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-amber-600 font-medium">
+                  Warning: Changing this will break existing links and QR codes.
+                </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Your booking page: /studio/{studio.slug}
+                  Your current link: /studio/{studio.slug}
                 </p>
               </div>
             </div>

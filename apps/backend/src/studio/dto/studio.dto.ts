@@ -80,6 +80,16 @@ export class UpdateStudioDto {
   @Transform(({ value }) => value?.trim())
   name?: string;
 
+  @IsString()
+  @IsOptional()
+  @Matches(/^[a-z0-9-]+$/, {
+    message: "Slug must contain only lowercase letters, numbers, and hyphens",
+  })
+  @MinLength(3)
+  @MaxLength(50)
+  @Transform(({ value }) => value?.trim().toLowerCase())
+  slug?: string;
+
   @IsEmail()
   @IsOptional()
   @Transform(({ value }) => value?.trim().toLowerCase())

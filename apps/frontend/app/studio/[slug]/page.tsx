@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -263,6 +263,7 @@ function OccasionCard({
 
 export default function PublicBookingPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const { addToast } = useToast();
   const [studio, setStudio] = useState<Studio | null>(null);
   const [loading, setLoading] = useState(true);
@@ -320,7 +321,34 @@ export default function PublicBookingPage() {
   const loadStudio = async () => {
     try {
       const response = await axios.get(`${API_URL}/public/studios/${params.slug}`);
-      setStudio(response.data);
+      const studioData = response.data;
+      setStudio(studioData);
+
+      // Handle deep links
+      const serviceId = searchParams.get('service');
+      const occasion = searchParams.get('occasion');
+
+      if (serviceId && studioData.services) {
+        const service = studioData.services.find((s: any) => s.id === serviceId);
+        if (service) {
+          setSelectedService(service);
+          setStep(2);
+        }
+      }
+
+      // Delay scroll to allow render
+      if (occasion) {
+        setTimeout(() => {
+          const element = document.getElementById(`occasion-${occasion.toLowerCase()}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            element.classList.add('ring-2', 'ring-[var(--primary)]', 'ring-offset-8', 'rounded-2xl');
+            setTimeout(() => {
+              element.classList.remove('ring-2', 'ring-[var(--primary)]', 'ring-offset-8');
+            }, 3000);
+          }
+        }, 500);
+      }
     } catch (error: any) {
       addToast('error', error.response?.data?.message || 'Studio not found');
     } finally {
@@ -411,11 +439,11 @@ export default function PublicBookingPage() {
   if (loading) return <LoadingPage message="Loading studio..." />;
   if (!studio)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Camera className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Studio Not Found</h1>
-          <p className="text-gray-600">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background-secondary)]">
+        <div className="text-center p-8">
+          <Camera className="h-16 w-16 text-[var(--foreground-tertiary)] mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-[var(--foreground)] mb-2">Studio Not Found</h1>
+          <p className="text-[var(--foreground-secondary)] max-w-sm">
             The studio you&apos;re looking for doesn&apos;t exist or is not accepting bookings.
           </p>
         </div>
@@ -430,7 +458,12 @@ export default function PublicBookingPage() {
   return (
     <div
       className="min-h-screen bg-[var(--background-secondary)]"
-      style={{ fontFamily: brand.fontFamily + ', sans-serif' }}
+      style={{
+        fontFamily: brand.fontFamily + ', sans-serif',
+        '--primary': brand.primaryColor,
+        '--primary-hover': brand.primaryColor + 'ee',
+        '--accent': brand.accentColor,
+      } as React.CSSProperties}
     >
       {/* ------------------------------------------------------------------ */}
       {/*  Header                                                            */}
@@ -516,7 +549,11 @@ export default function PublicBookingPage() {
             {hasOccasions ? (
               <div className="space-y-10">
                 {Object.entries(occasionGroups).map(([occasion, services]) => (
-                  <div key={occasion}>
+                  <div
+                    key={occasion}
+                    id={`occasion-${occasion.toLowerCase()}`}
+                    className="space-y-6 pt-8 first:pt-0 transition-all duration-1000"
+                  >
                     <h3
                       className="text-lg font-semibold mb-4 flex items-center gap-2"
                       style={{ color: brand.primaryColor }}
@@ -571,7 +608,7 @@ export default function PublicBookingPage() {
               Change Service
             </button>
 
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6">
               Pick a Date & Time
             </h2>
 
@@ -881,9 +918,9 @@ export default function PublicBookingPage() {
           <div className="animate-fade-in max-w-2xl mx-auto text-center">
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
-              style={{ backgroundColor: '#dcfce7' }}
+              style={{ backgroundColor: 'var(--success-light)' }}
             >
-              <Check className="h-10 w-10 text-green-600" />
+              <Check className="h-10 w-10 text-[var(--success)]" />
             </div>
             <h2 className="text-3xl font-bold text-[var(--foreground)] mb-3">
               Booking Submitted!
@@ -900,7 +937,7 @@ export default function PublicBookingPage() {
             </p>
 
             <Card className="p-5 text-left mb-6">
-              <h3 className="font-semibold text-gray-900 mb-4">
+              <h3 className="font-semibold text-[var(--foreground)] mb-4">
                 Booking Details
               </h3>
               <div className="space-y-3">
@@ -962,7 +999,7 @@ export default function PublicBookingPage() {
 
             <button
               onClick={resetBooking}
-              className="mt-6 px-6 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              className="mt-6 px-6 py-2.5 rounded-xl border border-[var(--border)] text-[var(--foreground-secondary)] font-medium hover:bg-[var(--surface-1)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
             >
               Book Another Session
             </button>
@@ -990,7 +1027,7 @@ export default function PublicBookingPage() {
                     <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                       <div className="font-semibold">{item.title}</div>
                       {item.category && (
-                        <div className="text-xs text-gray-200 mt-0.5">
+                        <div className="text-xs text-white/80 mt-0.5">
                           {item.category}
                         </div>
                       )}

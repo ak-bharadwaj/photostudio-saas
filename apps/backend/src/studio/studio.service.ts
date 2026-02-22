@@ -19,7 +19,7 @@ export class StudioService {
     private prisma: PrismaService,
     private cacheService: CacheService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async create(dto: CreateStudioDto) {
     // Check if slug is already taken
@@ -205,6 +205,16 @@ export class StudioService {
 
     if (!studio) {
       throw new NotFoundException("Studio not found");
+    }
+
+    // Check if new slug is taken
+    if (dto.slug && dto.slug !== studio.slug) {
+      const existing = await this.prisma.studio.findUnique({
+        where: { slug: dto.slug },
+      });
+      if (existing) {
+        throw new ConflictException("Studio slug already exists");
+      }
     }
 
     const updated = await this.prisma.studio.update({
