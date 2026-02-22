@@ -7,40 +7,50 @@
 
 /* ----------------------------------------------------------------------------
    1. COLOR TOKENS (Light Mode)
-   Inspired by Google Material Design 3 — neutral palette with vibrant accents
+   Modern SaaS Palette: Zinc & Blue (High Contrast)
    ---------------------------------------------------------------------------- */
 :root {
-  /* --- Professional Slate & Indigo Palette --- */
+  /* --- Backgrounds --- */
   --background: #ffffff;
-  --background-secondary: #f8fafc;
-  --background-tertiary: #f1f5f9;
-  --foreground: #0f172a;
-  --foreground-secondary: #334155;
-  --foreground-tertiary: #64748b;
+  --background-secondary: #f9fafb;
+  --background-tertiary: #f3f4f6;
+
+  /* --- Main Foreground (Extreme Readability) --- */
+  --foreground: #09090b;
+  /* Deep Zinc/Charcoal */
+  --foreground-secondary: #3f3f46;
+  /* Zinc-600 */
+  --foreground-tertiary: #71717a;
+  /* Zinc-500 */
   --foreground-inverse: #ffffff;
 
   /* --- Surface Elevations --- */
   --surface-0: #ffffff;
-  --surface-1: #f8fafc;
-  --surface-2: #f1f5f9;
-  --surface-3: #e2e8f0;
+  --surface-1: #f9fafb;
+  --surface-2: #f3f4f6;
+  --surface-3: #e5e7eb;
 
   /* --- Border --- */
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
-  --border-focus: #4f46e5;
+  --border: #e4e4e7;
+  /* Zinc-200 */
+  --border-light: #f4f4f5;
+  /* Zinc-100 */
+  --border-focus: #2563eb;
+  /* Primary Focus */
 
-  /* --- Primary (Indigo Premium) --- */
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-active: #3730a3;
-  --primary-light: #eef2ff;
+  /* --- Primary (Professional Blue) --- */
+  --primary: #2563eb;
+  /* Blue-600 */
+  --primary-hover: #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-light: #eff6ff;
   --primary-foreground: #ffffff;
 
-  /* --- Secondary (Slate) --- */
-  --secondary: #475569;
-  --secondary-hover: #334155;
-  --secondary-light: #f1f5f9;
+  /* --- Secondary (Slate/Zinc Mix) --- */
+  --secondary: #18181b;
+  /* Zinc-900 */
+  --secondary-hover: #09090b;
+  --secondary-light: #f4f4f5;
   --secondary-foreground: #ffffff;
 
   /* --- Success (Emerald) --- */
@@ -66,19 +76,19 @@
   --info-light: #f0f9ff;
   --info-foreground: #0284c7;
 
-  /* --- Accent (Violet) --- */
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
-  --accent-light: #f5f3ff;
+  /* --- Accent (Violet/Indigo) --- */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-light: #eef2ff;
   --accent-foreground: #ffffff;
 
   /* --- Overlay --- */
-  --overlay: rgba(15, 23, 42, 0.5);
-  --overlay-light: rgba(15, 23, 42, 0.04);
+  --overlay: rgba(9, 9, 11, 0.4);
+  --overlay-light: rgba(9, 9, 11, 0.04);
 
   /* --- RGB variants (for rgba() usage in glassmorphism) --- */
-  --primary-rgb: 79, 70, 229;
-  --accent-rgb: 124, 58, 237;
+  --primary-rgb: 37, 99, 235;
+  --accent-rgb: 79, 70, 229;
 
   /* --- Radius --- */
   --radius-sm: 6px;
@@ -88,15 +98,16 @@
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
-  /* --- Shadows (Refined depth) --- */
+  /* --- Shadows (Refined depth/cleanliness) --- */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-  --shadow-focus: 0 0 0 3px rgba(79, 70, 229, 0.2);
-  --shadow-focus-danger: 0 0 0 3px rgba(225, 29, 72, 0.2);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.15);
+
+  --shadow-focus: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  --shadow-focus-danger: 0 0 0 4px rgba(225, 29, 72, 0.15);
 
   /* --- Transitions --- */
   --transition-fast: 150ms;
@@ -128,76 +139,85 @@
 
 /* ----------------------------------------------------------------------------
    2. DARK MODE TOKENS
+   Deep Night Palette: Dark Navy & Blue (High Legibility)
    ---------------------------------------------------------------------------- */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1a1a1a;
-    --background-secondary: #212121;
-    --background-tertiary: #292929;
-    --foreground: #e8eaed;
-    --foreground-secondary: #9aa0a6;
-    --foreground-tertiary: #5f6368;
-    --foreground-inverse: #1a1a1a;
+    --background: #020617;
+    /* Deep Night */
+    --background-secondary: #0f172a;
+    /* Slate-900 */
+    --background-tertiary: #1e293b;
+    /* Slate-800 */
 
-    --surface-0: #1a1a1a;
-    --surface-1: #212121;
-    --surface-2: #292929;
-    --surface-3: #333333;
+    --foreground: #f8fafc;
+    /* Ghost White */
+    --foreground-secondary: #cbd5e1;
+    /* Slate-300 */
+    --foreground-tertiary: #94a3b8;
+    /* Slate-400 */
+    --foreground-inverse: #020617;
 
-    --border: #3c4043;
-    --border-light: #333333;
-    --border-focus: #8ab4f8;
+    --surface-0: #020617;
+    --surface-1: #0f172a;
+    --surface-2: #1e293b;
+    --surface-3: #334155;
 
-    --primary: #8ab4f8;
-    --primary-hover: #aecbfa;
-    --primary-active: #669df6;
-    --primary-light: rgba(138, 180, 248, 0.12);
-    --primary-foreground: #1a1a1a;
+    --border: #1e293b;
+    --border-light: #0f172a;
+    --border-focus: #3b82f6;
 
-    --secondary: #9aa0a6;
-    --secondary-hover: #bdc1c6;
-    --secondary-light: #292929;
-    --secondary-foreground: #1a1a1a;
+    --primary: #3b82f6;
+    /* Blue-500 (High contrast in dark) */
+    --primary-hover: #60a5fa;
+    --primary-active: #2563eb;
+    --primary-light: rgba(59, 130, 246, 0.15);
+    --primary-foreground: #ffffff;
 
-    --success: #81c995;
-    --success-hover: #a8dab5;
-    --success-light: rgba(129, 201, 149, 0.12);
-    --success-foreground: #1a1a1a;
+    --secondary: #f8fafc;
+    --secondary-hover: #ffffff;
+    --secondary-light: #1e293b;
+    --secondary-foreground: #020617;
 
-    --warning: #fdd663;
-    --warning-hover: #fde293;
-    --warning-light: rgba(253, 214, 99, 0.12);
-    --warning-foreground: #1a1a1a;
+    --success: #10b981;
+    --success-hover: #34d399;
+    --success-light: rgba(16, 185, 129, 0.15);
+    --success-foreground: #020617;
 
-    --danger: #f28b82;
-    --danger-hover: #f6aca6;
-    --danger-light: rgba(242, 139, 130, 0.12);
-    --danger-foreground: #1a1a1a;
+    --warning: #f59e0b;
+    --warning-hover: #fbbf24;
+    --warning-light: rgba(245, 158, 11, 0.15);
+    --warning-foreground: #020617;
 
-    --info: #8ab4f8;
-    --info-light: rgba(138, 180, 248, 0.12);
-    --info-foreground: #8ab4f8;
+    --danger: #f43f5e;
+    --danger-hover: #fb7185;
+    --danger-light: rgba(244, 63, 94, 0.15);
+    --danger-foreground: #ffffff;
 
-    --accent: #b794f6;
-    --accent-hover: #c4a8f8;
-    --accent-light: rgba(183, 148, 246, 0.12);
-    --accent-foreground: #1a1a1a;
+    --info: #38bdf8;
+    --info-light: rgba(56, 189, 248, 0.15);
+    --info-foreground: #38bdf8;
 
-    --overlay: rgba(0, 0, 0, 0.7);
-    --overlay-light: rgba(255, 255, 255, 0.04);
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-light: rgba(129, 140, 248, 0.15);
+    --accent-foreground: #ffffff;
 
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
-    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-    --shadow-focus: 0 0 0 3px rgba(138, 180, 248, 0.3);
-    --shadow-focus-danger: 0 0 0 3px rgba(242, 139, 130, 0.3);
+    --overlay: rgba(0, 0, 0, 0.82);
+    --overlay-light: rgba(255, 255, 255, 0.05);
 
-    --sidebar-bg: #121218;
-    --sidebar-bg-hover: rgba(255, 255, 255, 0.06);
-    --sidebar-bg-active: rgba(255, 255, 255, 0.1);
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    --shadow-focus: 0 0 0 4px rgba(59, 130, 246, 0.3);
+    --shadow-focus-danger: 0 0 0 4px rgba(244, 63, 94, 0.3);
+
+    --sidebar-bg: #020617;
+    --sidebar-bg-hover: rgba(255, 255, 255, 0.05);
+    --sidebar-bg-active: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -663,13 +683,13 @@ body {
 
 /* Advanced Glassmorphism (Luxury Polish) */
 .glass-luxury {
-  background: rgba(var(--glass-base-rgb, 255, 255, 255), 0.7);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(var(--glass-border-rgb, 255, 255, 255), 0.2);
+  background: rgba(var(--glass-base-rgb, 255, 255, 255), 0.85);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(var(--glass-border-rgb, 255, 255, 255), 0.25);
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.05),
-    0 10px 15px -3px rgba(0, 0, 0, 0.05),
+    0 10px 15px -3px rgba(0, 0, 0, 0.07),
     inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
@@ -677,25 +697,33 @@ body {
   .glass-luxury {
     --glass-base-rgb: 15, 23, 42;
     --glass-border-rgb: 255, 255, 255;
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(15, 23, 42, 0.82);
+    border-color: rgba(255, 255, 255, 0.12);
   }
 }
 
 /* Premium Card (Luxury Variant) */
 .card-luxury {
-  background: rgba(var(--glass-base-rgb, 255, 255, 255), 0.7);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(var(--glass-border-rgb, 255, 255, 255), 0.2);
+  background: rgba(var(--glass-base-rgb, 255, 255, 255), 0.85);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(var(--glass-border-rgb, 255, 255, 255), 0.25);
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.05),
-    0 10px 15px -3px rgba(0, 0, 0, 0.05),
+    0 10px 15px -3px rgba(0, 0, 0, 0.07),
     inset 0 0 0 1px rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-xl);
   padding: 1.5rem;
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  .card-luxury {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(15, 23, 42, 0.82);
+  }
 }
 
 .card-luxury::before {

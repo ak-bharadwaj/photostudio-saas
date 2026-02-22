@@ -66,7 +66,7 @@ export default function CustomerPortalPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!phone && !email) {
       setError('Please enter your phone number or email');
       return;
@@ -122,36 +122,36 @@ export default function CustomerPortalPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { className: string }> = {
-      INQUIRY: { className: 'bg-gray-200 text-gray-800' },
-      QUOTED: { className: 'bg-blue-200 text-blue-800' },
-      CONFIRMED: { className: 'bg-green-200 text-green-800' },
-      IN_PROGRESS: { className: 'bg-yellow-200 text-yellow-800' },
-      COMPLETED: { className: 'bg-purple-200 text-purple-800' },
-      CANCELLED: { className: 'bg-red-200 text-red-800' },
-      DRAFT: { className: 'bg-gray-200 text-gray-800' },
-      SENT: { className: 'bg-blue-200 text-blue-800' },
-      PAID: { className: 'bg-green-200 text-green-800' },
-      PARTIALLY_PAID: { className: 'bg-yellow-200 text-yellow-800' },
-      OVERDUE: { className: 'bg-red-200 text-red-800' },
+    const variants: Record<string, { variant: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' }> = {
+      INQUIRY: { variant: 'default' },
+      QUOTED: { variant: 'info' },
+      CONFIRMED: { variant: 'success' },
+      IN_PROGRESS: { variant: 'warning' },
+      COMPLETED: { variant: 'secondary' },
+      CANCELLED: { variant: 'danger' },
+      DRAFT: { variant: 'default' },
+      SENT: { variant: 'info' },
+      PAID: { variant: 'success' },
+      PARTIALLY_PAID: { variant: 'warning' },
+      OVERDUE: { variant: 'danger' },
     };
     return variants[status] || variants.INQUIRY;
   };
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-[var(--background-secondary)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-[var(--border)] shadow-[var(--shadow-xl)]">
           <CardHeader>
-            <CardTitle className="text-2xl text-center">Customer Portal</CardTitle>
-            <p className="text-gray-500 text-center text-sm">
+            <CardTitle className="text-2xl text-center text-[var(--foreground)]">Customer Portal</CardTitle>
+            <p className="text-[var(--foreground-tertiary)] text-center text-sm">
               Access your bookings and invoices
             </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--foreground-secondary)] mb-1">
                   Phone Number
                 </label>
                 <Input
@@ -159,11 +159,12 @@ export default function CustomerPortalPage() {
                   placeholder="Enter your phone number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="bg-[var(--surface-0)] border-[var(--border)] focus:border-[var(--primary)]"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--foreground-secondary)] mb-1">
                   Email (Optional)
                 </label>
                 <Input
@@ -171,6 +172,7 @@ export default function CustomerPortalPage() {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="bg-[var(--surface-0)] border-[var(--border)] focus:border-[var(--primary)]"
                 />
               </div>
 
@@ -201,14 +203,14 @@ export default function CustomerPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--background-secondary)]">
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-[var(--background)] border-b border-[var(--border)] shadow-[var(--shadow-sm)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Welcome, {data.customer.name}</h1>
-              <p className="text-sm text-gray-500">{data.customer.phone}</p>
+              <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Welcome, {data.customer.name}</h1>
+              <p className="text-sm text-[var(--foreground-tertiary)]">{data.customer.phone}</p>
             </div>
             <Button
               variant="secondary"
@@ -227,26 +229,24 @@ export default function CustomerPortalPage() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
+        <div className="mb-6 border-b border-[var(--border)]">
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('bookings')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'bookings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'bookings'
+                ? 'border-[var(--primary)] text-[var(--primary)]'
+                : 'border-transparent text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] hover:border-[var(--border)]'
+                }`}
             >
               <Calendar className="inline-block mr-2 h-4 w-4" />
               My Bookings ({data.bookings.length})
             </button>
             <button
               onClick={() => setActiveTab('invoices')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'invoices'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'invoices'
+                ? 'border-[var(--primary)] text-[var(--primary)]'
+                : 'border-transparent text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] hover:border-[var(--border)]'
+                }`}
             >
               <FileText className="inline-block mr-2 h-4 w-4" />
               My Invoices ({data.invoices?.length || 0})
@@ -258,44 +258,44 @@ export default function CustomerPortalPage() {
         {activeTab === 'bookings' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {data.bookings.length === 0 ? (
-              <Card className="col-span-2">
+              <Card className="col-span-2 border-[var(--border)]">
                 <CardContent className="text-center py-12">
-                  <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-semibold text-gray-900">No bookings</h3>
-                  <p className="mt-1 text-sm text-gray-500">You don't have any bookings yet.</p>
+                  <Calendar className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
+                  <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">No bookings</h3>
+                  <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">You don't have any bookings yet.</p>
                 </CardContent>
               </Card>
             ) : (
               data.bookings.map((booking) => (
-                <Card key={booking.id}>
+                <Card key={booking.id} className="border-[var(--border)] hover:border-[var(--primary)] transition-colors shadow-sm">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-lg">{booking.service.name}</CardTitle>
-                        <p className="text-sm text-gray-500">{booking.studio.name}</p>
+                        <CardTitle className="text-lg text-[var(--foreground)] font-bold">{booking.service.name}</CardTitle>
+                        <p className="text-sm text-[var(--foreground-tertiary)]">{booking.studio.name}</p>
                       </div>
                       <Badge {...getStatusBadge(booking.status)}>{booking.status}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-4 w-4 text-gray-400" />
+                    <div className="flex items-center text-sm text-[var(--foreground-secondary)]">
+                      <Calendar className="mr-2 h-4 w-4 text-[var(--foreground-tertiary)]" />
                       <span>{formatDate(booking.scheduledAt)}</span>
                     </div>
 
-                    <div className="flex items-center text-sm">
-                      <Clock className="mr-2 h-4 w-4 text-gray-400" />
+                    <div className="flex items-center text-sm text-[var(--foreground-secondary)]">
+                      <Clock className="mr-2 h-4 w-4 text-[var(--foreground-tertiary)]" />
                       <span>{booking.service.durationMinutes} minutes</span>
                     </div>
 
-                    <div className="pt-3 border-t">
-                      <p className="text-lg font-semibold">${Number(booking.service.price).toFixed(2)}</p>
+                    <div className="pt-3 border-t border-[var(--border-light)]">
+                      <p className="text-lg font-bold text-[var(--foreground)] tabular-nums">${Number(booking.service.price).toFixed(2)}</p>
                     </div>
 
                     {booking.customerNotes && (
                       <div className="pt-2">
-                        <p className="text-xs text-gray-500">Notes:</p>
-                        <p className="text-sm text-gray-700">{booking.customerNotes}</p>
+                        <p className="text-xs text-[var(--foreground-tertiary)] uppercase tracking-wider font-semibold">Notes:</p>
+                        <p className="text-sm text-[var(--foreground-secondary)] mt-1">{booking.customerNotes}</p>
                       </div>
                     )}
                   </CardContent>
@@ -309,32 +309,32 @@ export default function CustomerPortalPage() {
         {activeTab === 'invoices' && (
           <div className="space-y-4">
             {data.invoices?.length === 0 ? (
-              <Card>
+              <Card className="col-span-2 border-[var(--border)]">
                 <CardContent className="text-center py-12">
-                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-semibold text-gray-900">No invoices</h3>
-                  <p className="mt-1 text-sm text-gray-500">You don't have any invoices yet.</p>
+                  <FileText className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
+                  <h3 className="mt-2 text-sm font-bold text-[var(--foreground)]">No invoices</h3>
+                  <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">You don't have any invoices yet.</p>
                 </CardContent>
               </Card>
             ) : (
               data.invoices?.map((invoice) => (
-                <Card key={invoice.id}>
+                <Card key={invoice.id} className="border-[var(--border)] hover:border-[var(--primary)] transition-colors shadow-sm">
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-gray-900">
+                          <h3 className="font-bold text-[var(--foreground)]">
                             Invoice #{invoice.invoiceNumber}
                           </h3>
                           <Badge {...getStatusBadge(invoice.status)}>{invoice.status}</Badge>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">{invoice.studio.name}</p>
-                        <div className="mt-2 flex items-center gap-4 text-sm">
-                          <span className="text-gray-500">
+                        <p className="text-sm text-[var(--foreground-tertiary)] mt-1">{invoice.studio.name}</p>
+                        <div className="mt-2 flex items-center gap-4 text-xs font-medium uppercase tracking-wider">
+                          <span className="text-[var(--foreground-tertiary)]">
                             Created: {formatDate(invoice.createdAt)}
                           </span>
                           {invoice.dueDate && (
-                            <span className="text-gray-500">
+                            <span className="text-[var(--foreground-tertiary)]">
                               Due: {formatDate(invoice.dueDate)}
                             </span>
                           )}
@@ -342,11 +342,11 @@ export default function CustomerPortalPage() {
                       </div>
 
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-[var(--foreground)] tabular-nums">
                           ${Number(invoice.total).toFixed(2)}
                         </p>
                         {invoice.payments.length > 0 && (
-                          <div className="mt-1 flex items-center text-sm text-green-600">
+                          <div className="mt-1 flex items-center justify-end text-sm text-[var(--success)] font-bold">
                             <CheckCircle className="mr-1 h-4 w-4" />
                             Paid: ${invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2)}
                           </div>

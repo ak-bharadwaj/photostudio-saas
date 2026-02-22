@@ -262,7 +262,7 @@ function BrandPreview({
         </div>
 
         {/* Body */}
-        <div className="bg-white p-6 space-y-4">
+        <div className="bg-[var(--surface-0)] p-6 space-y-4">
           <div className="space-y-2">
             <h4
               className="text-base font-semibold"
@@ -270,7 +270,7 @@ function BrandPreview({
             >
               Our Photography Services
             </h4>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-[var(--foreground-tertiary)]">
               Browse our occasions and book your session today.
             </p>
           </div>
@@ -280,7 +280,7 @@ function BrandPreview({
             {['Wedding', 'Portrait', 'Event'].map((name) => (
               <div
                 key={name}
-                className="rounded-[var(--radius-md)] border border-gray-200 p-3 text-center"
+                className="rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-center"
               >
                 <div
                   className="h-8 w-8 rounded-full mx-auto mb-2 flex items-center justify-center"
@@ -291,7 +291,7 @@ function BrandPreview({
                     style={{ color: branding.accentColor }}
                   />
                 </div>
-                <p className="text-xs font-medium text-gray-700">{name}</p>
+                <p className="text-xs font-medium text-[var(--foreground-secondary)]">{name}</p>
               </div>
             ))}
           </div>

@@ -131,7 +131,7 @@ function StepIndicator({
               <div
                 className={cn(
                   'w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all',
-                  currentStep >= s.num ? 'text-white' : 'bg-gray-200 text-gray-500',
+                  currentStep >= s.num ? 'text-white' : 'bg-[var(--surface-3)] text-[var(--foreground-tertiary)]',
                 )}
                 style={
                   currentStep >= s.num
@@ -147,8 +147,8 @@ function StepIndicator({
               </div>
               <span
                 className={cn(
-                  'hidden sm:inline text-sm font-medium',
-                  currentStep >= s.num ? 'text-gray-900' : 'text-gray-400',
+                  'hidden sm:inline text-sm font-bold tracking-tight',
+                  currentStep >= s.num ? 'text-[var(--foreground)]' : 'text-[var(--foreground-tertiary)]',
                 )}
               >
                 {s.label}
@@ -158,7 +158,7 @@ function StepIndicator({
               <div
                 className={cn('w-10 h-0.5 mx-2 rounded-full transition-colors')}
                 style={{
-                  backgroundColor: currentStep > s.num ? primaryColor : '#e5e7eb',
+                  backgroundColor: currentStep > s.num ? primaryColor : 'var(--border)',
                 }}
               />
             )}
@@ -190,9 +190,9 @@ function OccasionCard({
     <button
       onClick={onClick}
       className={cn(
-        'group relative overflow-hidden rounded-2xl border border-gray-200',
-        'bg-white text-left transition-all duration-300',
-        'hover:shadow-xl hover:-translate-y-1 hover:border-transparent',
+        'group relative overflow-hidden rounded-2xl border border-[var(--border)]',
+        'bg-[var(--background)] text-left transition-all duration-300',
+        'hover:shadow-xl hover:-translate-y-1 hover:border-[var(--primary)]',
         'focus:outline-none focus:ring-2 focus:ring-offset-2',
       )}
       style={{
@@ -231,16 +231,16 @@ function OccasionCard({
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 text-lg mb-1">
+        <h3 className="font-bold text-[var(--foreground)] text-lg mb-1 tracking-tight">
           {service.name}
         </h3>
         {service.description && (
-          <p className="text-gray-500 text-sm line-clamp-2 mb-3">
+          <p className="text-[var(--foreground-tertiary)] text-sm line-clamp-2 mb-3">
             {service.description}
           </p>
         )}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-gray-400 text-sm">
+          <div className="flex items-center gap-1 text-[var(--foreground-tertiary)] text-sm font-medium">
             <Clock className="h-4 w-4" />
             {service.durationMinutes} min
           </div>
@@ -429,7 +429,7 @@ export default function PublicBookingPage() {
 
   return (
     <div
-      className="min-h-screen bg-gray-50"
+      className="min-h-screen bg-[var(--background-secondary)]"
       style={{ fontFamily: brand.fontFamily + ', sans-serif' }}
     >
       {/* ------------------------------------------------------------------ */}
@@ -503,11 +503,11 @@ export default function PublicBookingPage() {
         {/* ============================================================== */}
         {step === 1 && (
           <div className="animate-fade-in">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-[var(--foreground)] tracking-tight">
                 What&apos;s the Occasion?
               </h2>
-              <p className="text-gray-500 mt-2">
+              <p className="text-[var(--foreground-tertiary)] mt-3 text-lg">
                 Choose from our photography services to get started.
               </p>
             </div>
@@ -576,9 +576,9 @@ export default function PublicBookingPage() {
             </h2>
 
             {/* Selected service summary */}
-            <Card className="p-5 mb-6">
+            <Card className="p-5 mb-6 border-[var(--border)] shadow-sm">
               <div
-                className="flex items-center gap-3 p-3 rounded-xl"
+                className="flex items-center gap-4 p-4 rounded-xl"
                 style={{ backgroundColor: brand.primaryColor + '10' }}
               >
                 {(() => {
@@ -586,17 +586,17 @@ export default function PublicBookingPage() {
                   return (
                     <div
                       className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: brand.primaryColor + '20' }}
+                      style={{ backgroundColor: brand.primaryColor + '25' }}
                     >
                       <Icon className="h-5 w-5" style={{ color: brand.primaryColor }} />
                     </div>
                   );
                 })()}
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-900">
+                  <div className="font-semibold text-[var(--foreground)]">
                     {selectedService.name}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-[var(--foreground-secondary)]">
                     {selectedService.durationMinutes} min
                   </div>
                 </div>
@@ -609,9 +609,9 @@ export default function PublicBookingPage() {
               </div>
             </Card>
 
-            <Card className="p-5">
+            <Card className="p-5 border-[var(--border)] bg-[var(--surface-0)] shadow-sm">
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Select Date
                 </label>
                 <input
@@ -620,7 +620,7 @@ export default function PublicBookingPage() {
                   onChange={(e) => handleDateChange(e.target.value)}
                   min={minDate}
                   max={maxDate}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent text-gray-900"
+                  className="w-full px-4 py-3 border border-[var(--border)] rounded-xl focus:ring-2 focus:border-transparent text-[var(--foreground)] bg-[var(--background)] font-medium"
                   style={{
                     '--tw-ring-color': brand.primaryColor,
                   } as React.CSSProperties}
@@ -629,11 +629,11 @@ export default function PublicBookingPage() {
 
               {selectedDate && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Available Times
                   </label>
                   {loadingSlots ? (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-[var(--foreground-tertiary)]">
                       <div
                         className="h-8 w-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-2"
                         style={{ borderColor: brand.primaryColor, borderTopColor: 'transparent' }}
@@ -641,7 +641,7 @@ export default function PublicBookingPage() {
                       Loading available times...
                     </div>
                   ) : timeSlots.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-[var(--foreground-tertiary)]">
                       No available slots for this date. Try another day.
                     </div>
                   ) : (
@@ -655,8 +655,8 @@ export default function PublicBookingPage() {
                             disabled={!slot.available}
                             className={cn(
                               'px-3 py-2 rounded-xl border font-medium text-sm transition-all',
-                              !slot.available && 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed',
-                              slot.available && !isSelected && 'bg-white text-gray-700 border-gray-200 hover:border-gray-400',
+                              !slot.available && 'bg-[var(--surface-1)] text-[var(--foreground-tertiary)] border-[var(--border)] cursor-not-allowed',
+                              slot.available && !isSelected && 'bg-[var(--surface-0)] text-[var(--foreground-secondary)] border-[var(--border)] hover:border-[var(--border-strong)]',
                               isSelected && 'text-white border-transparent shadow-md',
                             )}
                             style={
@@ -708,23 +708,23 @@ export default function PublicBookingPage() {
               Change Date & Time
             </button>
 
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6">
               Almost There!
             </h2>
 
             {/* Summary */}
-            <Card className="p-5 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">
+            <Card className="p-5 mb-6 border-[var(--border)] bg-[var(--surface-0)] shadow-sm">
+              <h3 className="font-semibold text-[var(--foreground)] mb-3">
                 Booking Summary
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Service</span>
-                  <span className="font-medium">{selectedService?.name}</span>
+                  <span className="text-[var(--foreground-tertiary)]">Service</span>
+                  <span className="font-medium text-[var(--foreground)]">{selectedService?.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Date</span>
-                  <span className="font-medium">
+                  <span className="text-[var(--foreground-tertiary)]">Date</span>
+                  <span className="font-medium text-[var(--foreground)]">
                     {new Date(selectedDate).toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
@@ -734,8 +734,8 @@ export default function PublicBookingPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Time</span>
-                  <span className="font-medium">
+                  <span className="text-[var(--foreground-tertiary)]">Time</span>
+                  <span className="font-medium text-[var(--foreground)]">
                     {new Date(selectedTime).toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -743,15 +743,15 @@ export default function PublicBookingPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Duration</span>
-                  <span className="font-medium">
+                  <span className="text-[var(--foreground-tertiary)]">Duration</span>
+                  <span className="font-medium text-[var(--foreground)]">
                     {selectedService?.durationMinutes} minutes
                   </span>
                 </div>
                 <div
-                  className="flex justify-between text-lg font-bold pt-2 border-t border-gray-100"
+                  className="flex justify-between text-lg font-bold pt-2 border-t border-[var(--border)]"
                 >
-                  <span>Total</span>
+                  <span className="text-[var(--foreground)]">Total</span>
                   <span style={{ color: brand.primaryColor }}>
                     ${Number(selectedService?.price).toFixed(2)}
                   </span>
@@ -763,8 +763,8 @@ export default function PublicBookingPage() {
             <Card className="p-5">
               <form onSubmit={handleSubmitBooking} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                    Full Name <span className="text-[var(--danger)]">*</span>
                   </label>
                   <input
                     type="text"
@@ -773,13 +773,13 @@ export default function PublicBookingPage() {
                     onChange={(e) =>
                       setCustomerData({ ...customerData, name: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent"
+                    className="w-full px-4 py-2.5 bg-[var(--surface-0)] text-[var(--foreground)] border border-[var(--border-strong)] rounded-xl focus:ring-2 focus:border-transparent"
                     placeholder="John Doe"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
                     Email (Optional)
                   </label>
                   <input
@@ -788,14 +788,14 @@ export default function PublicBookingPage() {
                     onChange={(e) =>
                       setCustomerData({ ...customerData, email: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent"
+                    className="w-full px-4 py-2.5 bg-[var(--surface-0)] text-[var(--foreground)] border border-[var(--border-strong)] rounded-xl focus:ring-2 focus:border-transparent"
                     placeholder="john@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                    Phone Number <span className="text-[var(--danger)]">*</span>
                   </label>
                   <input
                     type="tel"
@@ -804,13 +804,13 @@ export default function PublicBookingPage() {
                     onChange={(e) =>
                       setCustomerData({ ...customerData, phone: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent"
+                    className="w-full px-4 py-2.5 bg-[var(--surface-0)] text-[var(--foreground)] border border-[var(--border-strong)] rounded-xl focus:ring-2 focus:border-transparent"
                     placeholder="+1 234 567 8900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
                     Additional Notes (Optional)
                   </label>
                   <textarea
@@ -819,19 +819,19 @@ export default function PublicBookingPage() {
                       setCustomerData({ ...customerData, notes: e.target.value })
                     }
                     rows={3}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent resize-y"
+                    className="w-full px-4 py-2.5 bg-[var(--surface-0)] text-[var(--foreground)] border border-[var(--border-strong)] rounded-xl focus:ring-2 focus:border-transparent resize-y"
                     placeholder="Any special requests or requirements..."
                   />
                 </div>
 
                 {/* Terms & Conditions */}
                 {studio.defaultTerms && (
-                  <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <div className="border border-[var(--border)] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
                       <FileText className="h-4 w-4" />
                       Terms & Conditions
                     </div>
-                    <div className="max-h-40 overflow-y-auto text-xs text-gray-500 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">
+                    <div className="max-h-40 overflow-y-auto text-xs text-[var(--foreground-tertiary)] bg-[var(--surface-1)] rounded-lg p-3 whitespace-pre-wrap">
                       {studio.defaultTerms}
                     </div>
                     <label className="flex items-start gap-2 cursor-pointer">
@@ -839,10 +839,10 @@ export default function PublicBookingPage() {
                         type="checkbox"
                         checked={acceptedTerms}
                         onChange={(e) => setAcceptedTerms(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                        className="mt-0.5 h-4 w-4 rounded border-[var(--border-strong)]"
                         style={{ accentColor: brand.primaryColor }}
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-[var(--foreground-secondary)]">
                         I have read and agree to the terms and conditions.
                       </span>
                     </label>
@@ -885,16 +885,16 @@ export default function PublicBookingPage() {
             >
               <Check className="h-10 w-10 text-green-600" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+            <h2 className="text-3xl font-bold text-[var(--foreground)] mb-3">
               Booking Submitted!
             </h2>
-            <p className="text-gray-500 mb-2">
+            <p className="text-[var(--foreground-secondary)] mb-2">
               Thank you for choosing {studio.name}. We&apos;ll contact you shortly
               to confirm your appointment.
             </p>
-            <p className="text-sm text-gray-400 mb-8">
+            <p className="text-sm text-[var(--foreground-tertiary)] mb-8">
               Booking ID:{' '}
-              <span className="font-mono font-semibold text-gray-600">
+              <span className="font-mono font-semibold text-[var(--foreground-secondary)]">
                 {bookingId}
               </span>
             </p>
@@ -907,8 +907,8 @@ export default function PublicBookingPage() {
                 <div className="flex items-start gap-3">
                   <Calendar className="h-5 w-5 mt-0.5" style={{ color: brand.primaryColor }} />
                   <div>
-                    <div className="text-xs text-gray-400">Date & Time</div>
-                    <div className="font-medium text-gray-900">
+                    <div className="text-xs text-[var(--foreground-tertiary)]">Date & Time</div>
+                    <div className="font-medium text-[var(--foreground)]">
                       {new Date(selectedTime).toLocaleString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -923,8 +923,8 @@ export default function PublicBookingPage() {
                 <div className="flex items-start gap-3">
                   <Camera className="h-5 w-5 mt-0.5" style={{ color: brand.primaryColor }} />
                   <div>
-                    <div className="text-xs text-gray-400">Service</div>
-                    <div className="font-medium text-gray-900">
+                    <div className="text-xs text-[var(--foreground-tertiary)]">Service</div>
+                    <div className="font-medium text-[var(--foreground)]">
                       {selectedService?.name}
                     </div>
                   </div>
@@ -932,12 +932,12 @@ export default function PublicBookingPage() {
                 <div className="flex items-start gap-3">
                   <Phone className="h-5 w-5 mt-0.5" style={{ color: brand.primaryColor }} />
                   <div>
-                    <div className="text-xs text-gray-400">Contact</div>
-                    <div className="font-medium text-gray-900">
+                    <div className="text-xs text-[var(--foreground-tertiary)]">Contact</div>
+                    <div className="font-medium text-[var(--foreground)]">
                       {customerData.phone}
                     </div>
                     {customerData.email && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-[var(--foreground-secondary)]">
                         {customerData.email}
                       </div>
                     )}
@@ -974,7 +974,7 @@ export default function PublicBookingPage() {
         {/* ============================================================== */}
         {step === 1 && studio.portfolioItems.length > 0 && (
           <div className="mt-16">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Our Work</h2>
+            <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6">Our Work</h2>
             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {studio.portfolioItems.map((item) => (
                 <div
@@ -1006,8 +1006,8 @@ export default function PublicBookingPage() {
       {/* ------------------------------------------------------------------ */}
       {/*  Footer                                                            */}
       {/* ------------------------------------------------------------------ */}
-      <footer className="bg-white border-t mt-16 py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center text-gray-500 text-sm">
+      <footer className="bg-[var(--surface-0)] border-t border-[var(--border)] mt-16 py-8">
+        <div className="max-w-6xl mx-auto px-4 text-center text-[var(--foreground-tertiary)] text-sm">
           <p>
             &copy; {new Date().getFullYear()} {studio.name}. All rights
             reserved.
@@ -1020,7 +1020,7 @@ export default function PublicBookingPage() {
             >
               {studio.email}
             </a>
-            <span className="text-gray-300">&bull;</span>
+            <span className="text-[var(--border-strong)]">&bull;</span>
             <a
               href={`tel:${studio.phone}`}
               className="transition-colors"

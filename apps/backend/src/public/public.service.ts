@@ -59,7 +59,7 @@ export class PublicService {
       throw new NotFoundException("Studio not found");
     }
 
-    if (studio.status !== "ACTIVE") {
+    if (studio.status !== "ACTIVE" && studio.status !== "TRIAL") {
       throw new BadRequestException(
         "Studio is not accepting bookings at this time",
       );
@@ -81,7 +81,7 @@ export class PublicService {
       throw new NotFoundException("Studio not found");
     }
 
-    if (studio.status !== "ACTIVE") {
+    if (studio.status !== "ACTIVE" && studio.status !== "TRIAL") {
       throw new BadRequestException(
         "Studio is not accepting bookings at this time",
       );

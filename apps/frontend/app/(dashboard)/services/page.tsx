@@ -30,13 +30,13 @@ const OCCASION_OPTIONS = [
 ];
 
 interface Service {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   price: number;
-  duration?: number;
+  durationMinutes: number;
   isActive: boolean;
-  displayOrder: number;
+  sortOrder: number;
   occasion?: string;
   coverImage?: string;
 }
@@ -81,9 +81,9 @@ export default function ServicesPage() {
   const loadServices = async () => {
     try {
       setIsLoading(true);
-      const response = await servicesApi.getAll({ limit: 1000 });
-      const data = response.data?.data || [];
-      setServices([...data].sort((a: Service, b: Service) => (a.displayOrder || 0) - (b.displayOrder || 0)));
+      const response = await servicesApi.getAll({ includeInactive: true });
+      const data = response.data || [];
+      setServices([...data].sort((a: Service, b: Service) => (a.sortOrder || 0) - (b.sortOrder || 0)));
     } catch (error) {
       console.error('Failed to load services:', error);
       addToast('error', 'Failed to load services');
@@ -172,11 +172,11 @@ export default function ServicesPage() {
 
     try {
       setIsSubmitting(true);
-      await servicesApi.update(selectedService.id.toString(), {
+      await servicesApi.update(selectedService.id, {
         name: data.name,
         description: data.description,
         price: parseFloat(data.price),
-        durationMinutes: data.duration ? parseInt(data.duration) : undefined,
+        durationMinutes: data.duration ? parseInt(data.duration) : 0,
         occasion: data.occasion || undefined,
         coverImage: coverImageUrl || undefined,
       });
@@ -198,7 +198,7 @@ export default function ServicesPage() {
 
     try {
       setIsSubmitting(true);
-      await servicesApi.delete(selectedService.id.toString());
+      await servicesApi.delete(selectedService.id);
       addToast('success', 'Service deleted successfully');
       setIsDeleteModalOpen(false);
       setSelectedService(null);
@@ -212,7 +212,7 @@ export default function ServicesPage() {
 
   const handleToggleActive = async (service: Service) => {
     try {
-      await servicesApi.toggleActive(service.id.toString());
+      await servicesApi.toggleActive(service.id);
       addToast('success', `Service ${service.isActive ? 'deactivated' : 'activated'} successfully`);
       loadServices();
     } catch (error: any) {
@@ -226,7 +226,7 @@ export default function ServicesPage() {
       name: service.name,
       description: service.description || '',
       price: service.price.toString(),
-      duration: service.duration?.toString() || '',
+      duration: service.durationMinutes?.toString() || '',
       occasion: service.occasion || '',
     });
     setCoverImageUrl(service.coverImage || '');
@@ -247,11 +247,11 @@ export default function ServicesPage() {
 
   const renderCoverImageField = () => (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
         Cover Image (Optional)
       </label>
       {(coverImagePreview || coverImageUrl) ? (
-        <div className="relative rounded-lg overflow-hidden border border-gray-200">
+        <div className="relative rounded-lg overflow-hidden border border-[var(--border)]">
           <img
             src={coverImagePreview || coverImageUrl}
             alt="Cover preview"
@@ -260,9 +260,9 @@ export default function ServicesPage() {
           <button
             type="button"
             onClick={removeCoverImage}
-            className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1 shadow-sm"
+            className="absolute top-2 right-2 bg-[var(--surface-0)]/90 hover:bg-[var(--surface-0)] rounded-full p-1 shadow-sm"
           >
-            <X className="h-4 w-4 text-gray-600" />
+            <X className="h-4 w-4 text-[var(--foreground-secondary)]" />
           </button>
           {isUploadingCover && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -273,18 +273,18 @@ export default function ServicesPage() {
       ) : (
         <div
           onClick={() => coverFileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+          className="border-2 border-dashed border-[var(--border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-colors"
         >
           {isUploadingCover ? (
             <div className="flex flex-col items-center">
               <LoadingSpinner size="sm" />
-              <span className="mt-2 text-sm text-gray-500">Uploading...</span>
+              <span className="mt-2 text-sm text-[var(--foreground-tertiary)]">Uploading...</span>
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
-              <span className="text-sm text-gray-600">Click to upload cover image</span>
-              <span className="text-xs text-gray-400 mt-1">JPG, PNG, WebP up to 5MB</span>
+              <ImageIcon className="h-8 w-8 text-[var(--foreground-tertiary)] mb-2" />
+              <span className="text-sm text-[var(--foreground-secondary)]">Click to upload cover image</span>
+              <span className="text-xs text-[var(--foreground-tertiary)] mt-1">JPG, PNG, WebP up to 5MB</span>
             </div>
           )}
         </div>
@@ -309,13 +309,13 @@ export default function ServicesPage() {
       />
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
           Description (Optional)
         </label>
         <textarea
           {...register('description')}
           rows={3}
-          className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+          className="flex w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
           placeholder="Describe your service..."
         />
       </div>
@@ -340,12 +340,12 @@ export default function ServicesPage() {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
           Occasion Category
         </label>
         <select
           {...register('occasion')}
-          className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+          className="flex w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
         >
           {OCCASION_OPTIONS.map(option => (
             <option key={option.value} value={option.value}>
@@ -353,7 +353,7 @@ export default function ServicesPage() {
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-[var(--foreground-tertiary)]">
           Services with the same occasion are grouped together on your public booking page.
         </p>
       </div>
@@ -388,8 +388,8 @@ export default function ServicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Services</h1>
-          <p className="mt-2 text-gray-600">Manage your photography services and packages</p>
+          <h1 className="text-3xl font-bold text-[var(--foreground)] tracking-tight">Services</h1>
+          <p className="mt-2 text-[var(--foreground-secondary)]">Manage your photography services and packages</p>
         </div>
         <Button onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />
@@ -403,11 +403,11 @@ export default function ServicesPage() {
           <LoadingSpinner size="lg" />
         </div>
       ) : (services || []).length === 0 ? (
-        <Card>
+        <Card className="border-[var(--border)] bg-[var(--surface-0)]">
           <CardContent className="py-12">
             <div className="text-center">
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">No services</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by creating your first service.</p>
+              <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">No services</h3>
+              <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">Get started by creating your first service.</p>
               <Button className="mt-4" onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Service
@@ -443,33 +443,33 @@ export default function ServicesPage() {
                       )}
                     </div>
                   </div>
-                  <button className="text-gray-400 hover:text-gray-600 cursor-move">
+                  <button className="text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] cursor-move">
                     <GripVertical className="h-5 w-5" />
                   </button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {service.description && (
-                  <p className="text-sm text-gray-600">{service.description}</p>
+                  <p className="text-sm text-[var(--foreground-secondary)]">{service.description}</p>
                 )}
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Price</span>
-                    <span className="text-lg font-bold text-gray-900">
+                    <span className="text-sm text-[var(--foreground-tertiary)]">Price</span>
+                    <span className="text-lg font-bold text-[var(--foreground)]">
                       {formatCurrency(service.price)}
                     </span>
                   </div>
 
-                  {service.duration && (
+                  {service.durationMinutes && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Duration</span>
-                      <span className="text-sm text-gray-900">{service.duration} minutes</span>
+                      <span className="text-sm text-[var(--foreground-tertiary)]">Duration</span>
+                      <span className="text-sm text-[var(--foreground)]">{service.durationMinutes} minutes</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
                   <Button
                     variant="outline"
                     size="sm"
@@ -488,7 +488,7 @@ export default function ServicesPage() {
                     {service.isActive ? (
                       <ToggleRight className="h-5 w-5 text-green-600" />
                     ) : (
-                      <ToggleLeft className="h-5 w-5 text-gray-400" />
+                      <ToggleLeft className="h-5 w-5 text-[var(--foreground-tertiary)]" />
                     )}
                   </Button>
 
@@ -547,9 +547,9 @@ export default function ServicesPage() {
       >
         <div className="space-y-4">
           {selectedService && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="font-medium text-gray-900">{selectedService.name}</p>
-              <p className="text-sm text-gray-600 mt-1">{formatCurrency(selectedService.price)}</p>
+            <div className="bg-[var(--surface-1)] p-4 rounded-lg">
+              <p className="font-medium text-[var(--foreground)]">{selectedService.name}</p>
+              <p className="text-sm text-[var(--foreground-secondary)] mt-1">{formatCurrency(selectedService.price)}</p>
             </div>
           )}
 
