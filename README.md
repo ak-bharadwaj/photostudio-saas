@@ -16,6 +16,11 @@
 
 ---
 
+## 🚀 Quick Start
+Ready to get started? Follow our **[Setup Guide (SETUP.md)](file:///c:/Users/dorni/OneDrive/Desktop/worj/SETUP.md)** to get the platform running in under 5 minutes.
+
+---
+
 ## 🌟 Vision
 
 PhotoStudio SaaS is not just a tool; it's a comprehensive **Multi-Tenant Infrastructure** designed to scale with your studio. From solopreneurs to enterprise-level photography firms, our platform provides a unified workspace to manage bookings, clients, portfolios, and finances with surgical precision.
