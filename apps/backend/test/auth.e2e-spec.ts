@@ -32,14 +32,17 @@ describe("Authentication Flow (e2e)", () => {
         .post("/auth/admin/login")
         .send({
           email: "admin@photostudio.com",
-          password: "admin123",
+          password: "Admin@123",
         })
         .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveProperty("admin");
+          if (res.status !== 200) {
+            console.error('Admin Login Failed:', res.body);
+          }
+          expect(res.body).toHaveProperty("user");
           expect(res.body).toHaveProperty("accessToken");
           expect(res.body).toHaveProperty("refreshToken");
-          expect(res.body.admin.email).toBe("admin@photostudio.com");
+          expect(res.body.user.email).toBe("admin@photostudio.com");
         });
     });
 
@@ -58,7 +61,7 @@ describe("Authentication Flow (e2e)", () => {
         .post("/auth/admin/login")
         .send({
           email: "nonexistent@example.com",
-          password: "admin123",
+          password: "Admin@123",
         })
         .expect(401);
     });
@@ -68,7 +71,7 @@ describe("Authentication Flow (e2e)", () => {
         .post("/auth/admin/login")
         .send({
           email: "invalid-email",
-          password: "admin123",
+          password: "Admin@123",
         })
         .expect(400);
     });
@@ -79,26 +82,26 @@ describe("Authentication Flow (e2e)", () => {
 
     it("should login user with valid credentials", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/user/login")
+        .post("/auth/login")
         .send({
-          email: "owner@example.com",
-          password: "password123",
+          email: "owner@lensandlight.com",
+          password: "Demo@123",
         })
         .expect(200);
 
       expect(response.body).toHaveProperty("user");
       expect(response.body).toHaveProperty("accessToken");
       expect(response.body).toHaveProperty("refreshToken");
-      expect(response.body.user.email).toBe("owner@example.com");
+      expect(response.body.user.email).toBe("owner@lensandlight.com");
 
       accessToken = response.body.accessToken;
     });
 
     it("should reject user login with invalid credentials", () => {
       return request(app.getHttpServer())
-        .post("/auth/user/login")
+        .post("/auth/login")
         .send({
-          email: "owner@example.com",
+          email: "owner@lensandlight.com",
           password: "wrongpassword",
         })
         .expect(401);

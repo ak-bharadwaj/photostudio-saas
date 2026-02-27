@@ -91,6 +91,7 @@ export default function LoginPage() {
                 placeholder="name@studio.com"
                 error={errors.email?.message}
                 {...register('email')}
+                leftIcon={<Mail className="h-4 w-4" />}
                 className="h-12 bg-[var(--surface-0)] border-[var(--border-light)] focus:border-[var(--primary)] transition-colors"
               />
 
@@ -100,6 +101,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 error={errors.password?.message}
                 {...register('password')}
+                leftIcon={<Lock className="h-4 w-4" />}
                 className="h-12 bg-[var(--surface-0)] border-[var(--border-light)] focus:border-[var(--primary)] transition-colors"
               />
             </div>

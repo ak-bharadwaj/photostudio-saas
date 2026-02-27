@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,6 +15,8 @@ import {
   UpdateBookingDto,
   UpdateBookingStatusDto,
   CreateInternalBookingDto,
+  SendQuoteDto,
+  AcceptQuoteDto,
 } from "./dto/booking.dto";
 import { BookingStatus } from "@prisma/client";
 
@@ -31,7 +34,7 @@ export class BookingService {
     private queueService: QueueService,
     private pdfService: PdfService,
     private uploadService: UploadService,
-  ) { }
+  ) {}
   async createInternal(dto: CreateInternalBookingDto, studioId: string) {
     const studio = await this.prisma.studio.findUnique({
       where: { id: studioId },
@@ -44,7 +47,7 @@ export class BookingService {
     // Find service
     const service = await this.prisma.service.findFirst({
       where: {
-        id: parseInt(dto.serviceId),
+        id: dto.serviceId,
         studioId: studio.id,
       },
     });
@@ -56,7 +59,7 @@ export class BookingService {
     // Find customer
     const customer = await this.prisma.customer.findFirst({
       where: {
-        id: parseInt(dto.customerId),
+        id: dto.customerId,
         studioId: studio.id,
       },
     });
@@ -67,21 +70,7 @@ export class BookingService {
 
     // Check for schedule conflicts
     const scheduledAt = new Date(dto.scheduledDate);
-    const conflictingBooking = await this.prisma.booking.findFirst({
-      where: {
-        studioId: studio.id,
-        scheduledAt,
-        status: {
-          in: ["INQUIRY", "QUOTED", "CONFIRMED"],
-        },
-      },
-    });
-
-    if (conflictingBooking) {
-      throw new ConflictException(
-        "This time slot is already booked. Please choose another time.",
-      );
-    }
+    await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
 
     // Create booking
     const booking = await this.prisma.$transaction(async (tx) => {
@@ -112,11 +101,13 @@ export class BookingService {
       return newBooking;
     });
 
-    await this.cacheService.del(`studio:${studio.id}:bookings`);
-
+    await this.processStatusChangeSideEffects(
+      booking,
+      "CONFIRMED",
+      "Booking created manually by staff",
+    );
     return booking;
   }
-
 
   async create(dto: CreateBookingDto) {
     // Find studio by slug
@@ -147,21 +138,7 @@ export class BookingService {
 
     // Check for schedule conflicts
     const scheduledAt = new Date(dto.scheduledDate);
-    const conflictingBooking = await this.prisma.booking.findFirst({
-      where: {
-        studioId: studio.id,
-        scheduledAt,
-        status: {
-          in: ["INQUIRY", "QUOTED", "CONFIRMED"],
-        },
-      },
-    });
-
-    if (conflictingBooking) {
-      throw new ConflictException(
-        "This time slot is already booked. Please choose another time.",
-      );
-    }
+    await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
 
     // Find or create customer
     let customer = await this.prisma.customer.findFirst({
@@ -351,22 +328,16 @@ export class BookingService {
     // If changing scheduled date, check for conflicts
     if (dto.scheduledDate) {
       const newDate = new Date(dto.scheduledDate);
-      const conflict = await this.prisma.booking.findFirst({
-        where: {
-          studioId: booking.studioId,
-          scheduledAt: newDate,
-          status: {
-            in: ["INQUIRY", "QUOTED", "CONFIRMED"],
-          },
-          id: {
-            not: id,
-          },
-        },
+      const serviceId = dto.serviceId || booking.serviceId;
+      const service = await this.prisma.service.findUnique({
+        where: { id: serviceId },
       });
-
-      if (conflict) {
-        throw new ConflictException("This time slot is already booked");
-      }
+      await this.checkConflicts(
+        booking.studioId,
+        newDate,
+        service?.durationMinutes || 60,
+        id,
+      );
     }
 
     // Map DTO fields to correct Prisma fields
@@ -382,12 +353,17 @@ export class BookingService {
       include: {
         customer: true,
         service: true,
+        studio: true, // Need studio for notifications
         assignedTo: true,
       },
     });
 
-    // Invalidate cache
-    await this.cacheService.del(`studio:${booking.studioId}:bookings`);
+    if (dto.status && dto.status !== booking.status) {
+      await this.processStatusChangeSideEffects(updated, dto.status, dto.notes);
+    } else {
+      // Invalidate cache if status didn't change (if it did, side effects does it)
+      await this.cacheService.del(`studio:${booking.studioId}:bookings`);
+    }
 
     return updated;
   }
@@ -408,7 +384,6 @@ export class BookingService {
       throw new NotFoundException("Booking not found");
     }
 
-    // Update booking and create status log in transaction
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedBooking = await tx.booking.update({
         where: { id },
@@ -420,7 +395,6 @@ export class BookingService {
         },
       });
 
-      // Create status log
       await tx.bookingStatusLog.create({
         data: {
           bookingId: id,
@@ -432,13 +406,22 @@ export class BookingService {
       return updatedBooking;
     });
 
+    await this.processStatusChangeSideEffects(updated, dto.status, dto.notes);
+    return updated;
+  }
+
+  private async processStatusChangeSideEffects(
+    booking: any,
+    status: BookingStatus,
+    notes?: string,
+  ) {
     // Invalidate cache
     await this.cacheService.del(`studio:${booking.studioId}:bookings`);
 
     // Handle contract generation if confirmed
-    if (dto.status === "CONFIRMED") {
+    if (status === "CONFIRMED") {
       try {
-        const fullBooking = await this.findOne(id, booking.studioId);
+        const fullBooking = await this.findOne(booking.id, booking.studioId);
 
         const pdfBuffer = await this.pdfService.generateContractPdf({
           studioName: fullBooking.studio.name,
@@ -463,27 +446,29 @@ export class BookingService {
         );
 
         await this.prisma.booking.update({
-          where: { id },
+          where: { id: booking.id },
           data: { contractUrl },
         });
 
-        this.logger.log(`Contract generated and uploaded for booking ${id}`);
+        this.logger.log(
+          `Contract generated and uploaded for booking ${booking.id}`,
+        );
       } catch (error: any) {
         this.logger.error("Failed to generate/upload contract:", error.stack);
       }
     }
 
     // Send status update email to customer
-    if (updated.customer.email) {
+    if (booking.customer.email) {
       try {
         await this.notificationService.sendBookingStatusUpdate({
-          to: updated.customer.email,
-          customerName: updated.customer.name,
-          studioName: updated.studio.name,
-          serviceName: updated.service.name,
-          scheduledDate: updated.scheduledAt,
-          newStatus: dto.status,
-          notes: dto.notes,
+          to: booking.customer.email,
+          customerName: booking.customer.name,
+          studioName: booking.studio.name,
+          serviceName: booking.service.name,
+          scheduledDate: booking.scheduledAt,
+          newStatus: status,
+          notes: notes,
         });
       } catch (error: any) {
         this.logger.error("Failed to send status update email:", error.stack);
@@ -492,27 +477,26 @@ export class BookingService {
 
     // Schedule automated emails based on status change
     try {
-      if (dto.status === "CONFIRMED") {
-        // Schedule reminder email for 1 day before the booking
+      if (status === "CONFIRMED") {
         await this.queueService.scheduleBookingReminder(
-          updated.id,
-          updated.scheduledAt,
+          booking.id,
+          booking.scheduledAt,
         );
-        this.logger.log(`[Queue] Scheduled booking reminder for booking ${id}`);
-      } else if (dto.status === "COMPLETED") {
-        // Schedule follow-up email for 1 day after completion
-        await this.queueService.scheduleFollowUpEmail(updated.id);
-        this.logger.log(`[Queue] Scheduled follow-up email for booking ${id}`);
+        this.logger.log(
+          `[Queue] Scheduled booking reminder for booking ${booking.id}`,
+        );
+      } else if (status === "COMPLETED") {
+        await this.queueService.scheduleFollowUpEmail(booking.id);
+        this.logger.log(
+          `[Queue] Scheduled follow-up email for booking ${booking.id}`,
+        );
       }
     } catch (error: any) {
-      // Log error but don't fail the status update
       this.logger.error(
         "[Queue] Failed to schedule automated email:",
         error.stack,
       );
     }
-
-    return updated;
   }
 
   async cancel(id: string, notes?: string, studioId?: string) {
@@ -555,9 +539,7 @@ export class BookingService {
       return updated;
     });
 
-    // Invalidate cache
-    await this.cacheService.del(`studio:${booking.studioId}:bookings`);
-
+    await this.processStatusChangeSideEffects(cancelled, "CANCELLED", notes);
     return cancelled;
   }
 
@@ -585,5 +567,175 @@ export class BookingService {
         },
       },
     });
+  }
+
+  async sendQuote(id: string, studioId: string, dto: SendQuoteDto) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id, studioId },
+    });
+
+    if (!booking) throw new NotFoundException("Booking not found");
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const b = await tx.booking.update({
+        where: { id },
+        data: {
+          status: "QUOTED",
+          quoteAmount: dto.amount,
+          quoteNotes: dto.notes,
+          quotedAt: new Date(),
+        },
+        include: { customer: true, studio: true, service: true },
+      });
+
+      await tx.bookingStatusLog.create({
+        data: {
+          bookingId: id,
+          status: "QUOTED",
+          notes: `Quote sent: $${dto.amount}. ${dto.notes || ""}`,
+        },
+      });
+
+      return b;
+    });
+
+    await this.cacheService.del(`studio:${studioId}:bookings`);
+    return updated;
+  }
+
+  async acceptQuote(id: string, userId: string) {
+    // Find customer linked to this user
+    const customer = await this.prisma.customer.findFirst({
+      where: { globalUserId: userId },
+    });
+    if (!customer)
+      throw new ForbiddenException("No customer record found for this user");
+
+    const booking = await this.prisma.booking.findFirst({
+      where: { id, customerId: customer.id },
+    });
+
+    if (!booking) throw new NotFoundException("Booking not found");
+    if (booking.status !== "QUOTED")
+      throw new BadRequestException("Only quoted bookings can be accepted");
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const b = await tx.booking.update({
+        where: { id },
+        data: {
+          status: "CONFIRMED",
+          quoteAcceptedAt: new Date(),
+        },
+        include: { customer: true, studio: true, service: true },
+      });
+
+      await tx.bookingStatusLog.create({
+        data: {
+          bookingId: id,
+          status: "CONFIRMED",
+          notes: `Quote accepted by customer`,
+        },
+      });
+
+      return b;
+    });
+
+    await this.processStatusChangeSideEffects(
+      updated,
+      "CONFIRMED",
+      "Quote accepted by customer",
+    );
+    return updated;
+  }
+
+  async rejectQuote(id: string, userId: string, notes?: string) {
+    const customer = await this.prisma.customer.findFirst({
+      where: { globalUserId: userId },
+    });
+    if (!customer)
+      throw new ForbiddenException("No customer record found for this user");
+
+    const booking = await this.prisma.booking.findFirst({
+      where: { id, customerId: customer.id },
+    });
+
+    if (!booking) throw new NotFoundException("Booking not found");
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const b = await tx.booking.update({
+        where: { id },
+        data: { status: "CANCELLED" },
+        include: { customer: true, studio: true, service: true },
+      });
+
+      await tx.bookingStatusLog.create({
+        data: {
+          bookingId: id,
+          status: "CANCELLED",
+          notes: notes || `Quote rejected by customer`,
+        },
+      });
+
+      return b;
+    });
+
+    await this.processStatusChangeSideEffects(
+      updated,
+      "CANCELLED",
+      notes || "Quote rejected by customer",
+    );
+    return updated;
+  }
+
+  private async checkConflicts(
+    studioId: string,
+    scheduledAt: Date,
+    durationMinutes: number,
+    excludeBookingId?: string,
+  ) {
+    const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
+
+    const conflictingBooking = await this.prisma.booking.findFirst({
+      where: {
+        studioId,
+        status: {
+          in: ["INQUIRY", "QUOTED", "CONFIRMED"],
+        },
+        id: excludeBookingId ? { not: excludeBookingId } : undefined,
+        OR: [
+          {
+            scheduledAt: {
+              gte: scheduledAt,
+              lt: endAt,
+            },
+          },
+          {
+            // Simple check for potential overlaps
+            scheduledAt: {
+              lt: scheduledAt,
+            },
+          },
+        ],
+      },
+      include: {
+        service: true,
+      },
+    });
+
+    if (conflictingBooking) {
+      const conflictDuration = conflictingBooking.service.durationMinutes;
+      const conflictEnd = new Date(
+        conflictingBooking.scheduledAt.getTime() + conflictDuration * 60000,
+      );
+
+      const overlaps =
+        scheduledAt < conflictEnd && endAt > conflictingBooking.scheduledAt;
+
+      if (overlaps) {
+        throw new ConflictException(
+          "This time slot overlaps with an existing booking. Please choose another time.",
+        );
+      }
+    }
   }
 }

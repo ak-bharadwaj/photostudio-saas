@@ -22,4 +22,4 @@ import { UploadModule } from "../upload/upload.module";
   providers: [BookingService],
   exports: [BookingService],
 })
-export class BookingModule { }
+export class BookingModule {}

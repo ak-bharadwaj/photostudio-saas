@@ -10,7 +10,7 @@ import { InvoiceStatus } from "@prisma/client";
 
 @Injectable()
 export class PaymentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(dto: CreatePaymentDto, studioId: string) {
     // Verify invoice belongs to studio
@@ -88,10 +88,15 @@ export class PaymentService {
           },
         });
 
-        if (studio && studio.billingModel === "COMMISSION" && studio.commissionRate) {
+        if (
+          studio &&
+          studio.billingModel === "COMMISSION" &&
+          studio.commissionRate
+        ) {
           let commissionAmount = 0;
           if (studio.commissionType === "PERCENTAGE") {
-            commissionAmount = (Number(invoice.total) * Number(studio.commissionRate)) / 100;
+            commissionAmount =
+              (Number(invoice.total) * Number(studio.commissionRate)) / 100;
           } else {
             commissionAmount = Number(studio.commissionRate);
           }

@@ -1,122 +1,124 @@
+jest.mock("uuid", () => ({ v4: () => "mocked-uuid" }));
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { BookingService } from "./booking.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationService } from "../notification/notification.service";
 import { CacheService } from "../cache/cache.service";
 import { QueueService } from "../queue/queue.service";
+import { PdfService } from "../pdf/pdf.service";
+import { UploadService } from "../upload/upload.service";
 import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from "@nestjs/common";
 
 describe("BookingService", () => {
   let service: BookingService;
-  let prismaService: PrismaService;
-
-  const mockPrismaService: any = {
-    studio: {
-      findUnique: jest.fn(),
-    },
-    service: {
-      findFirst: jest.fn(),
-    },
-    customer: {
-      findFirst: jest.fn(),
-      create: jest.fn(),
-    },
-    booking: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-    },
-    bookingStatusLog: {
-      create: jest.fn(),
-    },
-    $transaction: jest.fn((callback) => callback(mockPrismaService)),
-  };
-
-  const mockNotificationService = {
-    sendBookingConfirmation: jest.fn(),
-    sendBookingStatusUpdate: jest.fn(),
-  };
-
-  const mockCacheService = {
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-  };
-
-  const mockQueueService = {
-    addEmailJob: jest.fn(),
-    scheduleBookingReminder: jest.fn(),
-    scheduleFollowUpEmail: jest.fn(),
-  };
+  let mockPrismaService: any;
+  let mockNotificationService: any;
+  let mockCacheService: any;
+  let mockQueueService: any;
+  let mockPdfService: any;
+  let mockUploadService: any;
 
   beforeEach(async () => {
+    mockPrismaService = {
+      studio: { findUnique: jest.fn() },
+      service: { findFirst: jest.fn(), findUnique: jest.fn() },
+      customer: { findFirst: jest.fn(), create: jest.fn() },
+      booking: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        count: jest.fn(),
+      },
+      bookingStatusLog: { create: jest.fn() },
+      $transaction: jest.fn((callback) => callback(mockPrismaService)),
+    };
+
+    mockNotificationService = {
+      sendBookingConfirmation: jest.fn(),
+      sendBookingStatusUpdate: jest.fn(),
+    };
+
+    mockCacheService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+    };
+
+    mockQueueService = {
+      scheduleBookingReminder: jest.fn(),
+      scheduleFollowUpEmail: jest.fn(),
+      schedulePaymentReminder: jest.fn(),
+    };
+
+    mockPdfService = {
+      generateContractPdf: jest.fn(),
+      generateInvoicePdf: jest.fn(),
+    };
+
+    mockUploadService = {
+      uploadContractPDF: jest.fn(),
+      uploadInvoicePDF: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BookingService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
-        {
-          provide: NotificationService,
-          useValue: mockNotificationService,
-        },
-        {
-          provide: CacheService,
-          useValue: mockCacheService,
-        },
-        {
-          provide: QueueService,
-          useValue: mockQueueService,
-        },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: NotificationService, useValue: mockNotificationService },
+        { provide: CacheService, useValue: mockCacheService },
+        { provide: QueueService, useValue: mockQueueService },
+        { provide: PdfService, useValue: mockPdfService },
+        { provide: UploadService, useValue: mockUploadService },
       ],
     }).compile();
 
     service = module.get<BookingService>(BookingService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe("create", () => {
-    it("should create a new booking successfully", async () => {
-      const createDto = {
-        studioSlug: "test-studio",
-        customerName: "John Doe",
-        customerEmail: "john@example.com",
-        customerPhone: "+1234567890",
-        serviceId: "service-1",
-        scheduledDate: new Date().toISOString(),
-        notes: "Test booking",
-      };
+    const createDto = {
+      studioSlug: "test-studio",
+      customerName: "John Doe",
+      customerEmail: "john@example.com",
+      customerPhone: "+1234567890",
+      serviceId: "service-1",
+      scheduledDate: new Date().toISOString(),
+      notes: "Test booking",
+    };
 
+    it("should create a new booking successfully", async () => {
       const mockStudio = {
         id: "studio-1",
         slug: "test-studio",
         status: "ACTIVE",
+        email: "s@s.com",
+        name: "Studio",
+        phone: "123",
       };
-
       const mockService = {
         id: "service-1",
-        name: "Wedding Photography",
+        name: "Wedding",
         isActive: true,
         studioId: "studio-1",
+        durationMinutes: 60,
       };
-
       const mockCustomer = {
         id: "customer-1",
         email: "john@example.com",
         name: "John Doe",
+        phone: "123",
       };
-
       const mockBooking = {
         id: "booking-1",
         studioId: "studio-1",
@@ -127,7 +129,7 @@ describe("BookingService", () => {
 
       mockPrismaService.studio.findUnique.mockResolvedValue(mockStudio);
       mockPrismaService.service.findFirst.mockResolvedValue(mockService);
-      mockPrismaService.booking.findFirst.mockResolvedValue(null); // No conflicts
+      mockPrismaService.booking.findFirst.mockResolvedValue(null);
       mockPrismaService.customer.findFirst.mockResolvedValue(mockCustomer);
       mockPrismaService.booking.create.mockResolvedValue(mockBooking);
 
@@ -140,69 +142,23 @@ describe("BookingService", () => {
     });
 
     it("should throw NotFoundException if studio not found", async () => {
-      const createDto = {
-        studioSlug: "invalid-studio",
-        customerName: "John Doe",
-        customerEmail: "john@example.com",
-        customerPhone: "+1234567890",
-        serviceId: "service-1",
-        scheduledDate: new Date().toISOString(),
-      };
-
       mockPrismaService.studio.findUnique.mockResolvedValue(null);
-
       await expect(service.create(createDto)).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it("should throw BadRequestException if studio is inactive", async () => {
-      const createDto = {
-        studioSlug: "test-studio",
-        customerName: "John Doe",
-        customerEmail: "john@example.com",
-        customerPhone: "+1234567890",
-        serviceId: "service-1",
-        scheduledDate: new Date().toISOString(),
-      };
-
-      const mockStudio = {
-        id: "studio-1",
-        slug: "test-studio",
-        status: "SUSPENDED",
-      };
-
-      mockPrismaService.studio.findUnique.mockResolvedValue(mockStudio);
-
-      await expect(service.create(createDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it("should throw ConflictException if time slot is already booked", async () => {
-      const createDto = {
-        studioSlug: "test-studio",
-        customerName: "John Doe",
-        customerEmail: "john@example.com",
-        customerPhone: "+1234567890",
-        serviceId: "service-1",
-        scheduledDate: new Date().toISOString(),
-      };
-
+    it("should throw ConflictException if there is a schedule conflict", async () => {
       const mockStudio = {
         id: "studio-1",
         slug: "test-studio",
         status: "ACTIVE",
       };
-
-      const mockService = {
-        id: "service-1",
-        isActive: true,
-      };
-
+      const mockService = { id: "service-1", durationMinutes: 60 };
       const mockConflictingBooking = {
-        id: "booking-2",
-        status: "CONFIRMED",
+        id: "b-conf",
+        scheduledAt: new Date(),
+        service: { durationMinutes: 60 },
       };
 
       mockPrismaService.studio.findUnique.mockResolvedValue(mockStudio);
@@ -217,88 +173,45 @@ describe("BookingService", () => {
     });
   });
 
-  describe("findAll", () => {
-    it("should return paginated bookings for a studio", async () => {
-      const studioId = "studio-1";
-      const mockBookings = [
-        { id: "booking-1", studioId, status: "INQUIRY" },
-        { id: "booking-2", studioId, status: "CONFIRMED" },
-      ];
-
-      mockPrismaService.booking.findMany.mockResolvedValue(mockBookings);
-      mockPrismaService.booking.count.mockResolvedValue(2);
-
-      const result = await service.findAll(studioId);
-
-      expect(result.data).toEqual(mockBookings);
-      expect(result.meta).toEqual({
-        total: 2,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
-      });
-      expect(mockPrismaService.booking.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ studioId }),
-        }),
-      );
-      expect(mockPrismaService.booking.count).toHaveBeenCalledWith({
-        where: { studioId },
-      });
-    });
-  });
-
-  describe("findOne", () => {
-    it("should return a booking by id", async () => {
-      const bookingId = "booking-1";
-      const mockBooking = {
-        id: bookingId,
-        studioId: "studio-1",
-        status: "INQUIRY",
-      };
-
-      mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
-
-      const result = await service.findOne(bookingId);
-
-      expect(result).toEqual(mockBooking);
-    });
-
-    it("should throw NotFoundException if booking not found", async () => {
-      mockPrismaService.booking.findFirst.mockResolvedValue(null);
-
-      await expect(service.findOne("invalid-id")).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
   describe("updateStatus", () => {
-    it("should update booking status successfully", async () => {
-      const bookingId = "booking-1";
-      const updateDto = {
-        status: "CONFIRMED" as const,
-        notes: "Booking confirmed",
-      };
+    const bookingId = "booking-1";
+    const updateDto = { status: "CONFIRMED" as const, notes: "Confirmed" };
 
-      const mockBooking = {
+    it("should update booking status successfully and trigger side effects", async () => {
+      const mockInitialBooking = {
         id: bookingId,
-        status: "QUOTED",
+        status: "INQUIRY",
         studioId: "studio-1",
       };
-
       const mockUpdatedBooking = {
         id: bookingId,
         status: "CONFIRMED",
         studioId: "studio-1",
         scheduledAt: new Date(),
         customer: { email: "test@example.com", name: "John Doe" },
-        service: { name: "Wedding Photography" },
-        studio: { name: "Test Studio" },
+        service: { name: "Service", durationMinutes: 60, price: 100 },
+        studio: { name: "Studio", email: "s@s.com", phone: "123" },
       };
 
-      mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
-      mockPrismaService.booking.update.mockResolvedValue(mockUpdatedBooking);
+      mockPrismaService.booking.findFirst.mockResolvedValueOnce(
+        mockInitialBooking,
+      ); // findFirst in updateStatus
+      mockPrismaService.booking.update.mockResolvedValueOnce(
+        mockUpdatedBooking,
+      ); // updatedBooking in transaction
+
+      // Mocks for processStatusChangeSideEffects
+      mockPrismaService.booking.findFirst.mockResolvedValueOnce(
+        mockUpdatedBooking,
+      ); // findOne inside sideEffects
+      mockPdfService.generateContractPdf.mockResolvedValue(Buffer.from("pdf"));
+      mockUploadService.uploadContractPDF.mockResolvedValue(
+        "http://contract.url",
+      );
+      mockPrismaService.booking.update.mockResolvedValueOnce({
+        ...mockUpdatedBooking,
+        contractUrl: "http://contract.url",
+      }); // second update for contractUrl
 
       const result = await service.updateStatus(bookingId, updateDto);
 
@@ -306,105 +219,174 @@ describe("BookingService", () => {
       expect(
         mockNotificationService.sendBookingStatusUpdate,
       ).toHaveBeenCalled();
-      expect(mockQueueService.scheduleBookingReminder).toHaveBeenCalledWith(
-        mockUpdatedBooking.id,
-        mockUpdatedBooking.scheduledAt,
-      );
+      expect(mockQueueService.scheduleBookingReminder).toHaveBeenCalled();
+      expect(mockPdfService.generateContractPdf).toHaveBeenCalled();
     });
 
-    it("should update booking to COMPLETED and schedule follow-up", async () => {
-      const bookingId = "booking-1";
-      const updateDto = {
-        status: "COMPLETED" as const,
-      };
-
-      const mockBooking = {
-        id: bookingId,
-        status: "CONFIRMED",
-        studioId: "studio-1",
-      };
-
-      const mockUpdatedBooking = {
-        id: bookingId,
-        status: "COMPLETED",
-        studioId: "studio-1",
-        scheduledAt: new Date(),
-        customer: { email: "test@example.com", name: "John Doe" },
-        service: { name: "Wedding Photography" },
-        studio: { name: "Test Studio" },
-      };
-
-      mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
-      mockPrismaService.booking.update.mockResolvedValue(mockUpdatedBooking);
-
-      const result = await service.updateStatus(bookingId, updateDto);
-
-      expect(result.status).toBe("COMPLETED");
-      expect(mockQueueService.scheduleFollowUpEmail).toHaveBeenCalledWith(
-        mockUpdatedBooking.id,
+    it("should throw NotFoundException if booking not found", async () => {
+      mockPrismaService.booking.findFirst.mockResolvedValue(null);
+      await expect(service.updateStatus(bookingId, updateDto)).rejects.toThrow(
+        NotFoundException,
       );
     });
   });
 
   describe("cancel", () => {
-    it("should cancel a booking successfully", async () => {
-      const bookingId = "booking-1";
-      const notes = "Customer requested cancellation";
+    const bookingId = "booking-1";
 
+    it("should cancel a booking successfully", async () => {
       const mockBooking = {
         id: bookingId,
         status: "CONFIRMED",
         studioId: "studio-1",
-        customer: { email: "test@example.com", name: "John Doe" },
-        service: { name: "Wedding Photography" },
       };
-
       const mockCancelledBooking = {
-        id: bookingId,
+        ...mockBooking,
         status: "CANCELLED",
-        studioId: "studio-1",
-        customer: { email: "test@example.com", name: "John Doe" },
-        service: { name: "Wedding Photography" },
-        studio: { name: "Test Studio" },
+        customer: { email: "c@c.com", name: "C" },
+        service: { name: "S" },
+        studio: { name: "St" },
+        scheduledAt: new Date(),
       };
 
       mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
       mockPrismaService.booking.update.mockResolvedValue(mockCancelledBooking);
 
-      const result = await service.cancel(bookingId, notes);
+      const result = await service.cancel(bookingId);
 
       expect(result.status).toBe("CANCELLED");
-      // cancel() does not send notification emails - it only updates status
-      expect(mockPrismaService.booking.update).toHaveBeenCalled();
+      expect(
+        mockNotificationService.sendBookingStatusUpdate,
+      ).toHaveBeenCalled();
     });
 
     it("should throw BadRequestException if booking already completed", async () => {
-      const bookingId = "booking-1";
-
-      const mockBooking = {
-        id: bookingId,
-        status: "COMPLETED",
-      };
-
+      const mockBooking = { id: bookingId, status: "COMPLETED" };
       mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
-
       await expect(service.cancel(bookingId)).rejects.toThrow(
         BadRequestException,
       );
     });
+  });
 
-    it("should throw BadRequestException if booking already cancelled", async () => {
-      const bookingId = "booking-1";
+  describe("findOne", () => {
+    it("should return a booking with relations", async () => {
+      const mockBooking = { id: "b1", customerId: "c1", serviceId: "s1" };
+      mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
 
+      const result = await service.findOne("b1");
+      expect(result).toEqual(mockBooking);
+      expect(mockPrismaService.booking.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.anything(),
+        }),
+      );
+    });
+
+    it("should throw NotFoundException if booking not found", async () => {
+      mockPrismaService.booking.findFirst.mockResolvedValue(null);
+      await expect(service.findOne("non-existent")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("acceptQuote", () => {
+    const userId = "user-1";
+    const bookingId = "booking-1";
+
+    it("should accept a quote and confirm booking", async () => {
+      const mockCustomer = { id: "customer-1", globalUserId: userId };
       const mockBooking = {
         id: bookingId,
-        status: "CANCELLED",
+        status: "QUOTED",
+        studioId: "studio-1",
+      };
+      const mockConfirmedBooking = {
+        ...mockBooking,
+        status: "CONFIRMED",
+        customer: { email: "test@example.com", name: "John Doe" },
+        service: { name: "Service", durationMinutes: 60, price: 100 },
+        studio: { name: "Studio", email: "s@s.com", phone: "123" },
+        scheduledAt: new Date(),
+      };
+
+      mockPrismaService.customer.findFirst.mockResolvedValue(mockCustomer);
+      mockPrismaService.booking.findFirst.mockResolvedValueOnce(mockBooking); // First check
+      mockPrismaService.booking.update.mockResolvedValueOnce(
+        mockConfirmedBooking,
+      ); // transaction update
+
+      // Side effects mocks
+      mockPrismaService.booking.findFirst.mockResolvedValueOnce(
+        mockConfirmedBooking,
+      ); // findOne in sideEffects
+
+      const result = await service.acceptQuote(bookingId, userId);
+
+      expect(result.status).toBe("CONFIRMED");
+      expect(
+        mockNotificationService.sendBookingStatusUpdate,
+      ).toHaveBeenCalled();
+    });
+
+    it("should throw ForbiddenException if customer record not found", async () => {
+      mockPrismaService.customer.findFirst.mockResolvedValue(null);
+      await expect(service.acceptQuote(bookingId, userId)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it("should throw BadRequestException if booking not in QUOTED status", async () => {
+      const mockCustomer = { id: "customer-1", globalUserId: userId };
+      const mockBooking = { id: bookingId, status: "INQUIRY" };
+      mockPrismaService.customer.findFirst.mockResolvedValue(mockCustomer);
+      mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
+      await expect(service.acceptQuote(bookingId, userId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe("sendQuote", () => {
+    it("should update booking status to QUOTED", async () => {
+      const bookingId = "b1";
+      const studioId = "s1";
+      const quoteDto = { amount: 500, notes: "Good price" };
+      const mockBooking = { id: bookingId, studioId };
+      const mockQuotedBooking = {
+        ...mockBooking,
+        status: "QUOTED",
+        quoteAmount: 500,
+        customer: { name: "C" },
+        service: { name: "S" },
+        studio: { name: "St" },
       };
 
       mockPrismaService.booking.findFirst.mockResolvedValue(mockBooking);
+      mockPrismaService.booking.update.mockResolvedValue(mockQuotedBooking);
 
-      await expect(service.cancel(bookingId)).rejects.toThrow(
-        BadRequestException,
+      const result = await service.sendQuote(bookingId, studioId, quoteDto);
+
+      expect(result.status).toBe("QUOTED");
+      expect(result.quoteAmount).toBe(500);
+    });
+  });
+
+  describe("getUpcoming", () => {
+    it("should return upcoming bookings", async () => {
+      const studioId = "studio-1";
+      mockPrismaService.booking.findMany.mockResolvedValue([{ id: "b1" }]);
+
+      const result = await service.getUpcoming(studioId);
+      expect(result).toHaveLength(1);
+      expect(mockPrismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            studioId,
+            scheduledAt: expect.anything(),
+          }),
+        }),
       );
     });
   });

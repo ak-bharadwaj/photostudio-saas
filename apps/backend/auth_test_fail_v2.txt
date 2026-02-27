@@ -1,0 +1,225 @@
+﻿node.exe : (node:32720) 
+Warning: 
+`--localstorage-file` was 
+provided without a valid path
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Us
+ers\dorni\AppData\Roaming\ 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: ((node:3  
+  2720) Wa...ut a valid pa   
+ th:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+(Use `node --trace-warnings 
+...` to show where the 
+warning was created)
+FAIL test/auth.e2e-spec.ts 
+(14.939 s)
+  ΓùÅ Authentication Flow 
+(e2e) ΓÇ║ Admin 
+Authentication ΓÇ║ should 
+login admin with valid 
+credentials
+
+    expect(received).toHavePr
+operty(path)
+
+    Expected path: "user"
+    Received path: []
+
+    Received value: 
+{"accessToken": "eyJhbGciOiJI
+UzI1NiIsInR5cCI6IkpXVCJ9.eyJz
+dWIiOiI4Nzk1ZDMyNS04M2Y2LTQ4Z
+TYtYTY0My04MzJlZmRkMmEzMDIiLC
+JlbWFpbCI6ImFkbWluQHBob3Rvc3R
+1ZGlvLmNvbSIsInR5cGUiOiJhZG1p
+biIsImlhdCI6MTc3MTg1OTcwMSwiZ
+XhwIjoxNzcxODYwNjAxfQ.MlBmrvY
+MMSeIN4uzt5zeEcVjFWiy89r_q5Wu
+Hn8KJ2Y", "admin": {"email": 
+"admin@photostudio.com", 
+"id": "8795d325-83f6-48e6-a64
+3-832efdd2a302", "name": 
+"Platform Admin"}, 
+"refreshToken": "eyJhbGciOiJI
+UzI1NiIsInR5cCI6IkpXVCJ9.eyJz
+dWIiOiI4Nzk1ZDMyNS04M2Y2LTQ4Z
+TYtYTY0My04MzJlZmRkMmEzMDIiLC
+JlbWFpbCI6ImFkbWluQHBob3Rvc3R
+1ZGlvLmNvbSIsInR5cGUiOiJhZG1p
+biIsImlhdCI6MTc3MTg1OTcwMSwiZ
+XhwIjoxNzcyNDY0NTAxfQ.Ikllxl5
+N3ZxGaYB-uu3nbqce3II4nBcRk-EH
+gMPh4jU"}
+
+    [0m [90m 36 |[39m     
+    })
+     [90m 37 |[39m         
+[33m.[39mexpect([35m200[3
+9m)
+    
+[31m[1m>[22m[39m[90m 38 
+|[39m         
+[33m.[39mexpect((res) 
+[33m=>[39m {
+     [90m    |[39m         
+ [31m[1m^[22m[39m
+     [90m 39 |[39m         
+  [36mif[39m 
+(res[33m.[39mstatus 
+[33m!==[39m [35m200[39m) 
+{
+     [90m 40 |[39m         
+    console[33m.[39merror(
+[32m'Admin Login 
+Failed:'[39m[33m,[39m res
+[33m.[39mbody)[33m;[39m
+     [90m 41 |[39m         
+  }[0m
+
+      at Object.<anonymous> 
+(auth.e2e-spec.ts:38:10)
+      ----
+      at 
+auth.e2e-spec.ts:42:28
+      at ../../../node_module
+s/.pnpm/supertest@7.2.2/node_
+modules/supertest/lib/test.js
+:365:13
+      at 
+Test._assertFunction (../../.
+./node_modules/.pnpm/supertes
+t@7.2.2/node_modules/supertes
+t/lib/test.js:342:13)
+      at Test.assert (../../.
+./node_modules/.pnpm/supertes
+t@7.2.2/node_modules/supertes
+t/lib/test.js:195:23)
+      at localAssert (../../.
+./node_modules/.pnpm/supertes
+t@7.2.2/node_modules/supertes
+t/lib/test.js:138:14)
+      at Server.<anonymous> (
+../../../node_modules/.pnpm/s
+upertest@7.2.2/node_modules/s
+upertest/lib/test.js:152:11)
+
+
+  ΓùÅ Test suite failed to 
+run
+
+    TypeError: Cannot read 
+properties of null (reading 
+'quit')
+
+    [0m [90m 51 |[39m
+     [90m 52 |[39m   
+[36masync[39m 
+onModuleDestroy() {
+    
+[31m[1m>[22m[39m[90m 53 
+|[39m     [36mawait[39m [
+36mthis[39m[33m.[39mredis
+[33m.[39mquit()[33m;[39m
+     [90m    |[39m         
+             
+[31m[1m^[22m[39m
+     [90m 54 |[39m   }
+     [90m 55 |[39m
+     [90m 56 |[39m   
+[90m/**[39m[0m
+
+      at 
+CacheService.onModuleDestroy 
+(../src/cache/cache.service.t
+s:53:22)
+      at 
+MapIterator.iteratee (../../.
+./node_modules/.pnpm/@nestjs+
+core@11.1.13_@nestjs+common@1
+1.1.13_@nestjs+platform-expre
+ss@11.1.13_reflect-metadata@0
+.2.2_rxjs@7.8.2/node_modules/
+@nestjs/core/hooks/on-module-
+destroy.hook.js:22:43)
+      at MapIterator.next (..
+/../../node_modules/.pnpm/ite
+rare@1.2.1/node_modules/itera
+re/src/map.ts:9:39)
+      at 
+IteratorWithOperators.next (.
+./../../node_modules/.pnpm/it
+erare@1.2.1/node_modules/iter
+are/src/iterate.ts:19:28)
+          at Array.from 
+(<anonymous>)
+      at IteratorWithOperator
+s.toArray (../../../node_modu
+les/.pnpm/iterare@1.2.1/node_
+modules/iterare/src/iterate.t
+s:227:22)
+      at callOperator (../../
+../node_modules/.pnpm/@nestjs
++core@11.1.13_@nestjs+common@
+11.1.13_@nestjs+platform-expr
+ess@11.1.13_reflect-metadata@
+0.2.2_rxjs@7.8.2/node_modules
+/@nestjs/core/hooks/on-module
+-destroy.hook.js:23:10)
+      at 
+callModuleDestroyHook (../../
+../node_modules/.pnpm/@nestjs
++core@11.1.13_@nestjs+common@
+11.1.13_@nestjs+platform-expr
+ess@11.1.13_reflect-metadata@
+0.2.2_rxjs@7.8.2/node_modules
+/@nestjs/core/hooks/on-module
+-destroy.hook.js:43:23)
+      at 
+Proxy.callDestroyHook (../../
+../node_modules/.pnpm/@nestjs
++core@11.1.13_@nestjs+common@
+11.1.13_@nestjs+platform-expr
+ess@11.1.13_reflect-metadata@
+0.2.2_rxjs@7.8.2/node_modules
+/@nestjs/core/nest-applicatio
+n-context.js:264:53)
+      at Proxy.close (../../.
+./node_modules/.pnpm/@nestjs+
+core@11.1.13_@nestjs+common@1
+1.1.13_@nestjs+platform-expre
+ss@11.1.13_reflect-metadata@0
+.2.2_rxjs@7.8.2/node_modules/
+@nestjs/core/nest-application
+-context.js:128:9)
+      at Object.<anonymous> 
+(auth.e2e-spec.ts:26:5)
+
+Test Suites: 1 failed, 1 
+total
+Tests:       1 failed, 8 
+passed, 9 total
+Snapshots:   0 total
+Time:        15.378 s
+Ran all test suites matching 
+test/auth.e2e-spec.ts.
+Jest did not exit one second 
+after the test run has 
+completed.
+
+'This usually means that 
+there are asynchronous 
+operations that weren't 
+stopped in your tests. 
+Consider running Jest with 
+`--detectOpenHandles` to 
+troubleshoot this issue.

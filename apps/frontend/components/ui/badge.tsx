@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'secondary';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | 'outline';
   size?: 'sm' | 'md';
   /** Show a pulsing dot indicator */
   dot?: boolean;
@@ -18,6 +18,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       danger: 'bg-[var(--danger-light)] text-[var(--danger)]',
       info: 'bg-[var(--primary-light)] text-[var(--primary)]',
       secondary: 'bg-[var(--accent-light)] text-[var(--accent)]',
+      outline: 'border border-[var(--border)] bg-transparent text-[var(--foreground-secondary)]',
     };
 
     const dotColors: Record<string, string> = {
@@ -27,6 +28,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       danger: 'bg-[var(--danger)]',
       info: 'bg-[var(--primary)]',
       secondary: 'bg-[var(--accent)]',
+      outline: 'bg-[var(--foreground-tertiary)]',
     };
 
     const sizes: Record<string, string> = {

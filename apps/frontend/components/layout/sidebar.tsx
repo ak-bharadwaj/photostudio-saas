@@ -95,12 +95,23 @@ export const Sidebar: React.FC = () => {
           className="flex items-center gap-2.5 min-w-0"
           onClick={handleNavClick}
         >
-          <div className="flex items-center justify-center h-9 w-9 rounded-[var(--radius-lg)] bg-[var(--primary)] shrink-0">
-            <Camera className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-center h-9 w-9 rounded-[var(--radius-lg)] bg-[var(--primary)] shrink-0 overflow-hidden shadow-sm">
+            {user?.studio?.logoUrl ? (
+              <img
+                src={user.studio.logoUrl.startsWith('http') ? user.studio.logoUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${user.studio.logoUrl.startsWith('/') ? '' : '/'}${user.studio.logoUrl}`}
+                alt={user.studio.name}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40?text=S';
+                }}
+              />
+            ) : (
+              <Camera className="h-5 w-5 text-white" />
+            )}
           </div>
           {(!isCollapsed || isMobile) && (
-            <span className="text-lg font-bold text-white truncate">
-              PhotoStudio
+            <span className="text-xl font-black text-white tracking-tight font-heading truncate">
+              {user?.studio?.name || 'PhotoStudio'}
             </span>
           )}
         </Link>
@@ -132,41 +143,41 @@ export const Sidebar: React.FC = () => {
         {navigation
           .filter((item) => !item.roles || (user?.role && item.roles.includes(user.role)))
           .map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.icon;
+            const active = isActive(item.href);
+            const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={handleNavClick}
-              className={cn(
-                'group flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)]',
-                'text-sm font-medium',
-                'transition-all duration-[var(--transition-fast)]',
-                active
-                  ? 'bg-[var(--sidebar-bg-active)] text-[var(--sidebar-text-active)]'
-                  : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-bg-hover)] hover:text-[var(--sidebar-text-active)]',
-                isCollapsed && !isMobile && 'justify-center px-0',
-              )}
-              title={isCollapsed && !isMobile ? item.name : undefined}
-            >
-              <Icon
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={handleNavClick}
                 className={cn(
-                  'h-5 w-5 shrink-0',
-                  'transition-colors duration-[var(--transition-fast)]',
-                  active ? 'text-[var(--primary)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-text-active)]',
+                  'group flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)]',
+                  'text-sm font-medium',
+                  'transition-all duration-[var(--transition-fast)]',
+                  active
+                    ? 'bg-[var(--sidebar-bg-active)] text-[var(--sidebar-text-active)]'
+                    : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-bg-hover)] hover:text-[var(--sidebar-text-active)]',
+                  isCollapsed && !isMobile && 'justify-center px-0',
                 )}
-              />
-              {(!isCollapsed || isMobile) && (
-                <span className="truncate">{item.name}</span>
-              )}
-              {active && (!isCollapsed || isMobile) && (
-                <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />
-              )}
-            </Link>
-          );
-        })}
+                title={isCollapsed && !isMobile ? item.name : undefined}
+              >
+                <Icon
+                  className={cn(
+                    'h-5 w-5 shrink-0',
+                    'transition-colors duration-[var(--transition-fast)]',
+                    active ? 'text-[var(--primary)]' : 'text-[var(--sidebar-text)] group-hover:text-[var(--sidebar-text-active)]',
+                  )}
+                />
+                {(!isCollapsed || isMobile) && (
+                  <span className="truncate">{item.name}</span>
+                )}
+                {active && (!isCollapsed || isMobile) && (
+                  <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />
+                )}
+              </Link>
+            );
+          })}
       </nav>
 
       {/* ---- User section ---- */}

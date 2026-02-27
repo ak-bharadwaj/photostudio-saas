@@ -17,6 +17,7 @@ import {
   UpdateBookingDto,
   UpdateBookingStatusDto,
   CreateInternalBookingDto,
+  SendQuoteDto,
 } from "./dto/booking.dto";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -28,7 +29,7 @@ import { UserPayload } from "../common/interfaces/user-payload.interface";
 @Controller("bookings")
 @UseGuards(RolesGuard)
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) { }
+  constructor(private readonly bookingService: BookingService) {}
 
   // Public: Create a new booking inquiry
   @Post()
@@ -48,7 +49,6 @@ export class BookingController {
     }
     return this.bookingService.createInternal(dto, user.studioId!);
   }
-
 
   // Studio users: List all bookings for their studio
   @Get()
@@ -97,7 +97,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.findOne(id, user.studioId!);
+    return this.bookingService.findOne(id, user.studioId);
   }
 
   // Studio users: Update booking
@@ -112,7 +112,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.update(id, updateBookingDto, user.studioId!);
+    return this.bookingService.update(id, updateBookingDto, user.studioId);
   }
 
   // Studio users: Update booking status
@@ -127,7 +127,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.updateStatus(id, updateStatusDto, user.studioId!);
+    return this.bookingService.updateStatus(id, updateStatusDto, user.studioId);
   }
 
   // Studio users: Cancel booking
@@ -142,6 +142,20 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.cancel(id, body.notes, user.studioId!);
+    return this.bookingService.cancel(id, body.notes, user.studioId);
+  }
+
+  @Post(":id/quote")
+  @Roles("OWNER", "PHOTOGRAPHER", "ASSISTANT")
+  sendQuote(
+    @Param("id") id: string,
+    @Body() dto: SendQuoteDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    if (!user.studioId && !user.isAdmin) {
+      throw new ForbiddenException("User must belong to a studio");
+    }
+
+    return this.bookingService.sendQuote(id, user.studioId!, dto);
   }
 }

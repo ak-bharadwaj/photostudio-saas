@@ -18,17 +18,16 @@ function createBasePrismaClient() {
 }
 
 // Create the extended client type
-const extendedClient = createBasePrismaClient().$extends(tenantExtension);
-type ExtendedPrismaClient = typeof extendedClient;
-
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
   private _baseClient: PrismaClient;
-  private _client: ExtendedPrismaClient;
+  private _client: any; // Type will be inferred or cast
 
   constructor() {
-    this._baseClient = createBasePrismaClient();
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg(pool);
+    this._baseClient = new PrismaClient({ adapter });
     this._client = this._baseClient.$extends(tenantExtension);
   }
 
@@ -48,26 +47,60 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Proxy all model accessors to the extended client
-  get admin() { return (this._client as any).admin; }
-  get studio() { return (this._client as any).studio; }
-  get user() { return (this._client as any).user; }
-  get customer() { return (this._client as any).customer; }
-  get service() { return (this._client as any).service; }
-  get booking() { return (this._client as any).booking; }
-  get bookingStatusLog() { return (this._client as any).bookingStatusLog; }
-  get invoice() { return (this._client as any).invoice; }
-  get payment() { return (this._client as any).payment; }
-  get commission() { return (this._client as any).commission; }
-  get portfolioItem() { return (this._client as any).portfolioItem; }
-  get workflow() { return (this._client as any).workflow; }
+  get admin() {
+    return this._client.admin;
+  }
+  get studio() {
+    return this._client.studio;
+  }
+  get user() {
+    return this._client.user;
+  }
+  get customer() {
+    return this._client.customer;
+  }
+  get service() {
+    return this._client.service;
+  }
+  get booking() {
+    return this._client.booking;
+  }
+  get bookingStatusLog() {
+    return this._client.bookingStatusLog;
+  }
+  get invoice() {
+    return this._client.invoice;
+  }
+  get payment() {
+    return this._client.payment;
+  }
+  get commission() {
+    return this._client.commission;
+  }
+  get portfolioItem() {
+    return this._client.portfolioItem;
+  }
+  get workflow() {
+    return this._client.workflow;
+  }
 
   // Proxy $ methods to the base client
-  get $transaction() { return (this._baseClient as any).$transaction.bind(this._baseClient); }
-  get $queryRaw() { return (this._baseClient as any).$queryRaw.bind(this._baseClient); }
-  get $executeRaw() { return (this._baseClient as any).$executeRaw.bind(this._baseClient); }
+  get $transaction() {
+    return (this._baseClient as any).$transaction.bind(this._baseClient);
+  }
+  get $queryRaw() {
+    return (this._baseClient as any).$queryRaw.bind(this._baseClient);
+  }
+  get $executeRaw() {
+    return (this._baseClient as any).$executeRaw.bind(this._baseClient);
+  }
 
-  async $connect() { return this._baseClient.$connect(); }
-  async $disconnect() { return this._baseClient.$disconnect(); }
+  async $connect() {
+    return this._baseClient.$connect();
+  }
+  async $disconnect() {
+    return this._baseClient.$disconnect();
+  }
 
   async cleanDatabase() {
     if (process.env.NODE_ENV === "production") {

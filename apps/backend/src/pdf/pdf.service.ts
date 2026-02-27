@@ -123,9 +123,7 @@ export class PdfService {
         },
       });
 
-      this.logger.log(
-        `Generated contract PDF for booking ${data.bookingId}`,
-      );
+      this.logger.log(`Generated contract PDF for booking ${data.bookingId}`);
       return Buffer.from(pdf);
     } catch (error) {
       this.logger.error("Failed to generate contract PDF", error.stack);
@@ -314,8 +312,8 @@ export class PdfService {
               </thead>
               <tbody>
                 ${data.lineItems
-        .map(
-          (item) => `
+                  .map(
+                    (item) => `
                   <tr>
                     <td>${item.description}</td>
                     <td class="text-right">${item.quantity}</td>
@@ -323,8 +321,8 @@ export class PdfService {
                     <td class="text-right">${formatCurrency(item.amount)}</td>
                   </tr>
                 `,
-        )
-        .join("")}
+                  )
+                  .join("")}
               </tbody>
             </table>
           </div>
@@ -334,39 +332,42 @@ export class PdfService {
               <span>Subtotal:</span>
               <span>${formatCurrency(data.subtotal)}</span>
             </div>
-            ${data.discount > 0
-        ? `
+            ${
+              data.discount > 0
+                ? `
             <div class="totals-row subtotal">
               <span>Discount:</span>
               <span>-${formatCurrency(data.discount)}</span>
             </div>
             `
-        : ""
-      }
-            ${data.tax > 0
-        ? `
+                : ""
+            }
+            ${
+              data.tax > 0
+                ? `
             <div class="totals-row subtotal">
               <span>Tax:</span>
               <span>${formatCurrency(data.tax)}</span>
             </div>
             `
-        : ""
-      }
+                : ""
+            }
             <div class="totals-row total">
               <span>Total:</span>
               <span>${formatCurrency(data.total)}</span>
             </div>
           </div>
 
-          ${data.notes
-        ? `
+          ${
+            data.notes
+              ? `
           <div class="notes">
             <h3>Notes:</h3>
             <p>${data.notes}</p>
           </div>
           `
-        : ""
-      }
+              : ""
+          }
 
           <div class="footer">
             <p>Thank you for your business!</p>
@@ -615,10 +616,11 @@ export class PdfService {
                 <label>Date & Time</label>
                 <p>${formatDateTime(data.scheduledAt)}</p>
               </div>
-              ${data.location
-        ? `<div class="detail-group"><label>Location</label><p>${data.location}</p></div>`
-        : ""
-      }
+              ${
+                data.location
+                  ? `<div class="detail-group"><label>Location</label><p>${data.location}</p></div>`
+                  : ""
+              }
             </div>
           </div>
 

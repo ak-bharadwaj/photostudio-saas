@@ -45,9 +45,15 @@ export const tenantExtension = Prisma.defineExtension((client) => {
           return query(args);
         },
         async findUnique({ model, args, query }) {
-          // findUnique uses `where` with unique fields, so we can't inject
-          // studioId directly. Instead we verify after the query.
-          return query(args);
+          const result = await query(args);
+          if (result && isTenantModel(model)) {
+            const studioId = getCurrentStudioId();
+            const admin = isCurrentUserAdmin();
+            if (studioId && !admin && (result as any).studioId !== studioId) {
+              return null;
+            }
+          }
+          return result;
         },
         async count({ model, args, query }) {
           injectTenantFilter(model, args);
@@ -138,7 +144,7 @@ function injectTenantOnCreate(model: string, args: any): void {
     return;
   }
 
-  if (args.data && !(args.data as any).studioId) {
-    (args.data as any).studioId = studioId;
+  if (args.data && !args.data.studioId) {
+    args.data.studioId = studioId;
   }
 }

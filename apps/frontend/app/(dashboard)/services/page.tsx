@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading';
@@ -160,7 +160,8 @@ export default function ServicesPage() {
       setIsCreateModalOpen(false);
       resetFormState();
       loadServices();
-    } catch (error: any) {
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to create service');
     } finally {
       setIsSubmitting(false);
@@ -186,7 +187,8 @@ export default function ServicesPage() {
       setSelectedService(null);
       resetFormState();
       loadServices();
-    } catch (error: any) {
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to update service');
     } finally {
       setIsSubmitting(false);
@@ -203,7 +205,8 @@ export default function ServicesPage() {
       setIsDeleteModalOpen(false);
       setSelectedService(null);
       loadServices();
-    } catch (error: any) {
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to delete service');
     } finally {
       setIsSubmitting(false);
@@ -215,7 +218,8 @@ export default function ServicesPage() {
       await servicesApi.toggleActive(service.id);
       addToast('success', `Service ${service.isActive ? 'deactivated' : 'activated'} successfully`);
       loadServices();
-    } catch (error: any) {
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to toggle service status');
     }
   };
@@ -308,17 +312,13 @@ export default function ServicesPage() {
         {...register('name')}
       />
 
-      <div>
-        <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-          Description (Optional)
-        </label>
-        <textarea
-          {...register('description')}
-          rows={3}
-          className="flex w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-          placeholder="Describe your service..."
-        />
-      </div>
+      <Textarea
+        label="Description (Optional)"
+        {...register('description')}
+        rows={3}
+        placeholder="Describe your service..."
+        error={errors.description?.message}
+      />
 
       <div className="grid grid-cols-2 gap-4">
         <Input
@@ -339,24 +339,13 @@ export default function ServicesPage() {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-          Occasion Category
-        </label>
-        <select
-          {...register('occasion')}
-          className="flex w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        >
-          {OCCASION_OPTIONS.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-[var(--foreground-tertiary)]">
-          Services with the same occasion are grouped together on your public booking page.
-        </p>
-      </div>
+      <Select
+        label="Occasion Category"
+        options={OCCASION_OPTIONS}
+        {...register('occasion')}
+        helperText="Services with the same occasion are grouped together on your public booking page."
+        error={errors.occasion?.message}
+      />
 
       {renderCoverImageField()}
 

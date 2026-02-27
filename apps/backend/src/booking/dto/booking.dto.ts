@@ -6,6 +6,7 @@ import {
   IsDateString,
   IsNumber,
   IsEnum,
+  Min,
 } from "class-validator";
 import { Transform } from "class-transformer";
 import { BookingStatus } from "@prisma/client";
@@ -58,6 +59,10 @@ export class UpdateBookingDto {
   @IsOptional()
   assignedTo?: string;
 
+  @IsString()
+  @IsOptional()
+  serviceId?: string;
+
   @IsNumber()
   @IsOptional()
   deposit?: number;
@@ -95,5 +100,21 @@ export class CreateInternalBookingDto {
   @IsString()
   @IsOptional()
   @Transform(({ value }) => value?.trim())
+  notes?: string;
+}
+export class SendQuoteDto {
+  @IsNumber()
+  @Min(0)
+  @IsNotEmpty()
+  amount: number;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class AcceptQuoteDto {
+  @IsString()
+  @IsOptional()
   notes?: string;
 }

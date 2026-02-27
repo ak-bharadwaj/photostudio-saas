@@ -4,17 +4,27 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CacheService } from "../cache/cache.service";
 import { CreatePublicBookingDto } from "./dto/public-booking.dto";
 import { BookingStatus } from "@prisma/client";
 
 @Injectable()
 export class PublicService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private cacheService: CacheService,
+  ) { }
 
   /**
    * Get public studio information by slug (for booking page)
    */
   async getStudioBySlug(slug: string) {
+    const cacheKey = `public:studio:${slug}`;
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const studio = await this.prisma.studio.findUnique({
       where: { slug },
       select: {
@@ -56,6 +66,7 @@ export class PublicService {
     });
 
     if (!studio) {
+
       throw new NotFoundException("Studio not found");
     }
 
@@ -65,13 +76,20 @@ export class PublicService {
       );
     }
 
+    // Cache the studio data for 5 minutes (300 seconds)
+    await this.cacheService.set(cacheKey, studio, 300);
+
     return studio;
   }
 
   /**
    * Create a public booking (no authentication required)
    */
-  async createPublicBooking(slug: string, dto: CreatePublicBookingDto) {
+  async createPublicBooking(
+    slug: string,
+    dto: CreatePublicBookingDto,
+    globalUserId?: string,
+  ) {
     // Get studio
     const studio = await this.prisma.studio.findUnique({
       where: { slug },
@@ -140,6 +158,7 @@ export class PublicService {
       customer = await this.prisma.customer.create({
         data: {
           studioId: studio.id,
+          globalUserId: globalUserId || undefined,
           name: dto.customerName,
           email: dto.customerEmail,
           phone: dto.customerPhone,
@@ -150,6 +169,7 @@ export class PublicService {
       customer = await this.prisma.customer.update({
         where: { id: customer.id },
         data: {
+          globalUserId: globalUserId || customer.globalUserId,
           name: dto.customerName,
           email: dto.customerEmail || customer.email,
         },

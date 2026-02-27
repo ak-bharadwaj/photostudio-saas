@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading';
 import axios from 'axios';
 import { formatDate } from '@/lib/utils';
-import { Calendar, FileText, Download, Search, CheckCircle, Clock } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
+import { Calendar, FileText, Download, Search, CheckCircle, Clock, LogIn, Chrome } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface Booking {
   id: string;
@@ -26,6 +28,8 @@ interface Booking {
     name: string;
     email: string;
     phone: string;
+    slug: string;
+    logoUrl?: string;
   };
 }
 
@@ -57,143 +61,127 @@ interface CustomerData {
 }
 
 export default function CustomerPortalPage() {
+  const { addToast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [data, setData] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'bookings' | 'invoices'>('bookings');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!phone && !email) {
-      setError('Please enter your phone number or email');
-      return;
+  useEffect(() => {
+    const token = localStorage.getItem('customer_token');
+    if (token) {
+      setIsAuthenticated(true);
+      fetchDashboardData(token);
     }
+  }, []);
 
+  const fetchDashboardData = async (token: string) => {
     setLoading(true);
-    setError(null);
-
     try {
-      // Fetch bookings
-      const bookingsResponse = await axios.get(`${API_URL}/customer-portal/bookings`, {
-        params: { phone, email },
-      });
-
-      // Fetch invoices
-      const invoicesResponse = await axios.get(`${API_URL}/customer-portal/invoices`, {
-        params: { phone, email },
-      });
-
+      const [bookingsRes, invoicesRes] = await Promise.all([
+        axios.get(`${API_URL}/portal/bookings`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_URL}/portal/invoices`, { headers: { Authorization: `Bearer ` + token } })
+      ]);
       setData({
-        customer: bookingsResponse.data.customer,
-        bookings: bookingsResponse.data.bookings,
-        invoices: invoicesResponse.data.invoices,
+        customer: { id: 'me', name: 'Valued Customer', phone: '' },
+        bookings: bookingsRes.data.slice(0, 3), // Only recent 3
+        invoices: invoicesRes.data.slice(0, 3), // Only recent 3
       });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Customer not found. Please check your details.');
+      if (err.response?.status === 401) {
+        localStorage.removeItem('customer_token');
+        setIsAuthenticated(false);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadInvoice = async (invoiceNumber: string) => {
-    try {
-      const response = await axios.get(
-        `${API_URL}/customer-portal/invoices/${invoiceNumber}/pdf`,
-        {
-          params: { phone },
-          responseType: 'blob',
-        }
-      );
+  const handleGoogleLogin = () => {
+    window.location.href = `${API_URL}/auth/google`;
+  };
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `invoice_${invoiceNumber}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      alert('Failed to download invoice');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone) {
+      setError('Please enter your phone number');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const bookingsResponse = await axios.get(`${API_URL}/customer-portal/bookings`, { params: { phone, email } });
+      const invoicesResponse = await axios.get(`${API_URL}/customer-portal/invoices`, { params: { phone, email } });
+      setData({
+        customer: bookingsResponse.data.customer,
+        bookings: bookingsResponse.data.bookings || [],
+        invoices: invoicesResponse.data.invoices || [],
+      });
+      addToast('success', 'Information retrieved successfully.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Customer not found.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' }> = {
-      INQUIRY: { variant: 'default' },
-      QUOTED: { variant: 'info' },
-      CONFIRMED: { variant: 'success' },
-      IN_PROGRESS: { variant: 'warning' },
-      COMPLETED: { variant: 'secondary' },
-      CANCELLED: { variant: 'danger' },
-      DRAFT: { variant: 'default' },
-      SENT: { variant: 'info' },
-      PAID: { variant: 'success' },
-      PARTIALLY_PAID: { variant: 'warning' },
-      OVERDUE: { variant: 'danger' },
-    };
-    return variants[status] || variants.INQUIRY;
-  };
-
-  if (!data) {
+  if (!isAuthenticated && !data) {
     return (
-      <div className="min-h-screen bg-[var(--background-secondary)] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-[var(--border)] shadow-[var(--shadow-xl)]">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center text-[var(--foreground)]">Customer Portal</CardTitle>
-            <p className="text-[var(--foreground-tertiary)] text-center text-sm">
-              Access your bookings and invoices
+      <div className="flex items-center justify-center min-h-[70vh]">
+        <Card className="w-full max-w-md border-[var(--border)] shadow-[var(--shadow-xl)] animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <CardHeader className="text-center">
+            <div className="h-16 w-16 rounded-2xl bg-[var(--primary)]/10 flex items-center justify-center mb-4 mx-auto">
+              <LogIn className="h-8 w-8 text-[var(--primary)]" />
+            </div>
+            <CardTitle className="text-3xl font-black text-[var(--foreground)] tracking-tight">Welcome to the Portal</CardTitle>
+            <p className="text-[var(--foreground-tertiary)] text-base font-medium mt-2">
+              Manage your photography sessions and financial records securely.
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            <Button
+              variant="outline"
+              className="w-full h-14 text-base font-bold border-[var(--border)] hover:bg-[var(--surface-0)] transition-all bg-white shadow-sm rounded-xl"
+              onClick={handleGoogleLogin}
+            >
+              <Chrome className="mr-2 h-5 w-5 text-[#4285F4]" />
+              Continue with Google
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-[var(--border)]" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
+                <span className="bg-[var(--background)] px-3 text-[var(--foreground-tertiary)]">
+                  Or Guest Access
+                </span>
+              </div>
+            </div>
+
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground-secondary)] mb-1">
-                  Phone Number
-                </label>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--foreground-secondary)] uppercase tracking-wider">Phone Number</label>
                 <Input
                   type="tel"
-                  placeholder="Enter your phone number"
+                  placeholder="+1 (555) 000-0000"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="bg-[var(--surface-0)] border-[var(--border)] focus:border-[var(--primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground-secondary)] mb-1">
-                  Email (Optional)
-                </label>
-                <Input
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-[var(--surface-0)] border-[var(--border)] focus:border-[var(--primary)]"
+                  className="bg-[var(--surface-0)] border-[var(--border)] py-6"
                 />
               </div>
 
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
+                <p className="text-xs text-red-500 font-medium px-1 underline underline-offset-4">{error}</p>
               )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <LoadingSpinner className="mr-2" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    View My Details
-                  </>
-                )}
+              <Button type="submit" className="w-full h-14 font-bold shadow-lg shadow-[var(--primary)]/20 rounded-xl" disabled={loading}>
+                {loading ? <LoadingSpinner className="mr-2" /> : <Search className="mr-2 h-5 w-5" />}
+                Quick Find
               </Button>
             </form>
           </CardContent>
@@ -203,171 +191,90 @@ export default function CustomerPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background-secondary)]">
-      {/* Header */}
-      <div className="bg-[var(--background)] border-b border-[var(--border)] shadow-[var(--shadow-sm)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Welcome, {data.customer.name}</h1>
-              <p className="text-sm text-[var(--foreground-tertiary)]">{data.customer.phone}</p>
-            </div>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setData(null);
-                setPhone('');
-                setEmail('');
-              }}
-            >
-              Logout
-            </Button>
-          </div>
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-black text-[var(--foreground)] tracking-tighter italic">DASHBOARD</h1>
+          <p className="text-[var(--foreground-tertiary)] font-medium">Welcome back, {data?.customer.name}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="font-bold border-[var(--border)]" onClick={() => router.push('/portal/bookings')}>
+            View All Bookings
+          </Button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="mb-6 border-b border-[var(--border)]">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('bookings')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'bookings'
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] hover:border-[var(--border)]'
-                }`}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Bookings */}
+        <div className="lg:col-span-2 space-y-6">
+          <h2 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-[var(--primary)]" />
+            Recent Activity
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {data?.bookings.map(booking => (
+              <Card key={booking.id} className="border-[var(--border)] hover:border-[var(--primary)] transition-all bg-[var(--background)]">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <Badge variant="outline" className="text-[10px] font-bold uppercase">{booking.status}</Badge>
+                    <p className="text-[10px] text-[var(--foreground-tertiary)] font-bold">{formatDate(booking.scheduledAt)}</p>
+                  </div>
+                  <h4 className="font-bold text-[var(--foreground)] leading-tight">{booking.service.name}</h4>
+                  <p className="text-xs text-[var(--foreground-tertiary)]">{booking.studio.name}</p>
+                </CardContent>
+              </Card>
+            ))}
+            <div
+              className="border-2 border-dashed border-[var(--border)] rounded-2xl flex flex-col items-center justify-center p-6 bg-[var(--surface-0)]/30 hover:bg-[var(--surface-0)] transition-all cursor-pointer"
+              onClick={() => router.push('/portal/bookings')}
             >
-              <Calendar className="inline-block mr-2 h-4 w-4" />
-              My Bookings ({data.bookings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('invoices')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'invoices'
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] hover:border-[var(--border)]'
-                }`}
-            >
-              <FileText className="inline-block mr-2 h-4 w-4" />
-              My Invoices ({data.invoices?.length || 0})
-            </button>
+              <Search className="h-6 w-6 text-[var(--foreground-tertiary)] mb-2" />
+              <p className="text-xs font-bold text-[var(--foreground-tertiary)]">Explore History</p>
+            </div>
           </div>
         </div>
 
-        {/* Bookings Tab */}
-        {activeTab === 'bookings' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {data.bookings.length === 0 ? (
-              <Card className="col-span-2 border-[var(--border)]">
-                <CardContent className="text-center py-12">
-                  <Calendar className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
-                  <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">No bookings</h3>
-                  <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">You don't have any bookings yet.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              data.bookings.map((booking) => (
-                <Card key={booking.id} className="border-[var(--border)] hover:border-[var(--primary)] transition-colors shadow-sm">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg text-[var(--foreground)] font-bold">{booking.service.name}</CardTitle>
-                        <p className="text-sm text-[var(--foreground-tertiary)]">{booking.studio.name}</p>
-                      </div>
-                      <Badge {...getStatusBadge(booking.status)}>{booking.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center text-sm text-[var(--foreground-secondary)]">
-                      <Calendar className="mr-2 h-4 w-4 text-[var(--foreground-tertiary)]" />
-                      <span>{formatDate(booking.scheduledAt)}</span>
-                    </div>
+        {/* Quick Actions / Stats */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
+            <FileText className="h-5 w-5 text-[var(--accent)]" />
+            Overview
+          </h2>
+          <Card className="border-[var(--border)] shadow-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-white">
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest opacity-80">Pending Invoices</p>
+                <p className="text-4xl font-black italic">
+                  {data?.invoices?.filter(i => i.status !== 'PAID').length || 0}
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                className="w-full font-bold bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-md"
+                onClick={() => router.push('/portal/invoices')}
+              >
+                Review Finances
+              </Button>
+            </CardContent>
+          </Card>
 
-                    <div className="flex items-center text-sm text-[var(--foreground-secondary)]">
-                      <Clock className="mr-2 h-4 w-4 text-[var(--foreground-tertiary)]" />
-                      <span>{booking.service.durationMinutes} minutes</span>
-                    </div>
-
-                    <div className="pt-3 border-t border-[var(--border-light)]">
-                      <p className="text-lg font-bold text-[var(--foreground)] tabular-nums">${Number(booking.service.price).toFixed(2)}</p>
-                    </div>
-
-                    {booking.customerNotes && (
-                      <div className="pt-2">
-                        <p className="text-xs text-[var(--foreground-tertiary)] uppercase tracking-wider font-semibold">Notes:</p>
-                        <p className="text-sm text-[var(--foreground-secondary)] mt-1">{booking.customerNotes}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Invoices Tab */}
-        {activeTab === 'invoices' && (
-          <div className="space-y-4">
-            {data.invoices?.length === 0 ? (
-              <Card className="col-span-2 border-[var(--border)]">
-                <CardContent className="text-center py-12">
-                  <FileText className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
-                  <h3 className="mt-2 text-sm font-bold text-[var(--foreground)]">No invoices</h3>
-                  <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">You don't have any invoices yet.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              data.invoices?.map((invoice) => (
-                <Card key={invoice.id} className="border-[var(--border)] hover:border-[var(--primary)] transition-colors shadow-sm">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-bold text-[var(--foreground)]">
-                            Invoice #{invoice.invoiceNumber}
-                          </h3>
-                          <Badge {...getStatusBadge(invoice.status)}>{invoice.status}</Badge>
-                        </div>
-                        <p className="text-sm text-[var(--foreground-tertiary)] mt-1">{invoice.studio.name}</p>
-                        <div className="mt-2 flex items-center gap-4 text-xs font-medium uppercase tracking-wider">
-                          <span className="text-[var(--foreground-tertiary)]">
-                            Created: {formatDate(invoice.createdAt)}
-                          </span>
-                          {invoice.dueDate && (
-                            <span className="text-[var(--foreground-tertiary)]">
-                              Due: {formatDate(invoice.dueDate)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-[var(--foreground)] tabular-nums">
-                          ${Number(invoice.total).toFixed(2)}
-                        </p>
-                        {invoice.payments.length > 0 && (
-                          <div className="mt-1 flex items-center justify-end text-sm text-[var(--success)] font-bold">
-                            <CheckCircle className="mr-1 h-4 w-4" />
-                            Paid: ${invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2)}
-                          </div>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="mt-3"
-                          onClick={() => handleDownloadInvoice(invoice.invoiceNumber)}
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download PDF
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
+          <Card className="border-[var(--border)] shadow-sm bg-[var(--background)]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Account Verification</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[var(--foreground)]">Google Identity Active</p>
+                  <p className="text-xs text-[var(--foreground-tertiary)]">All sessions synchronized</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LoadingSpinner } from '@/components/ui/loading';
@@ -41,7 +41,16 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const { addToast } = useToast();
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const {
     register,
@@ -52,14 +61,19 @@ export default function CustomersPage() {
     resolver: zodResolver(customerSchema),
   });
 
+  // Re-fetch customers when debounced search term changes
   useEffect(() => {
-    loadCustomers();
-  }, []);
+    loadCustomers(debouncedSearch);
+  }, [debouncedSearch]);
 
-  const loadCustomers = async () => {
+  const loadCustomers = async (searchQuery: string = '') => {
     try {
       setIsLoading(true);
-      const response = await customersApi.getAll({ limit: 1000 });
+      const params: any = { limit: 50 }; // Fetch fewer by default for optimization
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+      const response = await customersApi.getAll(params);
       setCustomers(response.data?.data || []);
     } catch (error) {
       console.error('Failed to load customers:', error);
@@ -85,15 +99,8 @@ export default function CustomersPage() {
     }
   };
 
-  const filteredCustomers = (customers || []).filter((customer) => {
-    if (!customer) return false;
-    const search = searchTerm.toLowerCase();
-    return (
-      (customer.name || '').toLowerCase().includes(search) ||
-      (customer.email || '').toLowerCase().includes(search) ||
-      (customer.phone || '').toLowerCase().includes(search)
-    );
-  });
+  // Client-side mapping since the API already filters
+  const displayCustomers = customers || [];
 
   return (
     <div className="space-y-6">
@@ -112,33 +119,30 @@ export default function CustomersPage() {
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by name, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <Input
+            placeholder="Search by name, email, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            leftIcon={<Search className="h-4 w-4" />}
+          />
         </CardContent>
       </Card>
 
       {/* Customers Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Customers ({(filteredCustomers || []).length})</CardTitle>
+          <CardTitle>All Customers {displayCustomers.length >= 50 ? '(50+)' : `(${displayCustomers.length})`}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
               <LoadingSpinner size="lg" />
             </div>
-          ) : (filteredCustomers || []).length === 0 ? (
+          ) : displayCustomers.length === 0 ? (
             <div className="text-center py-8">
-              <Users className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">No customers</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <Users className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
+              <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">No customers</h3>
+              <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">
                 {searchTerm ? 'No customers match your search.' : 'Get started by adding your first customer.'}
               </p>
               {!searchTerm && (
@@ -159,7 +163,7 @@ export default function CustomersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCustomers.map((customer) => (
+                {displayCustomers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">{customer.name}</TableCell>
                     <TableCell>
@@ -167,7 +171,7 @@ export default function CustomersPage() {
                         <Mail className="h-4 w-4 text-gray-400" />
                         <a
                           href={`mailto:${customer.email}`}
-                          className="text-blue-600 hover:underline"
+                          className="text-[var(--primary)] hover:underline"
                         >
                           {customer.email}
                         </a>
@@ -179,7 +183,7 @@ export default function CustomersPage() {
                           <Phone className="h-4 w-4 text-gray-400" />
                           <a
                             href={`tel:${customer.phone}`}
-                            className="text-blue-600 hover:underline"
+                            className="text-[var(--primary)] hover:underline"
                           >
                             {formatPhoneNumber(customer.phone)}
                           </a>
@@ -221,6 +225,7 @@ export default function CustomersPage() {
             placeholder="John Doe"
             error={errors.name?.message}
             {...register('name')}
+            leftIcon={<Users className="h-4 w-4" />}
           />
 
           <Input
@@ -229,6 +234,7 @@ export default function CustomersPage() {
             placeholder="john@example.com"
             error={errors.email?.message}
             {...register('email')}
+            leftIcon={<Mail className="h-4 w-4" />}
           />
 
           <Input
@@ -237,6 +243,7 @@ export default function CustomersPage() {
             placeholder="(555) 123-4567"
             error={errors.phone?.message}
             {...register('phone')}
+            leftIcon={<Phone className="h-4 w-4" />}
           />
 
           <Input
@@ -246,17 +253,13 @@ export default function CustomersPage() {
             {...register('address')}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes (Optional)
-            </label>
-            <textarea
-              {...register('notes')}
-              rows={3}
-              className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="Add any notes about this customer..."
-            />
-          </div>
+          <Textarea
+            label="Notes (Optional)"
+            {...register('notes')}
+            rows={3}
+            placeholder="Add any notes about this customer..."
+            error={errors.notes?.message}
+          />
 
           <div className="flex items-center justify-end gap-3 pt-4">
             <Button

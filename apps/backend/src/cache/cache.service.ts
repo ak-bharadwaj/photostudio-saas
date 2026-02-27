@@ -12,7 +12,9 @@ export class CacheService implements OnModuleDestroy {
 
     // Check if it's a placeholder
     if (redisUrl.includes("********")) {
-      this.logger.warn("Redis URL contains placeholders. Using in-memory fallback.");
+      this.logger.warn(
+        "Redis URL contains placeholders. Using in-memory fallback.",
+      );
       this.redis = null as any;
       return;
     }
@@ -21,7 +23,9 @@ export class CacheService implements OnModuleDestroy {
       this.redis = new Redis(redisUrl, {
         retryStrategy: (times) => {
           if (times > 3) {
-            this.logger.error("Redis max retries reached. Switching to in-memory fallback.");
+            this.logger.error(
+              "Redis max retries reached. Switching to in-memory fallback.",
+            );
             return null; // Stop retrying
           }
           return Math.min(times * 50, 2000);
@@ -30,7 +34,10 @@ export class CacheService implements OnModuleDestroy {
       });
 
       this.redis.on("error", (error) => {
-        this.logger.error("Redis error, using in-memory fallback:", error.message);
+        this.logger.error(
+          "Redis error, using in-memory fallback:",
+          error.message,
+        );
       });
 
       this.redis.on("connect", () => {
@@ -43,7 +50,9 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.redis.quit();
+    if (this.redis) {
+      await this.redis.quit();
+    }
   }
 
   /**
@@ -90,6 +99,10 @@ export class CacheService implements OnModuleDestroy {
    */
   async del(key: string): Promise<void> {
     try {
+      if (!this.redis) {
+        this.memoryCache.delete(key);
+        return;
+      }
       await this.redis.del(key);
     } catch (error: any) {
       this.logger.error(`Error deleting cache key ${key}:`, error.stack);
@@ -101,6 +114,15 @@ export class CacheService implements OnModuleDestroy {
    */
   async invalidate(pattern: string): Promise<void> {
     try {
+      if (!this.redis) {
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        for (const key of this.memoryCache.keys()) {
+          if (regex.test(key)) {
+            this.memoryCache.delete(key);
+          }
+        }
+        return;
+      }
       const keys = await this.redis.keys(pattern);
       if (keys.length > 0) {
         await this.redis.del(...keys);
@@ -118,6 +140,12 @@ export class CacheService implements OnModuleDestroy {
    */
   async incr(key: string): Promise<number> {
     try {
+      if (!this.redis) {
+        const current = await this.get<number>(key) || 0;
+        const next = current + 1;
+        await this.set(key, next, 3600);
+        return next;
+      }
       return await this.redis.incr(key);
     } catch (error: any) {
       this.logger.error(`Error incrementing cache key ${key}:`, error.stack);
@@ -130,6 +158,13 @@ export class CacheService implements OnModuleDestroy {
    */
   async expire(key: string, seconds: number): Promise<void> {
     try {
+      if (!this.redis) {
+        const item = this.memoryCache.get(key);
+        if (item) {
+          item.expiry = Date.now() + seconds * 1000;
+        }
+        return;
+      }
       await this.redis.expire(key, seconds);
     } catch (error: any) {
       this.logger.error(`Error setting expiration on key ${key}:`, error.stack);
@@ -141,6 +176,10 @@ export class CacheService implements OnModuleDestroy {
    */
   async exists(key: string): Promise<boolean> {
     try {
+      if (!this.redis) {
+        const item = this.memoryCache.get(key);
+        return !!(item && item.expiry > Date.now());
+      }
       const result = await this.redis.exists(key);
       return result === 1;
     } catch (error: any) {
@@ -154,6 +193,13 @@ export class CacheService implements OnModuleDestroy {
    */
   async ttl(key: string): Promise<number> {
     try {
+      if (!this.redis) {
+        const item = this.memoryCache.get(key);
+        if (item && item.expiry > Date.now()) {
+          return Math.floor((item.expiry - Date.now()) / 1000);
+        }
+        return -1;
+      }
       return await this.redis.ttl(key);
     } catch (error: any) {
       this.logger.error(`Error getting TTL of key ${key}:`, error.stack);

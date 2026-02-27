@@ -8,7 +8,7 @@ import { CreateCustomerDto, UpdateCustomerDto } from "./dto/customer.dto";
 
 @Injectable()
 export class CustomerService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(dto: CreateCustomerDto, studioId: string) {
     // Check if customer with same phone exists in this studio
@@ -194,7 +194,7 @@ export class CustomerService {
       throw new NotFoundException("Customer not found");
     }
 
-    const [totalBookings, totalInvoices, totalSpent, lastBooking] =
+    const [totalBookings, pendingInvoices, totalSpent, lastBooking] =
       await Promise.all([
         this.prisma.booking.count({
           where: {
@@ -206,6 +206,7 @@ export class CustomerService {
           where: {
             customerId: id,
             studioId,
+            status: { in: ['DRAFT', 'SENT', 'PARTIALLY_PAID', 'OVERDUE'] },
           },
         }),
         this.prisma.invoice.aggregate({
@@ -232,8 +233,8 @@ export class CustomerService {
 
     return {
       totalBookings,
-      totalInvoices,
-      totalSpent: totalSpent._sum.total || 0,
+      pendingInvoices,
+      totalRevenue: totalSpent._sum.total ? Number(totalSpent._sum.total) : 0,
       lastBooking,
     };
   }

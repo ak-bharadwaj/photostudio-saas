@@ -50,10 +50,11 @@ export class AuthService {
     });
 
     return {
-      admin: {
+      user: {
         id: admin.id,
         email: admin.email,
         name: admin.name,
+        role: "ADMIN",
       },
       ...tokens,
     };
@@ -202,6 +203,82 @@ export class AuthService {
       name: user.name,
       role: user.role,
       studioId: user.studioId,
+    };
+  }
+
+  // ============================================
+  // OAUTH AUTHENTICATION
+  // ============================================
+
+  async validateOAuthUser(profile: {
+    email: string;
+    name: string;
+    provider: string;
+    providerId: string;
+  }) {
+    // 1. Find or create the global User
+    let user = await this.prisma.user.findUnique({
+      where: { email: profile.email },
+      include: { studio: true },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: profile.email,
+          name: profile.name,
+          role: "CUSTOMER",
+          provider: profile.provider,
+          providerId: profile.providerId,
+          isActive: true,
+        },
+        include: { studio: true },
+      });
+
+      // 2. Synchronize existing studio-specific Customer records to this new global User
+      // This links all their previous bookings across different studios to this one account
+      await this.prisma.customer.updateMany({
+        where: { email: profile.email, globalUserId: null },
+        data: { globalUserId: user.id },
+      });
+    } else {
+      // Update provider info if not set
+      if (user.provider === "local" || !user.providerId) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            provider: profile.provider,
+            providerId: profile.providerId,
+          },
+          include: { studio: true },
+        });
+      }
+    }
+
+    // 3. Generate tokens for the global customer
+    const tokens = await this.generateTokens({
+      sub: user.id,
+      email: user.email,
+      type: "user",
+      studioId: user.studioId || undefined,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        studioId: user.studioId,
+        studio: user.studio
+          ? {
+            id: user.studio.id,
+            name: user.studio.name,
+            slug: user.studio.slug,
+          }
+          : null,
+      },
+      ...tokens,
     };
   }
 

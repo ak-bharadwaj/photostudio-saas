@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/lib/auth-store';
-import { studiosApi, uploadApi } from '@/lib/api';
+import { studiosApi, uploadApi, api } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input, Textarea, Select } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,9 @@ interface BrandingConfig {
   fontFamily: string;
   headerText: string;
   tagline: string;
+  heroStyle?: 'solid' | 'mesh' | 'glass';
+  cardTheme?: 'modern' | 'classic' | 'elevated';
+  buttonShape?: 'rounded' | 'pill' | 'luxury-sharp';
 }
 
 interface StudioData {
@@ -54,17 +57,22 @@ const DEFAULT_BRANDING: BrandingConfig = {
   fontFamily: 'Inter',
   headerText: '',
   tagline: '',
+  heroStyle: 'solid',
+  cardTheme: 'modern',
+  buttonShape: 'rounded',
 };
 
 const FONT_OPTIONS = [
+  'Plus Jakarta Sans',
+  'Outfit',
   'Inter',
   'Playfair Display',
-  'Roboto',
-  'Open Sans',
+  'Poppins',
   'Montserrat',
   'Lora',
-  'Poppins',
   'Raleway',
+  'Roboto',
+  'Open Sans',
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -83,35 +91,38 @@ function ColorPicker({
   description?: string;
 }) {
   return (
-    <div className="flex items-center gap-4">
-      <div className="relative">
+    <div className="flex items-center gap-4 p-3 rounded-xl bg-[var(--surface-0)] border border-[var(--border)] group hover:border-[var(--primary-light)] transition-all">
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--border)] shadow-sm">
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-[150%] h-[150%] -translate-x-1/4 -translate-y-1/4 cursor-pointer"
         />
         <div
-          className="h-10 w-10 rounded-[var(--radius-md)] border-2 border-[var(--border)] shadow-[var(--shadow-sm)] cursor-pointer transition-transform hover:scale-105"
+          className="absolute inset-0 pointer-events-none"
           style={{ backgroundColor: value }}
         />
       </div>
       <div className="flex-1 min-w-0">
-        <label className="block text-sm font-medium text-[var(--foreground)]">
+        <label className="block text-sm font-bold text-[var(--foreground)] tracking-tight">
           {label}
         </label>
         {description && (
-          <p className="text-xs text-[var(--foreground-tertiary)]">{description}</p>
+          <p className="text-[10px] text-[var(--foreground-tertiary)] font-medium leading-none mt-0.5">{description}</p>
         )}
       </div>
-      <Input
-        value={value}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === '') onChange(v);
-        }}
-        className="w-28 font-mono text-xs"
-      />
+      <div className="relative w-32">
+        <Input
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === '') onChange(v);
+          }}
+          className="font-mono text-xs h-9 uppercase pl-2 pr-8"
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-[var(--border)] shadow-inner" style={{ backgroundColor: value }} />
+      </div>
     </div>
   );
 }
@@ -132,6 +143,7 @@ function LogoUploader({
   isUploading: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -144,6 +156,12 @@ function LogoUploader({
     [onUpload],
   );
 
+  const getFullUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
@@ -151,24 +169,29 @@ function LogoUploader({
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-[var(--foreground)]">
-        Studio Logo
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-bold text-[var(--foreground)] uppercase tracking-wider italic">
+          Upload Content
+        </label>
+      </div>
 
       {logoUrl ? (
-        <div className="relative inline-block">
-          <div className="h-24 w-24 rounded-[var(--radius-lg)] border-2 border-[var(--border)] overflow-hidden bg-[var(--surface-1)] flex items-center justify-center">
+        <div className="relative group">
+          <div className="h-48 w-full rounded-2xl border-2 border-[var(--border)] overflow-hidden bg-[var(--surface-1)] flex items-center justify-center p-8 transition-all group-hover:border-[var(--primary)] group-hover:bg-white">
             <img
-              src={logoUrl}
+              src={getFullUrl(logoUrl)}
               alt="Studio logo"
-              className="h-full w-full object-contain"
+              className="max-h-full max-w-full object-contain animate-in zoom-in duration-500"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Logo+Missing';
+              }}
             />
           </div>
           <button
             onClick={onRemove}
-            className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-[var(--danger)] text-white flex items-center justify-center shadow-[var(--shadow-md)] hover:bg-[var(--danger-hover)] transition-colors"
+            className="absolute top-4 right-4 h-10 w-10 rounded-xl bg-[var(--danger)] text-white flex items-center justify-center shadow-xl hover:bg-red-600 transition-all hover:scale-110 active:scale-90"
           >
-            <X className="h-3 w-3" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       ) : (
@@ -177,24 +200,31 @@ function LogoUploader({
           onDrop={handleDrop}
           onClick={() => fileRef.current?.click()}
           className={cn(
-            'flex flex-col items-center justify-center gap-2 p-6',
-            'border-2 border-dashed border-[var(--border)] rounded-[var(--radius-lg)]',
-            'bg-[var(--surface-1)] cursor-pointer',
-            'hover:border-[var(--primary)] hover:bg-[var(--primary-light)]',
-            'transition-all duration-[var(--transition-fast)]',
+            'flex flex-col items-center justify-center gap-4 py-12 px-6',
+            'border-2 border-dashed border-[var(--border)] rounded-2xl',
+            'bg-[var(--surface-0)] cursor-pointer group',
+            'hover:border-[var(--primary)] hover:bg-[var(--primary)]/5',
+            'transition-all duration-500',
           )}
         >
           {isUploading ? (
-            <LoadingSpinner />
+            <div className="flex flex-col items-center gap-4 animate-pulse">
+              <LoadingSpinner className="h-10 w-10 text-[var(--primary)]" />
+              <p className="text-sm font-bold text-[var(--primary)]">Uploading high-quality assets...</p>
+            </div>
           ) : (
             <>
-              <Upload className="h-8 w-8 text-[var(--foreground-tertiary)]" />
-              <p className="text-sm text-[var(--foreground-secondary)]">
-                Click or drag to upload logo
-              </p>
-              <p className="text-xs text-[var(--foreground-tertiary)]">
-                PNG, JPG, SVG. Max 2MB.
-              </p>
+              <div className="h-16 w-16 rounded-2xl bg-[var(--primary)]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Upload className="h-8 w-8 text-[var(--primary)]" />
+              </div>
+              <div className="text-center">
+                <p className="text-base font-black text-[var(--foreground)] tracking-tight italic">
+                  Drop your masterpiece here
+                </p>
+                <p className="text-xs text-[var(--foreground-tertiary)] font-medium mt-1">
+                  SVG, PNG or JPG (Recommended: Transparent PNG)
+                </p>
+              </div>
             </>
           )}
         </div>
@@ -224,84 +254,147 @@ function BrandPreview({
   studioName: string;
   logoUrl: string | null;
 }) {
+  const heroStyle = branding.heroStyle || 'solid';
+  const cardTheme = branding.cardTheme || 'modern';
+  const buttonShape = branding.buttonShape || 'rounded';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  const getFullUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-        <Eye className="h-4 w-4" />
-        Live Preview
+    <div className="space-y-4">
+      <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-[var(--foreground-tertiary)] bg-[var(--surface-0)] p-3 rounded-xl border border-[var(--border)]">
+        <div className="flex items-center gap-2">
+          <Eye className="h-3 w-3 text-[var(--primary)]" />
+          Visual Blueprint
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          Live
+        </div>
       </div>
 
       <div
-        className="rounded-[var(--radius-lg)] border border-[var(--border)] overflow-hidden shadow-[var(--shadow-md)]"
+        className="rounded-3xl border border-[var(--border)] overflow-hidden shadow-2xl bg-white"
         style={{ fontFamily: branding.fontFamily + ', sans-serif' }}
       >
-        {/* Header */}
+        {/* Header Preview */}
         <div
-          className="px-6 py-4 flex items-center gap-3"
-          style={{ backgroundColor: branding.primaryColor }}
-        >
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt="Logo"
-              className="h-10 w-10 rounded-[var(--radius-md)] object-contain bg-white/20 p-1"
-            />
-          ) : (
-            <div className="h-10 w-10 rounded-[var(--radius-md)] bg-white/20 flex items-center justify-center">
-              <Camera className="h-5 w-5 text-white" />
-            </div>
+          className={cn(
+            "px-8 py-10 relative overflow-hidden flex items-center gap-6 transition-all duration-700",
+            heroStyle === 'mesh' ? "min-h-[160px]" : "py-10"
           )}
-          <div>
-            <h3 className="text-white font-bold text-lg">
-              {branding.headerText || studioName}
-            </h3>
-            {branding.tagline && (
-              <p className="text-white/80 text-xs">{branding.tagline}</p>
+          style={{
+            background: heroStyle === 'solid'
+              ? branding.primaryColor
+              : heroStyle === 'mesh'
+                ? `radial-gradient(at 0% 0%, ${branding.primaryColor} 0px, transparent 50%),
+                   radial-gradient(at 100% 0%, ${branding.accentColor} 0px, transparent 50%),
+                   radial-gradient(at 0% 100%, ${branding.accentColor} 0px, transparent 50%),
+                   radial-gradient(at 100% 100%, ${branding.primaryColor} 0px, transparent 50%)`
+                : heroStyle === 'glass'
+                  ? `linear-gradient(135deg, ${branding.primaryColor}, ${branding.accentColor})`
+                  : undefined
+          }}
+        >
+          {heroStyle === 'mesh' && (
+            <div className="absolute inset-0 opacity-20 mix-blend-overlay bg-white/10" />
+          )}
+
+          <div className={cn(
+            "relative flex items-center gap-5 w-full",
+            heroStyle === 'glass' && "bg-white/10 backdrop-blur-xl p-6 rounded-3xl border border-white/20 shadow-2xl"
+          )}>
+            {logoUrl ? (
+              <img
+                src={getFullUrl(logoUrl)}
+                alt="Logo"
+                className={cn(
+                  "h-16 w-16 object-contain shadow-2xl",
+                  heroStyle === 'glass' ? "rounded-2xl bg-white/20 p-2" : "rounded-xl bg-white/20 p-1.5"
+                )}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64?text=LOGO';
+                }}
+              />
+            ) : (
+              <div className={cn(
+                "h-16 w-16 flex items-center justify-center shadow-xl",
+                heroStyle === 'glass' ? "rounded-2xl bg-white/20" : "rounded-xl bg-white/20"
+              )}>
+                <Camera className="h-8 w-8 text-white" />
+              </div>
             )}
+            <div>
+              <h3 className="text-white font-black text-2xl tracking-tighter italic leading-none">
+                {(branding.headerText || studioName).toUpperCase()}
+              </h3>
+              {branding.tagline && (
+                <p className="text-white/90 text-[10px] sm:text-xs mt-2 font-bold uppercase tracking-widest bg-black/10 inline-block px-2 py-0.5 rounded-full backdrop-blur-sm">
+                  {branding.tagline}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Body */}
+        {/* Body Preview */}
         <div className="bg-[var(--surface-0)] p-6 space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <h4
-              className="text-base font-semibold"
+              className="text-base font-bold"
               style={{ color: branding.primaryColor }}
             >
-              Our Photography Services
+              Services
             </h4>
-            <p className="text-sm text-[var(--foreground-tertiary)]">
-              Browse our occasions and book your session today.
-            </p>
+            <div className="h-1 w-8 rounded-full" style={{ backgroundColor: branding.primaryColor }} />
           </div>
 
           {/* Mock cards */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-4">
             {['Wedding', 'Portrait', 'Event'].map((name) => (
               <div
                 key={name}
-                className="rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-center"
+                className={cn(
+                  "transition-all duration-300 p-4 text-center group/card",
+                  cardTheme === 'modern' && "rounded-2xl border border-[var(--border)] bg-white shadow-sm hover:border-[var(--primary-light)] hover:shadow-md",
+                  cardTheme === 'classic' && "rounded-xl border-2 border-[var(--border)] bg-white hover:-translate-y-1",
+                  cardTheme === 'elevated' && "rounded-[1.5rem] shadow-xl bg-white border-transparent hover:shadow-2xl"
+                )}
               >
                 <div
-                  className="h-8 w-8 rounded-full mx-auto mb-2 flex items-center justify-center"
-                  style={{ backgroundColor: branding.accentColor + '20' }}
+                  className="h-10 w-10 rounded-xl mx-auto mb-3 flex items-center justify-center transition-transform group-hover/card:scale-110"
+                  style={{ backgroundColor: branding.primaryColor + '15' }}
                 >
                   <Camera
-                    className="h-4 w-4"
-                    style={{ color: branding.accentColor }}
+                    className="h-5 w-5"
+                    style={{ color: branding.primaryColor }}
                   />
                 </div>
-                <p className="text-xs font-medium text-[var(--foreground-secondary)]">{name}</p>
+                <p
+                  className="text-[9px] font-black text-[var(--foreground)] uppercase tracking-widest"
+                  style={{ color: branding.primaryColor }}
+                >
+                  {name}
+                </p>
               </div>
             ))}
           </div>
 
           {/* Mock button */}
           <button
-            className="w-full py-2.5 rounded-[var(--radius-md)] text-white text-sm font-medium transition-opacity hover:opacity-90"
-            style={{ backgroundColor: branding.primaryColor }}
+            className="w-full py-3 text-white text-sm font-bold transition-all shadow-lg active:scale-95"
+            style={{
+              backgroundColor: branding.primaryColor,
+              borderRadius: buttonShape === 'pill' ? '9999px' : buttonShape === 'luxury-sharp' ? '4px' : 'var(--radius-md)',
+              boxShadow: `0 4px 14px 0 ${branding.primaryColor}40`
+            }}
           >
-            Book Now
+            Book Session
           </button>
         </div>
       </div>
@@ -568,7 +661,7 @@ export default function BrandingPage() {
                     )}
                   >
                     {FONT_OPTIONS.map((font) => (
-                      <option key={font} value={font}>
+                      <option key={font} value={font} style={{ fontFamily: font }}>
                         {font}
                       </option>
                     ))}

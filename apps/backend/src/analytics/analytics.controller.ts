@@ -55,7 +55,11 @@ export class AnalyticsController {
       throw new BadRequestException("startDate must be before endDate");
     }
 
-    return this.analyticsService.getOverviewStats(studioId!, startDate, endDate);
+    return this.analyticsService.getOverviewStats(
+      studioId!,
+      startDate,
+      endDate,
+    );
   }
 
   /**

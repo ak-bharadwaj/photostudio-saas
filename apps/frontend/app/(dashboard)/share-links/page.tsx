@@ -19,10 +19,87 @@ import {
   Mail,
   MessageSquare,
   Smartphone,
+  Instagram,
+  Facebook,
+  Layout,
+  Sparkles,
+  Palette,
+  Camera,
 } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
-/*  QR Code component (uses Google Charts API)                                 */
+/*  CMG Template Components                                                   */
+/* -------------------------------------------------------------------------- */
+
+function MarketingAsset({
+  type,
+  studioName,
+  logoUrl,
+  bookingUrl,
+  colors,
+}: {
+  type: 'story' | 'post';
+  studioName: string;
+  logoUrl: string | null;
+  bookingUrl: string;
+  colors: { primary: string; accent: string };
+}) {
+  const isStory = type === 'story';
+
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden shadow-2xl transition-all duration-500 ring-1 ring-white/20",
+        isStory ? "aspect-[9/16] w-[240px]" : "aspect-square w-[300px]"
+      )}
+      style={{
+        background: `radial-gradient(at 0% 0%, ${colors.primary} 0px, transparent 50%),
+                     radial-gradient(at 100% 0%, ${colors.accent} 0px, transparent 50%),
+                     radial-gradient(at 0% 100%, ${colors.accent} 0px, transparent 50%),
+                     radial-gradient(at 100% 100%, ${colors.primary} 0px, transparent 50%),
+                     #000`
+      }}
+    >
+      {/* Decorative patterns */}
+      <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+
+      {/* Dynamic Content */}
+      <div className="absolute inset-0 p-8 flex flex-col items-center justify-between text-center">
+        {/* Top: Logo & Name */}
+        <div className="space-y-4">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-16 w-16 mx-auto rounded-2xl bg-white/20 p-2 backdrop-blur-md shadow-xl border border-white/30" />
+          ) : (
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md shadow-xl border border-white/30">
+              <Camera className="h-8 w-8 text-white" />
+            </div>
+          )}
+          <h3 className="text-white font-black text-2xl tracking-tighter italic drop-shadow-lg leading-tight uppercase">
+            {studioName}
+          </h3>
+        </div>
+
+        {/* Center: Call to Action */}
+        <div className="space-y-2">
+          <div className="inline-block px-4 py-1.5 rounded-full bg-white text-black font-black text-xs uppercase tracking-widest shadow-xl">
+            Book Now
+          </div>
+          <p className="text-white font-bold text-lg drop-shadow-md">
+            {isStory ? "Link in Bio" : "Scan to Schedule"}
+          </p>
+        </div>
+
+        {/* Bottom: QR Code */}
+        <div className="bg-white p-3 rounded-2xl shadow-2xl border-4 border-white/10">
+          <QRCodeDisplay url={bookingUrl} size={isStory ? 100 : 120} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Copy button                                                               */
 /* -------------------------------------------------------------------------- */
 
 function QRCodeDisplay({
@@ -120,6 +197,8 @@ export default function ShareLinksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.studioId]);
 
+  const [cmgType, setCmgType] = useState<'story' | 'post'>('story');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -192,7 +271,20 @@ export default function ShareLinksPage() {
   ];
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-6 page-enter relative min-h-screen">
+      {/* Luxury Background Layer */}
+      {branding && (
+        <div
+          className="fixed inset-0 -z-10 opacity-[0.03] pointer-events-none"
+          style={{
+            background: `radial-gradient(at 0% 0%, ${primaryColor} 0px, transparent 50%),
+                         radial-gradient(at 100% 0%, ${branding?.accentColor || primaryColor} 0px, transparent 50%),
+                         radial-gradient(at 0% 100%, ${branding?.accentColor || primaryColor} 0px, transparent 50%),
+                         radial-gradient(at 100% 100%, ${primaryColor} 0px, transparent 50%)`
+          }}
+        />
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[var(--foreground)]">
@@ -204,7 +296,7 @@ export default function ShareLinksPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
         {/* Left: Booking Link */}
         <div className="space-y-6">
           {/* Public Booking Link */}
@@ -520,6 +612,134 @@ export default function ShareLinksPage() {
           </Card>
         </div>
       </div>
+
+      {/* Marketing Graphics (CMG) Section */}
+      <Card className="border-2 border-[var(--primary)]/10 shadow-xl overflow-hidden mb-12 relative">
+        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+          <Sparkles className="h-48 w-48 text-[var(--primary)]" />
+        </div>
+        <CardHeader className="relative z-10 border-b border-[var(--border)]/50 bg-[var(--surface-0)]/50 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center shadow-inner">
+                <Palette className="h-5 w-5 text-[var(--primary)]" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Custom Marketing Graphics (CMG)</CardTitle>
+                <CardDescription>
+                  Generate stunning social media assets with your brand identity.
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-[var(--surface-1)] p-1 rounded-xl border border-[var(--border)] shadow-sm">
+              <Button
+                size="sm"
+                variant={cmgType === 'story' ? 'primary' : 'ghost'}
+                onClick={() => setCmgType('story')}
+                className="rounded-lg"
+                leftIcon={<Smartphone className="h-4 w-4" />}
+              >
+                Story
+              </Button>
+              <Button
+                size="sm"
+                variant={cmgType === 'post' ? 'primary' : 'ghost'}
+                onClick={() => setCmgType('post')}
+                className="rounded-lg"
+                leftIcon={<Layout className="h-4 w-4" />}
+              >
+                Post
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-8 relative z-10">
+          <div className="flex flex-col lg:flex-row items-center gap-12">
+            <div className="shrink-0 scale-90 sm:scale-100 origin-center transition-all duration-500 hover:scale-[1.02]">
+              <MarketingAsset
+                type={cmgType}
+                studioName={studioName}
+                logoUrl={branding?.logoUrl || null}
+                bookingUrl={bookingUrl}
+                colors={{
+                  primary: primaryColor,
+                  accent: branding?.accentColor || '#7c3aed'
+                }}
+              />
+            </div>
+            <div className="flex-1 space-y-8 w-full">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888] flex items-center justify-center shadow-lg">
+                    <Instagram className="h-4 w-4 text-white" />
+                  </div>
+                  <h4 className="font-bold text-xl text-[var(--foreground)] tracking-tight">
+                    Instagram Ready Assets
+                  </h4>
+                </div>
+                <p className="text-sm text-[var(--foreground-tertiary)] leading-relaxed max-w-2xl">
+                  These graphics are precision-engineered for brand recognition and conversion.
+                  Share them on your {cmgType === 'story' ? 'Link-in-Bio or WhatsApp Stories' : 'Instagram/Facebook Feed'}
+                  to streamline your booking experience for new and returning clients.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/50 backdrop-blur-sm shadow-inner">
+                  <p className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest mb-4">Pro Implementation</p>
+                  <ul className="space-y-3 text-sm text-[var(--foreground-secondary)]">
+                    <li className="flex gap-3 items-center">
+                      <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                      Take a high-quality screenshot of the preview
+                    </li>
+                    <li className="flex gap-3 items-center">
+                      <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                      Upload to your Instagram {cmgType}
+                    </li>
+                    {cmgType === 'story' && (
+                      <li className="flex gap-3 items-center">
+                        <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">3</span>
+                        Add a &quot;Link&quot; sticker set to your Booking URL
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                <div className="flex flex-col gap-3 justify-center">
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-[var(--foreground-tertiary)] mb-1">Quick Actions</p>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start h-12 rounded-xl bg-white/50"
+                      onClick={() => {
+                        navigator.clipboard.writeText(bookingUrl);
+                        addToast('success', 'URL copied for sticker');
+                      }}
+                      leftIcon={<Copy className="h-4 w-4" />}
+                    >
+                      Copy URL for Sticker
+                    </Button>
+                    <Button
+                      className="w-full justify-start h-12 rounded-xl shadow-lg shadow-[var(--primary)]/20"
+                      onClick={() => {
+                        addToast('info', 'Advanced Generation: High-res PNG export coming in V9. For now, please screenshot the preview!');
+                      }}
+                      leftIcon={<Download className="h-4 w-4" />}
+                    >
+                      Download as Image (PNG)
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[var(--border)] flex items-center gap-2 text-xs text-[var(--foreground-tertiary)] italic">
+                <Sparkles className="h-3 w-3" />
+                Your branding colors and logo have been automatically synced to these templates.
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

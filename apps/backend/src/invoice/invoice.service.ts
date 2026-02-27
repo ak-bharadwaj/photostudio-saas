@@ -23,7 +23,7 @@ export class InvoiceService {
     private pdfService: PdfService,
     private notificationService: NotificationService,
     private queueService: QueueService,
-  ) { }
+  ) {}
 
   async create(dto: CreateInvoiceDto, studioId: string) {
     // Verify customer belongs to studio

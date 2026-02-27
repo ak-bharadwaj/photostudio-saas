@@ -20,7 +20,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
   // Admin Authentication
   async createAdmin(createAdminDto: CreateAdminDto) {
@@ -113,7 +113,8 @@ export class AdminService {
           slug: dto.slug,
           email: dto.studioEmail,
           phone: dto.studioPhone,
-          subscriptionTier: (dto.subscriptionTier as SubscriptionTier) || "STARTER",
+          subscriptionTier:
+            (dto.subscriptionTier as SubscriptionTier) || "STARTER",
           status: "TRIAL",
           brandingConfig: dto.brandingConfig || {},
           defaultTerms: dto.defaultTerms,
@@ -239,7 +240,9 @@ export class AdminService {
     if (updateStudioDto.currency)
       updateData.currency = updateStudioDto.currency;
     if (updateStudioDto.subscriptionExpiresAt)
-      updateData.subscriptionExpiresAt = new Date(updateStudioDto.subscriptionExpiresAt);
+      updateData.subscriptionExpiresAt = new Date(
+        updateStudioDto.subscriptionExpiresAt,
+      );
     if (updateStudioDto.taxRate !== undefined)
       updateData.taxRate = updateStudioDto.taxRate;
 

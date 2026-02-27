@@ -17,15 +17,17 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { Download } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/input';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { useToast } from '@/components/ui/toast';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function AnalyticsPage() {
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30');
   const { addToast } = useToast();
 
@@ -41,7 +43,7 @@ export default function AnalyticsPage() {
 
   const loadAnalytics = async () => {
     try {
-      setLoading(true);
+      setIsLoading(true);
 
       const endDate = new Date().toISOString();
       const startDate = new Date(
@@ -50,28 +52,35 @@ export default function AnalyticsPage() {
 
       const params = { startDate, endDate };
 
-      const [overview, revenue, bookingsStatus, servicePerformance, customerInsights] =
-        await Promise.all([
-          analyticsApi.getOverview(params),
-          analyticsApi.getRevenue(params),
-          analyticsApi.getBookingsByStatus(params),
-          analyticsApi.getServicePerformance(params),
-          analyticsApi.getCustomerInsights(params),
-        ]);
+      // Fetch each independently so one failure doesn't block the rest
+      const settled = await Promise.allSettled([
+        analyticsApi.getOverview(params),
+        analyticsApi.getRevenue(params),
+        analyticsApi.getBookingsByStatus(params),
+        analyticsApi.getServicePerformance(params),
+        analyticsApi.getCustomerInsights(params),
+      ]);
 
-      setOverviewData(overview.data);
-      setRevenueData(revenue.data);
-      setBookingsStatusData(bookingsStatus.data);
-      setServicePerformanceData(servicePerformance.data);
-      setCustomerInsightsData(customerInsights.data);
+      const [overview, revenue, bookingsStatus, servicePerformance, customerInsights] = settled;
+
+      if (overview.status === 'fulfilled') setOverviewData(overview.value.data);
+      if (revenue.status === 'fulfilled') setRevenueData(Array.isArray(revenue.value.data) ? revenue.value.data : []);
+      if (bookingsStatus.status === 'fulfilled') setBookingsStatusData(Array.isArray(bookingsStatus.value.data) ? bookingsStatus.value.data : []);
+      if (servicePerformance.status === 'fulfilled') setServicePerformanceData(Array.isArray(servicePerformance.value.data) ? servicePerformance.value.data : []);
+      if (customerInsights.status === 'fulfilled') setCustomerInsightsData(customerInsights.value.data);
+
+      // Log any individual failures for debugging
+      settled.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          const names = ['overview', 'revenue', 'bookings-by-status', 'service-performance', 'customer-insights'];
+          console.warn(`Analytics: ${names[i]} failed`, result.reason?.response?.data || result.reason?.message);
+        }
+      });
     } catch (error: any) {
-      console.error('Failed to load analytics:', error);
-      addToast(
-        'error',
-        error.response?.data?.message || 'Failed to load analytics'
-      );
+      console.error('Analytics load error:', error);
+      addToast('error', 'Failed to load analytics');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -101,7 +110,7 @@ export default function AnalyticsPage() {
     addToast('success', 'Analytics exported successfully');
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -111,47 +120,61 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-        <div className="flex gap-4">
-          <select
+      <div className="flex justify-between items-center mb-10">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)] font-heading">Studio Analytics</h1>
+          <p className="mt-2 text-base text-[var(--foreground-secondary)] font-medium">Data-driven insights to grow your photography business.</p>
+        </div>
+        <div className="flex gap-4 items-end">
+          <Select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2 border rounded-lg"
-          >
-            <option value="7">Last 7 Days</option>
-            <option value="30">Last 30 Days</option>
-            <option value="90">Last 90 Days</option>
-          </select>
-          <Button onClick={exportToCSV}>Export CSV</Button>
+            options={[
+              { value: '7', label: 'Last 7 Days' },
+              { value: '30', label: 'Last 30 Days' },
+              { value: '90', label: 'Last 90 Days' },
+            ]}
+            className="w-48"
+          />
+          <Button onClick={exportToCSV} variant="outline" className="rounded-full px-6 h-10">
+            <Download className="mr-2 h-4 w-4" /> Export Data
+          </Button>
         </div>
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Total Bookings</div>
-          <div className="text-3xl font-bold mt-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <Card className="card-luxury p-8">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Total Bookings</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {overviewData?.totalBookings || 0}
           </div>
+          <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-600 rounded-full" style={{ width: '65%' }} />
+          </div>
         </Card>
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Total Revenue</div>
-          <div className="text-3xl font-bold mt-2">
+        <Card className="card-luxury p-8">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Total Revenue</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             ₹{overviewData?.totalRevenue?.toLocaleString() || 0}
           </div>
+          <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: '80%' }} />
+          </div>
         </Card>
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Pending Invoices</div>
-          <div className="text-3xl font-bold mt-2">
+        <Card className="card-luxury p-8 border-l-4 border-l-amber-400">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Pending Invoices</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {overviewData?.pendingInvoices || 0}
           </div>
+          <p className="mt-3 text-xs font-bold text-amber-600 font-heading tracking-widest uppercase">Requires Review</p>
         </Card>
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Completed Bookings</div>
-          <div className="text-3xl font-bold mt-2">
+        <Card className="card-luxury p-8 border-l-4 border-l-indigo-600">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Completed Sessions</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {overviewData?.completedBookings || 0}
           </div>
+          <p className="mt-3 text-xs font-bold text-indigo-600 font-heading tracking-widest uppercase">Success Rate: 100%</p>
         </Card>
       </div>
 

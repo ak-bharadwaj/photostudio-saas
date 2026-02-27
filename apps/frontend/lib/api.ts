@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -127,6 +127,19 @@ export const bookingsApi = {
 
   cancel: (id: string, notes?: string) =>
     api.patch(`/bookings/${id}/cancel`, { notes }),
+
+  sendQuote: (id: string, data: { amount: number; notes?: string }) =>
+    api.post(`/bookings/${id}/quote`, data),
+};
+
+// Portal API
+export const portalApi = {
+  getMe: () => api.get('/portal/me'),
+  updateMe: (data: any) => api.patch('/portal/me', data),
+  getBookings: (params?: any) => api.get('/portal/bookings', { params }),
+  getInvoices: (params?: any) => api.get('/portal/invoices', { params }),
+  acceptQuote: (bookingId: string) => api.post(`/portal/bookings/${bookingId}/accept-quote`),
+  rejectQuote: (bookingId: string, notes?: string) => api.post(`/portal/bookings/${bookingId}/reject-quote`, { notes }),
 };
 
 // Customers API

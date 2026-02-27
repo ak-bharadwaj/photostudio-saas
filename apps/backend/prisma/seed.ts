@@ -285,7 +285,7 @@ async function main() {
   console.log('📅 Creating bookings...');
 
   const now = new Date();
-  const bookings = [];
+  const bookings: any[] = [];
 
   // Past completed booking
   const booking1 = await prisma.booking.create({

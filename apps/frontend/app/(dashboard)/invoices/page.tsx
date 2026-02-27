@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Select } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,24 +13,20 @@ import { invoicesApi } from '@/lib/api';
 import { formatDate, formatCurrency, getInvoiceStatusBadge } from '@/lib/utils';
 import { Plus, Search, FileText, Eye, Download, Send } from 'lucide-react';
 
+interface Payment { amount: number; paidAt: string; }
 interface Invoice {
-  id: number;
+  id: string;
   invoiceNumber: string;
-  totalAmount: number;
-  paidAmount: number;
+  total: number;
+  subtotal: number;
+  tax: number;
+  discount: number;
   status: string;
-  dueDate: string;
-  issuedDate: string;
-  customer: {
-    id: number;
-    name: string;
-    email: string;
-  };
-  booking?: {
-    id: number;
-    scheduledAt: string;
-    bookingDate?: string;
-  };
+  dueDate?: string;
+  createdAt: string;
+  customer: { id: string; name: string; email: string };
+  payments?: Payment[];
+  booking?: { id: string; scheduledAt?: string };
 }
 
 export default function InvoicesPage() {
@@ -40,37 +36,39 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const { addToast } = useToast();
 
-  useEffect(() => {
-    loadInvoices();
-  }, [statusFilter]);
-
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     try {
       setIsLoading(true);
-      const params: any = { limit: 100 };
+      const params: any = { limit: 200 };
       if (statusFilter) params.status = statusFilter;
-
       const response = await invoicesApi.getAll(params);
-      setInvoices(response.data?.data || []);
-    } catch (error) {
+      // Backend returns { data: [...], meta: {...} }
+      setInvoices(response.data?.data || response.data || []);
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       console.error('Failed to load invoices:', error);
-      addToast('error', 'Failed to load invoices');
+      addToast('error', error.response?.data?.message || 'Failed to load invoices');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter, addToast]);
 
-  const handleSendInvoice = async (invoiceId: number) => {
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
+
+  const handleSendInvoice = async (invoiceId: string) => {
     try {
       await invoicesApi.send(invoiceId.toString());
       addToast('success', 'Invoice sent successfully');
       loadInvoices();
-    } catch (error: any) {
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to send invoice');
     }
   };
 
-  const handleDownloadPdf = async (invoiceId: number, invoiceNumber: string) => {
+  const handleDownloadPdf = async (invoiceId: string, invoiceNumber: string) => {
     try {
       const response = await invoicesApi.downloadPdf(invoiceId.toString());
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -81,7 +79,8 @@ export default function InvoicesPage() {
       link.click();
       link.remove();
       addToast('success', 'Invoice downloaded successfully');
-    } catch (error: any) {
+    } catch (e) {
+      const error = e as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to download invoice');
     }
   };
@@ -106,63 +105,44 @@ export default function InvoicesPage() {
   ];
 
   // Calculate stats
+  const getPaid = (inv: Invoice) => (inv.payments || []).reduce((s, p) => s + Number(p.amount), 0);
   const totalRevenue = (invoices || [])
     .filter(inv => inv?.status === 'PAID')
-    .reduce((sum, inv) => sum + (inv?.totalAmount || 0), 0);
-
+    .reduce((sum, inv) => sum + Number(inv?.total || 0), 0);
   const pendingAmount = (invoices || [])
     .filter(inv => inv && ['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.status))
-    .reduce((sum, inv) => sum + ((inv?.totalAmount || 0) - (inv?.paidAmount || 0)), 0);
+    .reduce((sum, inv) => sum + Math.max(0, Number(inv?.total || 0) - getPaid(inv)), 0);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center mb-10">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
-          <p className="mt-2 text-gray-600">Manage invoices and track payments</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)] font-heading">Billing</h1>
+          <p className="mt-2 text-base text-[var(--foreground-secondary)] font-medium">Track your revenue, manage invoices and issue professional billing.</p>
         </div>
         <Link href="/invoices/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Invoice
+          <Button size="lg" className="rounded-full shadow-lg shadow-indigo-100">
+            <Plus className="mr-2 h-5 w-5" /> New Invoice
           </Button>
         </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Invoices
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(invoices || []).length}</div>
-          </CardContent>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-10">
+        <Card className="card-luxury p-8">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Total Invoices</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">{(invoices || []).length}</div>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Revenue
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-          </CardContent>
+        <Card className="card-luxury p-8 border-l-4 border-l-emerald-500">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Total Revenue</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">{formatCurrency(totalRevenue)}</div>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Pending Amount
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(pendingAmount)}</div>
-          </CardContent>
+        <Card className="card-luxury p-8 border-l-4 border-l-amber-500">
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">Pending Amount</div>
+          <div className="text-4xl font-black text-[var(--foreground)] font-heading">{formatCurrency(pendingAmount)}</div>
         </Card>
       </div>
 
@@ -170,26 +150,17 @@ export default function InvoicesPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search by invoice number or customer..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <select
+            <Input
+              placeholder="Search by invoice number or customer..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              leftIcon={<Search className="h-4 w-4" />}
+            />
+            <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-            >
-              {statuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
+              options={statuses}
+            />
           </div>
         </CardContent>
       </Card>
@@ -239,7 +210,7 @@ export default function InvoicesPage() {
                     <TableCell className="font-medium">
                       <Link
                         href={`/invoices/${invoice.id}`}
-                        className="text-blue-600 hover:underline"
+                        className="text-[var(--primary)] hover:underline"
                       >
                         {invoice.invoiceNumber}
                       </Link>
@@ -251,12 +222,12 @@ export default function InvoicesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="font-semibold">
-                      {formatCurrency(invoice.totalAmount)}
+                      {formatCurrency(Number(invoice.total || 0))}
                     </TableCell>
                     <TableCell>
-                      {formatCurrency(invoice.paidAmount)}
+                      {formatCurrency(getPaid(invoice))}
                     </TableCell>
-                    <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                    <TableCell>{invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</TableCell>
                     <TableCell>
                       <Badge {...getInvoiceStatusBadge(invoice.status)}>
                         {invoice.status}

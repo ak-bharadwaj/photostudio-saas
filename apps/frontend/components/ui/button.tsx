@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -76,6 +76,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       sm: 'h-8 px-3 text-sm rounded-[var(--radius-sm)]',
       md: 'h-10 px-4 text-sm rounded-[var(--radius-md)]',
       lg: 'h-12 px-6 text-base rounded-[var(--radius-md)]',
+      icon: 'h-10 w-10 p-0 rounded-[var(--radius-md)]',
     };
 
     return (

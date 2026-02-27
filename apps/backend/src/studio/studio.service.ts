@@ -19,7 +19,7 @@ export class StudioService {
     private prisma: PrismaService,
     private cacheService: CacheService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async create(dto: CreateStudioDto) {
     // Check if slug is already taken

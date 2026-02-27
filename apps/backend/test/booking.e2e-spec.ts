@@ -28,10 +28,10 @@ describe("Booking Flow (e2e)", () => {
 
     // Login to get access token
     const loginResponse = await request(app.getHttpServer())
-      .post("/auth/user/login")
+      .post("/auth/login")
       .send({
-        email: "owner@example.com",
-        password: "password123",
+        email: "owner@lensandlight.com",
+        password: "Demo@123",
       });
 
     accessToken = loginResponse.body.accessToken;
@@ -293,7 +293,7 @@ describe("Booking Flow (e2e)", () => {
 
       // Cancel the booking
       const response = await request(app.getHttpServer())
-        .post(`/bookings/${cancelBookingId}/cancel`)
+        .patch(`/bookings/${cancelBookingId}/cancel`)
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
           notes: "Customer requested cancellation",
@@ -306,7 +306,7 @@ describe("Booking Flow (e2e)", () => {
     it("should not allow cancelling already completed booking", async () => {
       // Try to cancel the completed booking from earlier tests
       await request(app.getHttpServer())
-        .post(`/bookings/${bookingId}/cancel`)
+        .patch(`/bookings/${bookingId}/cancel`)
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
           notes: "Trying to cancel completed booking",

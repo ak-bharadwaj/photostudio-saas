@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Req } from "@nestjs/common";
 import { PublicService } from "./public.service";
 import { CreatePublicBookingDto } from "./dto/public-booking.dto";
 import { Public } from "../auth/decorators/public.decorator";
@@ -14,7 +14,19 @@ export class PublicController {
   @Public()
   @Get("studios/:slug")
   async getStudioBySlug(@Param("slug") slug: string) {
-    return this.publicService.getStudioBySlug(slug);
+    console.log(`[DEBUG] Incoming public request for studio slug: "${slug}"`);
+    try {
+      const studio = await this.publicService.getStudioBySlug(slug);
+      console.log(
+        `[DEBUG] Studio found for slug "${slug}": ${studio.name} (${studio.id})`,
+      );
+      return studio;
+    } catch (error: any) {
+      console.error(
+        `[DEBUG] Error fetching studio for slug "${slug}": ${error.message}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -26,8 +38,11 @@ export class PublicController {
   async createPublicBooking(
     @Param("slug") slug: string,
     @Body() dto: CreatePublicBookingDto,
+    @Req() req: any,
   ) {
-    return this.publicService.createPublicBooking(slug, dto);
+    // We manually extract the user if the token is present to link the booking
+    // even though the route is @Public()
+    return this.publicService.createPublicBooking(slug, dto, req.user?.id);
   }
 
   /**

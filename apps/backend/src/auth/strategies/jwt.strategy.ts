@@ -58,7 +58,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
 
       if (user.studio.status !== "ACTIVE" && user.studio.status !== "TRIAL") {
-        throw new UnauthorizedException(`Studio is ${user.studio.status.toLowerCase()}`);
+        throw new UnauthorizedException(
+          `Studio is ${user.studio.status.toLowerCase()}`,
+        );
       }
 
       if (

@@ -83,7 +83,7 @@ describe("AuthService", () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe("Admin Authentication", () => {
@@ -103,12 +103,12 @@ describe("AuthService", () => {
 
         mockPrismaService.admin.findUnique.mockResolvedValue(mockAdmin);
         (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-        mockJwtService.signAsync.mockResolvedValue("mock-token");
+        mockJwtService.sign.mockReturnValue("mock-token");
 
         const result = await service.adminLogin(loginDto);
 
-        expect(result).toHaveProperty("admin");
-        expect(result.admin.email).toBe(loginDto.email);
+        expect(result).toHaveProperty("user");
+        expect(result.user.email).toBe(loginDto.email);
         expect(result).toHaveProperty("accessToken");
         expect(result).toHaveProperty("refreshToken");
         expect(mockPrismaService.admin.findUnique).toHaveBeenCalledWith({
@@ -171,7 +171,7 @@ describe("AuthService", () => {
         mockPrismaService.admin.findUnique.mockResolvedValue(null);
         (bcrypt.hash as jest.Mock).mockResolvedValue("hashed_password");
         mockPrismaService.admin.create.mockResolvedValue(mockAdmin);
-        mockJwtService.signAsync.mockResolvedValue("mock-token");
+        mockJwtService.sign.mockReturnValue("mock-token");
 
         const result = await service.adminCreate(createDto);
 
@@ -225,9 +225,10 @@ describe("AuthService", () => {
           },
         };
 
+        mockPrismaService.admin.findUnique.mockResolvedValue(null);
         mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
         (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-        mockJwtService.signAsync.mockResolvedValue("mock-token");
+        mockJwtService.sign.mockReturnValue("mock-token");
 
         const result = await service.userLogin(loginDto);
 

@@ -8,6 +8,12 @@ interface User {
   role?: string;
   studioId?: string;
   isAdmin?: boolean;
+  studio?: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl?: string;
+  };
 }
 
 interface AuthState {
@@ -23,7 +29,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState>((set) => ({
+export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
@@ -58,8 +64,7 @@ export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState
 
   adminLogin: async (email: string, password: string) => {
     // Redirect to the unified login
-    const store = useAuthStore.getState();
-    return store.login(email, password);
+    return get().login(email, password);
   },
 
   logout: async () => {

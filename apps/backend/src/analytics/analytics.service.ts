@@ -4,7 +4,7 @@ import { startOfDay, endOfDay, subDays, format } from "date-fns";
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Get revenue over time (daily breakdown)

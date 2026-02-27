@@ -1,0 +1,821 @@
+﻿node.exe : (node:24620) 
+Warning: 
+`--localstorage-file` was 
+provided without a valid path
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Us
+ers\dorni\AppData\Roaming\ 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: ((node:2  
+  4620) Wa...ut a valid pa   
+ th:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+(Use `node --trace-warnings 
+...` to show where the 
+warning was created)
+FAIL 
+test/booking.e2e-spec.ts 
+(20.618 s)
+  Booking Flow (e2e)
+    Complete Booking Workflow
+      ├ù should create a new 
+booking (3 ms)
+      ├ù should get all 
+bookings (1 ms)
+      ├ù should get a single 
+booking by id (1 ms)
+      ├ù should update 
+booking status from INQUIRY 
+to QUOTED
+      ├ù should update 
+booking status from QUOTED 
+to CONFIRMED
+      ├ù should reject 
+invalid status transition
+      ├ù should filter 
+bookings by status
+      ├ù should update 
+booking status to IN_PROGRESS
+      ├ù should update 
+booking status to COMPLETED
+      ├ù should prevent 
+booking at conflicting time 
+slot (1 ms)
+    Booking Validation
+      ├ù should reject 
+booking without customerId
+      ├ù should reject 
+booking without serviceId
+      ├ù should reject 
+booking with past date
+      ├ù should reject 
+booking with invalid customer
+    Booking Cancellation
+      ├ù should cancel a 
+booking (1 ms)
+      ├ù should not allow 
+cancelling already completed 
+booking
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should create a new 
+booking
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should get all bookings
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should get a single 
+booking by id
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should update booking 
+status from INQUIRY to QUOTED
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should update booking 
+status from QUOTED to 
+CONFIRMED
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should reject invalid 
+status transition
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should filter bookings 
+by status
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should update booking 
+status to IN_PROGRESS
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should update booking 
+status to COMPLETED
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Complete Booking Workflow 
+ΓÇ║ should prevent booking 
+at conflicting time slot
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Booking Validation ΓÇ║ 
+should reject booking 
+without customerId
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Booking Validation ΓÇ║ 
+should reject booking 
+without serviceId
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Booking Validation ΓÇ║ 
+should reject booking with 
+past date
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Booking Validation ΓÇ║ 
+should reject booking with 
+invalid customer
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Booking Cancellation ΓÇ║ 
+should cancel a booking
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+  ΓùÅ Booking Flow (e2e) ΓÇ║ 
+Booking Cancellation ΓÇ║ 
+should not allow cancelling 
+already completed booking
+
+    thrown: "Exceeded 
+timeout of 5000 ms for a 
+hook.
+    Add a timeout value to 
+this test to increase the 
+timeout, if this is a 
+long-running test. See https:
+//jestjs.io/docs/api#testname
+-fn-timeout."
+
+    [0m [90m 15 |[39m   
+[36mlet[39m 
+bookingId[33m:[39m 
+string[33m;[39m
+     [90m 16 |[39m
+    
+[31m[1m>[22m[39m[90m 17 
+|[39m   
+beforeAll([36masync[39m () 
+[33m=>[39m {
+     [90m    |[39m   
+[31m[1m^[22m[39m
+     [90m 18 |[39m     
+[36mconst[39m 
+moduleFixture[33m:[39m 
+[33mTestingModule[39m 
+[33m=[39m [36mawait[39m 
+[33mTest[39m[33m.[39mcreat
+eTestingModule({
+     [90m 19 |[39m       
+imports[33m:[39m [[33mAppM
+odule[39m][33m,[39m
+     [90m 20 |[39m     })[
+33m.[39mcompile()[33m;[39m
+[0m
+
+      at 
+booking.e2e-spec.ts:17:3
+      at Object.<anonymous> 
+(booking.e2e-spec.ts:8:1)
+
+Test Suites: 1 failed, 1 
+total
+Tests:       16 failed, 16 
+total
+Snapshots:   0 total
+Time:        21.704 s
+Ran all test suites matching 
+test/booking.e2e-spec.ts.
+Jest did not exit one second 
+after the test run has 
+completed.
+
+'This usually means that 
+there are asynchronous 
+operations that weren't 
+stopped in your tests. 
+Consider running Jest with 
+`--detectOpenHandles` to 
+troubleshoot this issue.

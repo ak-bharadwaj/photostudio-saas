@@ -28,6 +28,8 @@ import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { TenantInterceptor } from "./common/tenant";
 import { CsrfMiddleware } from "./common/middleware/csrf.middleware";
 import configuration from "./config/configuration";
+import { ServeStaticModule } from "@nestjs/serve-static";
+import * as path from "path";
 
 @Module({
   imports: [
@@ -54,6 +56,11 @@ import configuration from "./config/configuration";
     }),
     */
     PrismaModule,
+    ServeStaticModule.forRoot({
+      rootPath: path.join(process.cwd(), "public", "uploads"),
+      serveRoot: "/uploads",
+      serveStaticOptions: { index: false },
+    }),
     CacheModule,
     AuthModule,
     UserModule,
@@ -92,9 +99,6 @@ import configuration from "./config/configuration";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(CsrfMiddleware)
-      .exclude("public/(.*)")
-      .forRoutes("*");
+    consumer.apply(CsrfMiddleware).exclude("public/(.*)").forRoutes("*");
   }
 }
