@@ -21,12 +21,8 @@ COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY apps/backend ./apps/backend
 COPY package.json pnpm-workspace.yaml ./
 
-# Stay at /app and run commands with --filter so WORKDIR stays /app
-# Prisma generate
-RUN node_modules/.bin/prisma generate --schema=apps/backend/prisma/schema.prisma
-
-# Build — output goes to apps/backend/dist
-RUN cd apps/backend && node_modules/.bin/nest build
+# Prisma generate + build from within the backend package
+RUN cd apps/backend && node_modules/.bin/prisma generate && node_modules/.bin/nest build
 
 # ── Stage 3: runner ───────────────────────────────────────────────────────────
 FROM node:20-slim AS runner
