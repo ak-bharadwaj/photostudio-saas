@@ -1,10 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { CacheService } from "../cache/cache.service";
 import { subDays, format } from "date-fns";
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cacheService: CacheService,
+  ) {}
 
   /**
    * Get revenue over time (daily breakdown)
@@ -87,6 +91,10 @@ export class AnalyticsService {
     startDate: Date,
     endDate: Date,
   ) {
+    const cacheKey = `analytics:service-perf:${studioId}:${startDate.toISOString()}:${endDate.toISOString()}`;
+    const cached = await this.cacheService.get<Array<{ name: string; bookings: number; revenue: number }>>(cacheKey);
+    if (cached) return cached;
+
     const bookings = await this.prisma.booking.findMany({
       where: {
         studioId,
@@ -95,17 +103,20 @@ export class AnalyticsService {
           lte: endDate,
         },
       },
-      include: {
-        service: true,
+      select: {
+        service: {
+          select: { name: true },
+        },
         invoices: {
-          include: {
-            payments: true,
+          select: {
+            payments: {
+              select: { amount: true },
+            },
           },
         },
       },
     });
 
-    // Group by service
     const serviceMap = new Map<
       string,
       { name: string; bookings: number; revenue: number }
@@ -119,18 +130,12 @@ export class AnalyticsService {
       const serviceName = booking.service.name;
 
       if (!serviceMap.has(serviceName)) {
-        serviceMap.set(serviceName, {
-          name: serviceName,
-          bookings: 0,
-          revenue: 0,
-        });
+        serviceMap.set(serviceName, { name: serviceName, bookings: 0, revenue: 0 });
       }
 
       const serviceData = serviceMap.get(serviceName);
       if (serviceData) {
         serviceData.bookings += 1;
-
-        // Sum revenue from all payments for this booking
         booking.invoices.forEach((invoice: { payments: Array<{ amount: unknown }> }) => {
           invoice.payments.forEach((payment: { amount: unknown }) => {
             serviceData.revenue += Number(payment.amount);
@@ -139,16 +144,29 @@ export class AnalyticsService {
       }
     });
 
-    return Array.from(serviceMap.values()).map((item) => ({
+    const result = Array.from(serviceMap.values()).map((item) => ({
       ...item,
       revenue: Number(item.revenue.toFixed(2)),
     }));
+
+    await this.cacheService.set(cacheKey, result, 300);
+    return result;
   }
 
   /**
    * Get customer insights
    */
   async getCustomerInsights(studioId: string, startDate: Date, endDate: Date) {
+    const cacheKey = `analytics:customer-insights:${studioId}:${startDate.toISOString()}:${endDate.toISOString()}`;
+    const cached = await this.cacheService.get<{
+      totalCustomers: number;
+      newCustomers: number;
+      returningCustomers: number;
+      totalRevenue: number;
+      averageRevenuePerCustomer: number;
+    }>(cacheKey);
+    if (cached) return cached;
+
     // Total customers
     const totalCustomers = await this.prisma.customer.count({
       where: {
@@ -185,7 +203,7 @@ export class AnalyticsService {
 
     const returningCustomers = returningCustomerRows.length;
 
-    // Total revenue in period
+    // Total revenue in period — select only amount to avoid fetching full Payment model
     const payments = await this.prisma.payment.findMany({
       where: {
         invoice: {
@@ -196,6 +214,7 @@ export class AnalyticsService {
           lte: endDate,
         },
       },
+      select: { amount: true },
     });
 
     const totalRevenue = payments.reduce(
@@ -207,19 +226,34 @@ export class AnalyticsService {
     const averageRevenuePerCustomer =
       totalCustomers > 0 ? totalRevenue / totalCustomers : 0;
 
-    return {
+    const result = {
       totalCustomers,
       newCustomers,
       returningCustomers,
       totalRevenue: Number(totalRevenue.toFixed(2)),
       averageRevenuePerCustomer: Number(averageRevenuePerCustomer.toFixed(2)),
     };
+
+    await this.cacheService.set(cacheKey, result, 300);
+    return result;
   }
 
   /**
    * Get overview stats
    */
   async getOverviewStats(studioId: string, startDate: Date, endDate: Date) {
+    const cacheKey = `analytics:overview:${studioId}:${startDate.toISOString()}:${endDate.toISOString()}`;
+    const cached = await this.cacheService.get<{
+      totalBookings: number;
+      totalRevenue: number;
+      pendingInvoices: number;
+      completedBookings: number;
+      inquiryCount: number;
+      upcomingShoots: number;
+      conversionRate: number;
+    }>(cacheKey);
+    if (cached) return cached;
+
     const [
       totalBookings,
       totalRevenue,
@@ -313,7 +347,7 @@ export class AnalyticsService {
         ? ((completedBookings + upcomingShoots) / totalBookings) * 100
         : 0;
 
-    return {
+    const result = {
       totalBookings,
       totalRevenue: Number(totalRevenue._sum.amount ?? 0),
       pendingInvoices,
@@ -322,5 +356,8 @@ export class AnalyticsService {
       upcomingShoots,
       conversionRate: Number(conversionRate.toFixed(2)),
     };
+
+    await this.cacheService.set(cacheKey, result, 300);
+    return result;
   }
 }

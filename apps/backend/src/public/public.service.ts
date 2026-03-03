@@ -77,8 +77,8 @@ export class PublicService {
       );
     }
 
-    // Cache the studio data for 5 minutes (300 seconds)
-    await this.cacheService.set(cacheKey, studio, 300);
+    // Cache the studio data for 10 minutes (600 seconds)
+    await this.cacheService.set(cacheKey, studio, 600);
 
     return studio;
   }
@@ -137,7 +137,12 @@ export class PublicService {
         // Optimisation: booking starting on or after endAt can never overlap
         scheduledAt: { lt: endAt },
       },
-      include: { service: true },
+      select: {
+        scheduledAt: true,
+        service: {
+          select: { durationMinutes: true },
+        },
+      },
     });
 
     for (const candidate of candidates) {

@@ -788,7 +788,12 @@ export class BookingService {
         // Optimisation: a booking starting on or after our endAt can never overlap
         scheduledAt: { lt: endAt },
       },
-      include: { service: true },
+      select: {
+        scheduledAt: true,
+        service: {
+          select: { durationMinutes: true },
+        },
+      },
     });
 
     for (const candidate of candidates) {

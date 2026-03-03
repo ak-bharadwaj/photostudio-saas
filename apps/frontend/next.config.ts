@@ -7,17 +7,20 @@ const nextConfig: NextConfig = {
   // Disable x-powered-by header for security
   poweredByHeader: false,
 
-  // Allow next/image to optimise remote images from Cloudinary and Supabase Storage
+  // Gzip compress all responses
+  compress: true,
+
+  // Allow next/image to optimise remote images from Cloudinary and known CDNs
+  // NOTE: Supabase removed — migrated to Neon (no file storage via Supabase anymore)
   images: {
+    // Cache optimised images for 24 h — critical to stay within Vercel's 1,000/month limit
+    minimumCacheTTL: 86400,
+    // Prefer AVIF, fall back to WebP
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
         pathname: "/**",
       },
       {
@@ -49,6 +52,11 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+  },
+
+  // Tree-shake large packages at build time — reduces JS bundle size
+  experimental: {
+    optimizePackageImports: ["lucide-react", "recharts"],
   },
   
   // Configure headers for PWA

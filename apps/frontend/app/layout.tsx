@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { QueryProvider } from "@/components/query-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,10 +68,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <ServiceWorkerRegistration />
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <QueryProvider>
+            <ServiceWorkerRegistration />
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </QueryProvider>
         </ErrorBoundary>
       </body>
     </html>
