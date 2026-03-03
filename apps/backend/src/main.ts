@@ -60,11 +60,15 @@ async function bootstrap() {
   const allowedOrigins = Array.from(
     new Set([frontendUrl, ...extraOrigins, "http://localhost:3000"]),
   );
+  // Allow any Vercel preview deployment for this project
+  const vercelPreviewPattern = /^https:\/\/photostudio-saas-frontend-[a-z0-9]+-s-projects-2f2710cf\.vercel\.app$/;
+
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (vercelPreviewPattern.test(origin)) return callback(null, true);
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
