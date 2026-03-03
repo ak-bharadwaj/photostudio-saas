@@ -66,9 +66,6 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install prisma CLI globally so migrate deploy works at startup
-RUN npm install -g prisma
-
 # Copy built artifacts
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/node_modules ./node_modules
@@ -79,6 +76,5 @@ RUN mkdir -p public/uploads
 
 EXPOSE 3001
 
-# Run Prisma migrations then start the app
-CMD ["sh", "-c", "prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main"]
+CMD ["node", "dist/main"]
 
