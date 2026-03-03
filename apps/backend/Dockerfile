@@ -2,22 +2,19 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 RUN npm install -g pnpm@9
 
-# Copy only what's needed to install deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
 
-# Install ALL deps (including devDeps for build)
 RUN pnpm install --frozen-lockfile --filter backend
 
-# Copy source
 COPY apps/backend ./apps/backend
 
-# Prisma generate
-RUN cd apps/backend && ../node_modules/.bin/prisma generate || node_modules/.bin/prisma generate
+RUN cd apps/backend && node_modules/.bin/prisma generate || ../node_modules/.bin/prisma generate
 
-# Build
 RUN cd apps/backend && node_modules/.bin/nest build || ../node_modules/.bin/nest build
 
 # ── Stage 2: runner ───────────────────────────────────────────────────────────
@@ -29,6 +26,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 RUN apt-get update && apt-get install -y \
+    openssl \
     chromium \
     fonts-liberation \
     libatk-bridge2.0-0 \
@@ -49,18 +47,19 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install production deps fresh (no pnpm workspace tricks)
+# Fresh npm install of all deps (prisma generate needs prisma cli)
 COPY apps/backend/package.json ./package.json
+RUN npm install --legacy-peer-deps
 
-RUN npm install --omit=dev --legacy-peer-deps
-
-# Copy built dist and prisma
+# Copy built dist and prisma schema
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/prisma ./prisma
 
-# Copy generated prisma client from builder
-COPY --from=builder /app/apps/backend/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma 2>/dev/null || true
+# Generate prisma client in runner
+RUN node_modules/.bin/prisma generate --schema=prisma/schema.prisma
+
+# Remove dev deps after prisma generate
+RUN npm prune --omit=dev
 
 RUN mkdir -p public/uploads
 
