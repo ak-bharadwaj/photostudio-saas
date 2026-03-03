@@ -24,11 +24,11 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Copy package.json and install ALL deps (dev needed for prisma + nest build)
+# Copy package.json and install ALL deps including devDeps (needed for prisma + nest build)
+# NOTE: do NOT set NODE_ENV=production before this or npm will skip devDependencies
 COPY apps/backend/package.json ./package.json
 RUN npm install --legacy-peer-deps
 
@@ -44,7 +44,8 @@ RUN node_modules/.bin/prisma generate
 # Build NestJS
 RUN node_modules/.bin/nest build
 
-# Prune dev deps
+# Now set production and prune dev deps
+ENV NODE_ENV=production
 RUN npm prune --omit=dev
 
 RUN mkdir -p public/uploads
