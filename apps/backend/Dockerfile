@@ -1,30 +1,26 @@
-# ── Stage 1: deps ────────────────────────────────────────────────────────────
-FROM node:20-slim AS deps
-WORKDIR /app
-
-RUN npm install -g pnpm@9
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/backend/package.json ./apps/backend/
-
-RUN pnpm install --frozen-lockfile --filter backend
-
-# ── Stage 2: builder ──────────────────────────────────────────────────────────
+# ── Stage 1: builder ──────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
 WORKDIR /app
 
 RUN npm install -g pnpm@9
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
+# Copy only what's needed to install deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
 
+# Install ALL deps (including devDeps for build)
+RUN pnpm install --frozen-lockfile --filter backend
+
+# Copy source
 COPY apps/backend ./apps/backend
-COPY package.json pnpm-workspace.yaml ./
 
-# Prisma generate + build from within the backend package
-RUN cd apps/backend && node_modules/.bin/prisma generate && node_modules/.bin/nest build
+# Prisma generate
+RUN cd apps/backend && ../node_modules/.bin/prisma generate || node_modules/.bin/prisma generate
 
-# ── Stage 3: runner ───────────────────────────────────────────────────────────
+# Build
+RUN cd apps/backend && node_modules/.bin/nest build || ../node_modules/.bin/nest build
+
+# ── Stage 2: runner ───────────────────────────────────────────────────────────
 FROM node:20-slim AS runner
 WORKDIR /app
 
@@ -32,7 +28,6 @@ ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install Chromium for Puppeteer (PDF generation)
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -54,11 +49,18 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dist, prisma schema, and ALL node_modules (root hoisted + backend)
+# Copy package files and install production deps fresh (no pnpm workspace tricks)
+COPY apps/backend/package.json ./package.json
+
+RUN npm install --omit=dev --legacy-peer-deps
+
+# Copy built dist and prisma
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/prisma ./prisma
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
+
+# Copy generated prisma client from builder
+COPY --from=builder /app/apps/backend/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma 2>/dev/null || true
 
 RUN mkdir -p public/uploads
 
