@@ -72,6 +72,8 @@ RUN npm install -g pnpm@9
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/prisma ./prisma
+# Copy root node_modules so hoisted bins (prisma CLI) are available
+COPY --from=builder /app/node_modules ./root_node_modules
 
 # Create uploads directory (local fallback for files when Cloudinary not set)
 RUN mkdir -p public/uploads
@@ -79,4 +81,5 @@ RUN mkdir -p public/uploads
 EXPOSE 3001
 
 # Run Prisma migrations then start the app
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main"]
+# Use root_node_modules for the prisma CLI binary (hoisted by pnpm)
+CMD ["sh", "-c", "root_node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main"]
