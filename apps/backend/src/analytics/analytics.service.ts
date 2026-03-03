@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { startOfDay, endOfDay, subDays, format } from "date-fns";
+import { subDays, format } from "date-fns";
 
 @Injectable()
 export class AnalyticsService {
@@ -10,24 +10,21 @@ export class AnalyticsService {
    * Get revenue over time (daily breakdown)
    */
   async getRevenueOverTime(studioId: string, startDate: Date, endDate: Date) {
-    // Get all paid invoices in the date range
-    const invoices = await this.prisma.invoice.findMany({
+    // Query Payment records directly filtered by paidAt — this gives accurate
+    // revenue attribution by actual payment date, not invoice creation date.
+    const payments = await this.prisma.payment.findMany({
       where: {
-        studioId,
-        status: {
-          in: ["PAID", "PARTIALLY_PAID"],
-        },
-        createdAt: {
+        invoice: { studioId },
+        paidAt: {
           gte: startDate,
           lte: endDate,
         },
       },
-      include: {
-        payments: true,
+      select: {
+        amount: true,
+        paidAt: true,
       },
-      orderBy: {
-        createdAt: "asc",
-      },
+      orderBy: { paidAt: "asc" },
     });
 
     // Group by date
@@ -42,12 +39,11 @@ export class AnalyticsService {
     }
 
     // Sum payments by date
-    invoices.forEach((invoice) => {
-      invoice.payments.forEach((payment) => {
-        const dateStr = format(payment.paidAt, "yyyy-MM-dd");
-        const currentRevenue = revenueByDate.get(dateStr) || 0;
-        revenueByDate.set(dateStr, currentRevenue + Number(payment.amount));
-      });
+    payments.forEach((payment: { amount: unknown; paidAt: Date | null }) => {
+      if (!payment.paidAt) return;
+      const dateStr = format(payment.paidAt, "yyyy-MM-dd");
+      const currentRevenue = revenueByDate.get(dateStr) || 0;
+      revenueByDate.set(dateStr, currentRevenue + Number(payment.amount));
     });
 
     // Convert to array format for chart
@@ -77,7 +73,7 @@ export class AnalyticsService {
       },
     });
 
-    return bookings.map((item) => ({
+    return bookings.map((item: { status: string; _count: { status: number } }) => ({
       status: item.status,
       count: item._count.status,
     }));
@@ -115,7 +111,11 @@ export class AnalyticsService {
       { name: string; bookings: number; revenue: number }
     >();
 
-    bookings.forEach((booking) => {
+    bookings.forEach((booking: {
+      service: { name: string } | null;
+      invoices: Array<{ payments: Array<{ amount: unknown }> }>;
+    }) => {
+      if (!booking.service) return;
       const serviceName = booking.service.name;
 
       if (!serviceMap.has(serviceName)) {
@@ -131,8 +131,8 @@ export class AnalyticsService {
         serviceData.bookings += 1;
 
         // Sum revenue from all payments for this booking
-        booking.invoices.forEach((invoice) => {
-          invoice.payments.forEach((payment) => {
+        booking.invoices.forEach((invoice: { payments: Array<{ amount: unknown }> }) => {
+          invoice.payments.forEach((payment: { amount: unknown }) => {
             serviceData.revenue += Number(payment.amount);
           });
         });
@@ -170,33 +170,20 @@ export class AnalyticsService {
       },
     });
 
-    // Returning customers (customers with 2+ bookings)
-    const customersWithBookings = await this.prisma.customer.findMany({
+    // Returning customers (customers with 2+ bookings) — DB-level groupBy avoids loading all records
+    const returningCustomerRows = await this.prisma.booking.groupBy({
+      by: ["customerId"],
       where: {
         studioId,
-        bookings: {
-          some: {
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
-        },
+        createdAt: { lte: endDate },
       },
-      include: {
-        bookings: {
-          where: {
-            createdAt: {
-              lte: endDate,
-            },
-          },
-        },
+      _count: { customerId: true },
+      having: {
+        customerId: { _count: { gte: 2 } },
       },
     });
 
-    const returningCustomers = customersWithBookings.filter(
-      (customer) => customer.bookings.length >= 2,
-    ).length;
+    const returningCustomers = returningCustomerRows.length;
 
     // Total revenue in period
     const payments = await this.prisma.payment.findMany({
@@ -212,7 +199,7 @@ export class AnalyticsService {
     });
 
     const totalRevenue = payments.reduce(
-      (sum, payment) => sum + Number(payment.amount),
+      (sum: number, payment: { amount: unknown }) => sum + Number(payment.amount),
       0,
     );
 
@@ -328,7 +315,7 @@ export class AnalyticsService {
 
     return {
       totalBookings,
-      totalRevenue: Number((totalRevenue._sum.amount || 0).toString()),
+      totalRevenue: Number(totalRevenue._sum.amount ?? 0),
       pendingInvoices,
       completedBookings,
       inquiryCount,

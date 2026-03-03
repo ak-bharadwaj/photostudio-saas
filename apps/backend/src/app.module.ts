@@ -1,8 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ConfigModule } from "@nestjs/config";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
-// import { BullModule } from "@nestjs/bull";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -23,10 +22,11 @@ import { AdminModule } from "./admin/admin.module";
 import { PublicModule } from "./public/public.module";
 import { CustomerPortalModule } from "./customer-portal/customer-portal.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
-// import { QueueModule } from "./queue/queue.module";
+import { QueueModule } from "./queue/queue.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { TenantInterceptor } from "./common/tenant";
 import { CsrfMiddleware } from "./common/middleware/csrf.middleware";
+import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 import configuration from "./config/configuration";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import * as path from "path";
@@ -43,18 +43,6 @@ import * as path from "path";
         limit: 100, // 100 requests per ttl
       },
     ]),
-    /*
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get("redis.host") || "localhost",
-          port: configService.get("redis.port") || 6379,
-        },
-      }),
-      inject: [ConfigService],
-    }),
-    */
     PrismaModule,
     ServeStaticModule.forRoot({
       rootPath: path.join(process.cwd(), "public", "uploads"),
@@ -78,18 +66,24 @@ import * as path from "path";
     PublicModule,
     CustomerPortalModule,
     AnalyticsModule,
-    // QueueModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
+    {
+      // ThrottlerGuard MUST be registered before JwtAuthGuard so that
+      // unauthenticated brute-force requests are rate-limited before auth runs.
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: ThrottlerGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_INTERCEPTOR,

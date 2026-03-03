@@ -4,7 +4,7 @@ import { Redis } from "ioredis";
 @Injectable()
 export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
-  private redis: Redis;
+  private redis: Redis | null;
   private memoryCache = new Map<string, { value: string; expiry: number }>();
 
   constructor() {
@@ -15,7 +15,7 @@ export class CacheService implements OnModuleDestroy {
       this.logger.warn(
         "Redis URL contains placeholders. Using in-memory fallback.",
       );
-      this.redis = null as any;
+      this.redis = null;
       return;
     }
 
@@ -45,7 +45,7 @@ export class CacheService implements OnModuleDestroy {
       });
     } catch (e) {
       this.logger.error("Failed to initialize Redis, using in-memory fallback");
-      this.redis = null as any;
+      this.redis = null;
     }
   }
 
@@ -69,8 +69,8 @@ export class CacheService implements OnModuleDestroy {
       }
       const data = await this.redis.get(key);
       return data ? JSON.parse(data) : null;
-    } catch (error: any) {
-      this.logger.error(`Error getting cache key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error getting cache key ${key}:`, error instanceof Error ? error.stack : String(error));
       return null;
     }
   }
@@ -78,7 +78,7 @@ export class CacheService implements OnModuleDestroy {
   /**
    * Set a value in cache with TTL
    */
-  async set(key: string, value: any, ttlSeconds: number): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
     try {
       const stringifiedValue = JSON.stringify(value);
       if (!this.redis) {
@@ -89,8 +89,8 @@ export class CacheService implements OnModuleDestroy {
         return;
       }
       await this.redis.setex(key, ttlSeconds, stringifiedValue);
-    } catch (error: any) {
-      this.logger.error(`Error setting cache key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error setting cache key ${key}:`, error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -104,8 +104,8 @@ export class CacheService implements OnModuleDestroy {
         return;
       }
       await this.redis.del(key);
-    } catch (error: any) {
-      this.logger.error(`Error deleting cache key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error deleting cache key ${key}:`, error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -127,10 +127,10 @@ export class CacheService implements OnModuleDestroy {
       if (keys.length > 0) {
         await this.redis.del(...keys);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(
         `Error invalidating cache pattern ${pattern}:`,
-        error.stack,
+        error instanceof Error ? error.stack : String(error),
       );
     }
   }
@@ -147,8 +147,8 @@ export class CacheService implements OnModuleDestroy {
         return next;
       }
       return await this.redis.incr(key);
-    } catch (error: any) {
-      this.logger.error(`Error incrementing cache key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error incrementing cache key ${key}:`, error instanceof Error ? error.stack : String(error));
       return 0;
     }
   }
@@ -166,8 +166,8 @@ export class CacheService implements OnModuleDestroy {
         return;
       }
       await this.redis.expire(key, seconds);
-    } catch (error: any) {
-      this.logger.error(`Error setting expiration on key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error setting expiration on key ${key}:`, error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -182,8 +182,8 @@ export class CacheService implements OnModuleDestroy {
       }
       const result = await this.redis.exists(key);
       return result === 1;
-    } catch (error: any) {
-      this.logger.error(`Error checking existence of key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error checking existence of key ${key}:`, error instanceof Error ? error.stack : String(error));
       return false;
     }
   }
@@ -201,8 +201,8 @@ export class CacheService implements OnModuleDestroy {
         return -1;
       }
       return await this.redis.ttl(key);
-    } catch (error: any) {
-      this.logger.error(`Error getting TTL of key ${key}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Error getting TTL of key ${key}:`, error instanceof Error ? error.stack : String(error));
       return -1;
     }
   }

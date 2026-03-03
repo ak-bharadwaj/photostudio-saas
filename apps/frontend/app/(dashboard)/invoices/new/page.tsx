@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { customersApi, servicesApi, invoicesApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Select, Textarea, Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { Plus, Trash2 } from 'lucide-react';
+
+import { formatCurrency } from '@/lib/utils';
+import { Plus, Trash2, ArrowLeft, FileText, User, List, ChevronRight } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -22,53 +25,70 @@ interface Service {
 }
 
 interface LineItem {
+  id: string;
   description: string;
   quantity: number;
   rate: number;
   amount: number;
 }
 
+interface FormData {
+  customerId: string;
+  dueDate: string;
+  notes: string;
+  tax: number;
+  discount: number;
+}
+
 export default function NewInvoicePage() {
   const router = useRouter();
   const { addToast } = useToast();
+
+  // All state declarations BEFORE any functions or effects
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     customerId: '',
     dueDate: '',
     notes: '',
     tax: 0,
     discount: 0,
   });
-
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, rate: 0, amount: 0 },
+    { id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 },
   ]);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    loadData();
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    loadData(ctrl);
+    return () => ctrl.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (ctrl: AbortController) => {
     try {
       const [customersRes, servicesRes] = await Promise.all([
         customersApi.getAll(),
         servicesApi.getAll(),
       ]);
+      if (ctrl.signal.aborted) return;
       setCustomers(customersRes.data?.data || customersRes.data || []);
       setServices(servicesRes.data?.data || servicesRes.data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if ((error as { name?: string }).name === 'CanceledError') return;
       addToast('error', 'Failed to load data');
     } finally {
-      setLoading(false);
+      if (!ctrl.signal.aborted) setLoading(false);
     }
   };
 
   const addLineItem = () => {
-    setLineItems([...lineItems, { description: '', quantity: 1, rate: 0, amount: 0 }]);
+    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), description: '', quantity: 1, rate: 0, amount: 0 }]);
   };
 
   const removeLineItem = (index: number) => {
@@ -76,54 +96,59 @@ export default function NewInvoicePage() {
       addToast('error', 'Invoice must have at least one line item');
       return;
     }
-    setLineItems(lineItems.filter((_, i) => i !== index));
+    setLineItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateLineItem = (index: number, field: keyof LineItem, value: any) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-
-    // Recalculate amount
-    if (field === 'quantity' || field === 'rate') {
-      updated[index].amount = updated[index].quantity * updated[index].rate;
-    }
-
-    setLineItems(updated);
+  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
+    setLineItems((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      if (field === 'quantity' || field === 'rate') {
+        updated[index].amount = Number(updated[index].quantity) * Number(updated[index].rate);
+      }
+      return updated;
+    });
   };
 
   const addServiceAsLineItem = (serviceId: string) => {
-    const service = services.find(s => s.id === serviceId);
+    const service = services.find((s) => s.id === serviceId);
     if (service) {
       const newItem: LineItem = {
+        id: crypto.randomUUID(),
         description: service.name,
         quantity: 1,
         rate: Number(service.price),
         amount: Number(service.price),
       };
-      setLineItems([...lineItems, newItem]);
+      setLineItems((prev) => [...prev, newItem]);
     }
   };
 
-  const calculateSubtotal = () => {
-    return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
-  };
+  const calculateSubtotal = () =>
+    lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const taxAmount = (subtotal * Number(formData.tax)) / 100;
-    const total = subtotal + taxAmount - Number(formData.discount);
-    return Math.max(0, total);
+    return Math.max(0, subtotal + taxAmount - Number(formData.discount));
+  };
+
+  const handleSendClick = () => {
+    void submitInvoice(true);
   };
 
   const handleSubmit = async (e: React.FormEvent, sendImmediately = false) => {
     e.preventDefault();
+    await submitInvoice(sendImmediately);
+  };
+
+  const submitInvoice = async (sendImmediately: boolean) => {
 
     if (!formData.customerId) {
       addToast('error', 'Please select a customer');
       return;
     }
-
-    if (lineItems.some(item => !item.description || item.quantity <= 0 || item.rate < 0)) {
+    if (lineItems.some((item) => !item.description || item.quantity <= 0 || item.rate < 0)) {
       addToast('error', 'Please fill all line item details correctly');
       return;
     }
@@ -135,7 +160,7 @@ export default function NewInvoicePage() {
 
       const invoiceData = {
         customerId: formData.customerId,
-        lineItems: lineItems.map(item => ({
+        lineItems: lineItems.map((item) => ({
           description: item.description,
           quantity: Number(item.quantity),
           rate: Number(item.rate),
@@ -150,7 +175,8 @@ export default function NewInvoicePage() {
       };
 
       const response = await invoicesApi.create(invoiceData);
-      const invoiceId = response.data.id;
+      const invoiceId = response.data?.id;
+      if (!invoiceId) throw new Error('No invoice ID returned from server');
 
       if (sendImmediately) {
         await invoicesApi.send(invoiceId);
@@ -160,8 +186,9 @@ export default function NewInvoicePage() {
       }
 
       router.push(`/invoices/${invoiceId}`);
-    } catch (error: any) {
-      addToast('error', error.response?.data?.message || 'Failed to create invoice');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to create invoice');
     } finally {
       setSubmitting(false);
     }
@@ -169,19 +196,43 @@ export default function NewInvoicePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
       </div>
     );
   }
 
+  const subtotal = calculateSubtotal();
+  const taxAmount = (subtotal * Number(formData.tax)) / 100;
+  const total = calculateTotal();
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Create New Invoice</h1>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="h-10 w-10 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-0)] flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-4 w-4 text-[var(--foreground-secondary)]" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--foreground)] font-heading">
+              Create New Invoice
+            </h1>
+            <p className="text-sm text-[var(--foreground-secondary)] mt-0.5 flex items-center gap-1">
+              <FileText className="h-3.5 w-3.5" />
+              Invoices
+              <ChevronRight className="h-3.5 w-3.5" />
+              New Invoice
+            </p>
+          </div>
+        </div>
         <Button variant="outline" onClick={() => router.back()}>
           Cancel
         </Button>
@@ -191,103 +242,118 @@ export default function NewInvoicePage() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+
             {/* Customer Selection */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Customer Information</h2>
+              <div className="flex items-center gap-2 mb-5">
+                <div className="h-8 w-8 rounded-[var(--radius-md)] bg-[var(--primary)]/10 flex items-center justify-center">
+                  <User className="h-4 w-4 text-[var(--primary)]" />
+                </div>
+                <h2 className="text-base font-semibold text-[var(--foreground)]">Customer Information</h2>
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Customer <span className="text-red-500">*</span>
-                </label>
-                <select
+              <Select
+                  id="customer-select"
+                  label="Select Customer"
                   required
                   value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">-- Select Customer --</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name} - {customer.phone}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(e) => setFormData((prev) => ({ ...prev, customerId: e.target.value }))}
+                  placeholder="-- Select Customer --"
+                  options={customers.map((c) => ({ value: c.id, label: `${c.name} — ${c.phone}` }))}
+                />
               </div>
             </Card>
 
             {/* Line Items */}
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Line Items</h2>
-                <div className="flex gap-2">
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        addServiceAsLineItem(e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-lg"
-                  >
-                    <option value="">+ Add from Services</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name} - ${Number(service.price).toFixed(2)}
-                      </option>
-                    ))}
-                  </select>
-                  <Button type="button" size="sm" onClick={addLineItem}>
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-[var(--radius-md)] bg-[var(--primary)]/10 flex items-center justify-center">
+                    <List className="h-4 w-4 text-[var(--primary)]" />
+                  </div>
+                  <h2 className="text-base font-semibold text-[var(--foreground)]">Line Items</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  {services.length > 0 && (
+                    <Select
+                      aria-label="Add from services"
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          addServiceAsLineItem(e.target.value);
+                        }
+                      }}
+                      placeholder="+ Add from Services"
+                      options={services.map((s) => ({ value: s.id, label: `${s.name} — ${formatCurrency(Number(s.price))}` }))}
+                      className="h-9 w-auto"
+                    />
+                  )}
+                  <Button type="button" size="sm" variant="outline" onClick={addLineItem}>
                     <Plus className="h-4 w-4 mr-1" />
                     Add Item
                   </Button>
                 </div>
               </div>
 
+              {/* Column Headers */}
+              <div className="grid grid-cols-12 gap-3 mb-2 px-1">
+                <div className="col-span-5 text-xs font-semibold uppercase tracking-wider text-[var(--foreground-tertiary)]">Description</div>
+                <div className="col-span-2 text-xs font-semibold uppercase tracking-wider text-[var(--foreground-tertiary)]">Qty</div>
+                <div className="col-span-2 text-xs font-semibold uppercase tracking-wider text-[var(--foreground-tertiary)]">Rate</div>
+                <div className="col-span-2 text-xs font-semibold uppercase tracking-wider text-[var(--foreground-tertiary)] text-right">Amount</div>
+                <div className="col-span-1" />
+              </div>
+
               <div className="space-y-3">
                 {lineItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-3 items-start">
+                  <div key={item.id} className="grid grid-cols-12 gap-3 items-center p-3 rounded-[var(--radius-md)] bg-[var(--surface-0)] border border-[var(--border)] hover:border-[var(--primary)]/30 transition-colors">
                     <div className="col-span-5">
-                      <input
+                      <Input
+                        id={`desc-${index}`}
                         type="text"
-                        placeholder="Description"
+                        placeholder="e.g. Wedding Photography"
                         required
                         value={item.description}
                         onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label={`Description for item ${index + 1}`}
                       />
                     </div>
                     <div className="col-span-2">
-                      <input
+                      <Input
+                        id={`qty-${index}`}
                         type="number"
-                        placeholder="Qty"
+                        placeholder="1"
                         required
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateLineItem(index, 'quantity', Number(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label={`Quantity for item ${index + 1}`}
                       />
                     </div>
                     <div className="col-span-2">
-                      <input
+                      <Input
+                        id={`rate-${index}`}
                         type="number"
-                        placeholder="Rate"
+                        placeholder="0"
                         required
                         min="0"
                         step="0.01"
                         value={item.rate}
                         onChange={(e) => updateLineItem(index, 'rate', Number(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label={`Rate for item ${index + 1}`}
                       />
                     </div>
                     <div className="col-span-2">
-                      <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-right">
-                        ${item.amount.toFixed(2)}
+                      <div className="px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--surface-2)] border border-[var(--border)] text-sm font-semibold text-[var(--foreground)] text-right tabular-nums">
+                        {formatCurrency(item.amount)}
                       </div>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 flex justify-center">
                       <button
                         type="button"
                         onClick={() => removeLineItem(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        aria-label={`Remove item ${index + 1}`}
+                        className="h-8 w-8 rounded-[var(--radius-sm)] text-[var(--danger)] hover:bg-[var(--danger)]/10 flex items-center justify-center transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -299,112 +365,124 @@ export default function NewInvoicePage() {
 
             {/* Additional Details */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Additional Details</h2>
+              <h2 className="text-base font-semibold text-[var(--foreground)] mb-5">Additional Details</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Due Date (Optional)
-                  </label>
-                  <input
+                  <Input
+                    id="due-date"
                     type="date"
+                    label="Due Date"
                     value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    helperText="Optional"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes (Optional)
-                  </label>
-                  <textarea
+                  <Textarea
+                    id="notes"
+                    label="Notes"
                     value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                     rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Payment terms, special instructions, etc."
+                    helperText="Optional"
                   />
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* Sidebar - Invoice Summary */}
-          <div className="space-y-6">
-            <Card className="p-6 sticky top-6">
-              <h2 className="text-lg font-semibold mb-4">Invoice Summary</h2>
+          {/* Sidebar — Invoice Summary */}
+          <div>
+            <div className="sticky top-6 space-y-4">
+              <Card className="p-6">
+                <h2 className="text-base font-semibold text-[var(--foreground)] mb-5">Invoice Summary</h2>
 
-              <div className="space-y-3">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal:</span>
-                  <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-gray-600">Tax (%):</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={formData.tax}
-                    onChange={(e) => setFormData({ ...formData, tax: Number(e.target.value) })}
-                    className="w-24 px-3 py-1 border border-gray-300 rounded text-right"
-                  />
-                </div>
-
-                {formData.tax > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>Tax Amount:</span>
-                    <span className="font-medium">
-                      ${((calculateSubtotal() * Number(formData.tax)) / 100).toFixed(2)}
+                <div className="space-y-4">
+                  {/* Subtotal */}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--foreground-secondary)]">Subtotal</span>
+                    <span className="font-semibold text-[var(--foreground)] tabular-nums">
+                      {formatCurrency(subtotal)}
                     </span>
                   </div>
-                )}
 
-                <div className="flex items-center justify-between">
-                  <label className="text-gray-600">Discount ($):</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.discount}
-                    onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
-                    className="w-24 px-3 py-1 border border-gray-300 rounded text-right"
-                  />
+                  {/* Tax */}
+                  <div className="space-y-1.5">
+                    <Input
+                      id="tax-input"
+                      type="number"
+                      label="Tax (%)"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={formData.tax}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, tax: Number(e.target.value) }))}
+                      className="text-right tabular-nums"
+                    />
+                    {formData.tax > 0 && (
+                      <div className="flex justify-between text-xs text-[var(--foreground-tertiary)]">
+                        <span>Tax amount</span>
+                        <span className="tabular-nums">{formatCurrency(taxAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Discount */}
+                  <div className="space-y-1.5">
+                    <Input
+                      id="discount-input"
+                      type="number"
+                      label="Discount (Fixed Amount)"
+                      min="0"
+                      step="0.01"
+                      value={formData.discount}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, discount: Number(e.target.value) }))}
+                      className="text-right tabular-nums"
+                    />
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-[var(--border)] pt-4">
+                    <div className="flex justify-between">
+                      <span className="text-base font-bold text-[var(--foreground)]">Total</span>
+                      <span className="text-xl font-black text-[var(--primary)] tabular-nums">
+                        {formatCurrency(total)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-between text-xl font-bold pt-3 border-t">
-                  <span>Total:</span>
-                  <span className="text-blue-600">${calculateTotal().toFixed(2)}</span>
+                {/* Actions */}
+                <div className="mt-6 space-y-2">
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    isLoading={submitting}
+                    disabled={submitting}
+                  >
+                    Save as Draft
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    isLoading={submitting}
+                    disabled={submitting}
+                    onClick={handleSendClick}
+                  >
+                    Create &amp; Send
+                  </Button>
                 </div>
-              </div>
 
-              <div className="mt-6 space-y-2">
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Creating...' : 'Save as Draft'}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={(e) => handleSubmit(e as any, true)}
-                  className="w-full"
-                  disabled={submitting}
-                  variant="outline"
-                >
-                  Create & Send
-                </Button>
-              </div>
-
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
-                <strong>Note:</strong> "Save as Draft" will create the invoice without sending it to the customer.
-                "Create & Send" will immediately email the invoice.
-              </div>
-            </Card>
+                <div className="mt-4 p-3 rounded-[var(--radius-md)] bg-[var(--primary)]/5 border border-[var(--primary)]/15 text-xs text-[var(--foreground-secondary)]">
+                  <strong className="text-[var(--foreground)]">Tip:</strong> &quot;Save as Draft&quot; creates
+                  the invoice without sending. &quot;Create &amp; Send&quot; emails it immediately.
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
       </form>

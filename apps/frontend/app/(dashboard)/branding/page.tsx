@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import NextImage from 'next/image';
 import { useAuthStore } from '@/lib/auth-store';
 import { studiosApi, uploadApi, api } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -22,6 +23,7 @@ import {
   Image as ImageIcon,
   X,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -84,16 +86,20 @@ function ColorPicker({
   value,
   onChange,
   description,
+  id,
 }: {
   label: string;
   value: string;
   onChange: (color: string) => void;
   description?: string;
+  id?: string;
 }) {
+  const inputId = id || label.toLowerCase().replace(/\s+/g, '-') + '-color';
   return (
     <div className="flex items-center gap-4 p-3 rounded-xl bg-[var(--surface-0)] border border-[var(--border)] group hover:border-[var(--primary-light)] transition-all">
       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--border)] shadow-sm">
         <input
+          id={inputId}
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -105,7 +111,7 @@ function ColorPicker({
         />
       </div>
       <div className="flex-1 min-w-0">
-        <label className="block text-sm font-bold text-[var(--foreground)] tracking-tight">
+        <label htmlFor={inputId} className="block text-sm font-bold text-[var(--foreground)] tracking-tight">
           {label}
         </label>
         {description && (
@@ -177,19 +183,21 @@ function LogoUploader({
 
       {logoUrl ? (
         <div className="relative group">
-          <div className="h-48 w-full rounded-2xl border-2 border-[var(--border)] overflow-hidden bg-[var(--surface-1)] flex items-center justify-center p-8 transition-all group-hover:border-[var(--primary)] group-hover:bg-white">
-            <img
-              src={getFullUrl(logoUrl)}
-              alt="Studio logo"
-              className="max-h-full max-w-full object-contain animate-in zoom-in duration-500"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Logo+Missing';
-              }}
-            />
+          <div className="h-48 w-full rounded-2xl border-2 border-[var(--border)] overflow-hidden bg-[var(--surface-1)] flex items-center justify-center p-8 transition-all group-hover:border-[var(--primary)] group-hover:bg-[var(--surface-0)]">
+            <div className="relative h-full w-full">
+              <NextImage
+                src={getFullUrl(logoUrl)}
+                alt="Studio logo"
+                fill
+                className="object-contain animate-in zoom-in duration-500"
+                sizes="(max-width: 1024px) 100vw, 33vw"
+                unoptimized
+              />
+            </div>
           </div>
           <button
             onClick={onRemove}
-            className="absolute top-4 right-4 h-10 w-10 rounded-xl bg-[var(--danger)] text-white flex items-center justify-center shadow-xl hover:bg-red-600 transition-all hover:scale-110 active:scale-90"
+            className="absolute top-4 right-4 h-10 w-10 rounded-xl bg-[var(--danger)] text-white flex items-center justify-center shadow-xl hover:opacity-80 transition-all hover:scale-110 active:scale-90"
           >
             <X className="h-5 w-5" />
           </button>
@@ -273,7 +281,7 @@ function BrandPreview({
           Visual Blueprint
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <div className="h-2 w-2 rounded-full bg-[var(--success)] animate-pulse" />
           Live
         </div>
       </div>
@@ -310,17 +318,19 @@ function BrandPreview({
             heroStyle === 'glass' && "bg-white/10 backdrop-blur-xl p-6 rounded-3xl border border-white/20 shadow-2xl"
           )}>
             {logoUrl ? (
-              <img
-                src={getFullUrl(logoUrl)}
-                alt="Logo"
-                className={cn(
-                  "h-16 w-16 object-contain shadow-2xl",
-                  heroStyle === 'glass' ? "rounded-2xl bg-white/20 p-2" : "rounded-xl bg-white/20 p-1.5"
-                )}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64?text=LOGO';
-                }}
-              />
+              <div className={cn(
+                "relative h-16 w-16 shadow-2xl overflow-hidden",
+                heroStyle === 'glass' ? "rounded-2xl bg-white/20 p-2" : "rounded-xl bg-white/20 p-1.5"
+              )}>
+                <NextImage
+                  src={getFullUrl(logoUrl)}
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  sizes="64px"
+                  unoptimized
+                />
+              </div>
             ) : (
               <div className={cn(
                 "h-16 w-16 flex items-center justify-center shadow-xl",
@@ -418,14 +428,21 @@ export default function BrandingPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [defaultTerms, setDefaultTerms] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load studio data
   useEffect(() => {
+    if (!user?.studioId) return;
+    const studioId = user.studioId;
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     async function load() {
-      if (!user?.studioId) return;
       try {
         setLoading(true);
-        const res = await studiosApi.getOne(user.studioId);
+        const res = await studiosApi.getOne(studioId);
+        if (ctrl.signal.aborted) return;
         const s = res.data as StudioData;
         setStudio(s);
         setLogoUrl(s?.logoUrl || null);
@@ -435,13 +452,15 @@ export default function BrandingPage() {
           ...(s?.brandingConfig || {}),
           headerText: s?.brandingConfig?.headerText || s?.name || '',
         });
-      } catch {
+      } catch (error: unknown) {
+        if ((error as { name?: string }).name === 'CanceledError') return;
         addToast('error', 'Failed to load studio data');
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     }
     load();
+    return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.studioId]);
 
@@ -509,8 +528,10 @@ export default function BrandingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
       </div>
     );
   }
@@ -527,47 +548,44 @@ export default function BrandingPage() {
 
   return (
     <div className="space-y-6 page-enter">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">
-            Studio Branding
-          </h1>
-          <p className="text-sm text-[var(--foreground-secondary)] mt-1">
-            Customize how your studio appears to customers on your public booking page.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {studio.slug && (
+      <PageHeader
+        eyebrow="Brand Identity"
+        title="Studio Branding"
+        subtitle="Customize how your studio appears to customers on your public booking page."
+        accentColor="rose"
+        actions={
+          <>
+            {studio.slug && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/studio/${studio.slug}`, '_blank')}
+                rightIcon={<ExternalLink className="h-4 w-4" />}
+              >
+                View Public Page
+              </Button>
+            )}
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
-              onClick={() => window.open(`/studio/${studio.slug}`, '_blank')}
-              rightIcon={<ExternalLink className="h-4 w-4" />}
+              onClick={handleReset}
+              disabled={!hasChanges}
+              leftIcon={<RefreshCw className="h-4 w-4" />}
             >
-              View Public Page
+              Reset
             </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleReset}
-            disabled={!hasChanges}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-          >
-            Reset
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!hasChanges}
-            isLoading={saving}
-            leftIcon={<Save className="h-4 w-4" />}
-          >
-            Save Changes
-          </Button>
-        </div>
-      </div>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!hasChanges}
+              isLoading={saving}
+              leftIcon={<Save className="h-4 w-4" />}
+            >
+              Save Changes
+            </Button>
+          </>
+        }
+      />
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -644,29 +662,14 @@ export default function BrandingPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-                    Font Family
-                  </label>
-                  <select
+                <Select
+                    label="Font Family"
                     value={branding.fontFamily}
                     onChange={(e) =>
                       updateBranding({ fontFamily: e.target.value })
                     }
-                    className={cn(
-                      'flex h-10 w-full rounded-[var(--radius-md)]',
-                      'border border-[var(--border)] bg-[var(--surface-0)]',
-                      'px-3 py-2 text-sm text-[var(--foreground)]',
-                      'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent',
-                    )}
-                  >
-                    {FONT_OPTIONS.map((font) => (
-                      <option key={font} value={font} style={{ fontFamily: font }}>
-                        {font}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    options={FONT_OPTIONS.map((font) => ({ value: font, label: font }))}
+                  />
 
                 <Input
                   label="Header Text"

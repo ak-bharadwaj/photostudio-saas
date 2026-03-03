@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useAuthStore } from '@/lib/auth-store';
 import { studiosApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
-import { LoadingSpinner } from '@/components/ui/loading';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   Link as LinkIcon,
   Copy,
@@ -20,12 +21,26 @@ import {
   MessageSquare,
   Smartphone,
   Instagram,
-  Facebook,
   Layout,
   Sparkles,
   Palette,
   Camera,
+  Info,
 } from 'lucide-react';
+
+/* ── Types ──────────────────────────────────────────────────────────────── */
+
+interface Service {
+  id: string;
+  name: string;
+  occasion?: string;
+}
+
+interface Branding {
+  logoUrl?: string;
+  primaryColor?: string;
+  accentColor?: string;
+}
 
 /* -------------------------------------------------------------------------- */
 /*  CMG Template Components                                                   */
@@ -68,7 +83,9 @@ function MarketingAsset({
         {/* Top: Logo & Name */}
         <div className="space-y-4">
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="h-16 w-16 mx-auto rounded-2xl bg-white/20 p-2 backdrop-blur-md shadow-xl border border-white/30" />
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-white/20 backdrop-blur-md shadow-xl border border-white/30 overflow-hidden relative">
+              <Image src={logoUrl} alt="Studio logo" fill className="object-cover" sizes="64px" />
+            </div>
           ) : (
             <div className="h-16 w-16 mx-auto rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md shadow-xl border border-white/30">
               <Camera className="h-8 w-8 text-white" />
@@ -115,12 +132,13 @@ function QRCodeDisplay({
 
   return (
     <div className={cn('inline-block', className)}>
-      <img
+      <Image
         src={qrSrc}
-        alt="QR Code"
+        alt={`QR code for ${url}`}
         width={size}
         height={size}
         className="rounded-[var(--radius-md)]"
+        unoptimized
       />
     </div>
   );
@@ -132,22 +150,22 @@ function QRCodeDisplay({
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      // Clipboard API unavailable — silently ignore
     }
   };
 
@@ -173,27 +191,35 @@ export default function ShareLinksPage() {
   const [loading, setLoading] = useState(true);
   const [studioSlug, setStudioSlug] = useState('');
   const [studioName, setStudioName] = useState('');
-  const [services, setServices] = useState<any[]>([]);
-  const [branding, setBranding] = useState<any>(null);
-  const qrRef = useRef<HTMLDivElement>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [branding, setBranding] = useState<Branding | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    if (!user?.studioId) return;
+    const studioId = user.studioId;
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     async function load() {
-      if (!user?.studioId) return;
       try {
         setLoading(true);
-        const res = await studiosApi.getOne(user.studioId);
+        const res = await studiosApi.getOne(studioId);
+        if (ctrl.signal.aborted) return;
         setStudioSlug(res.data.slug);
         setStudioName(res.data.name);
         setServices(res.data.services || []);
         setBranding(res.data.brandingConfig);
-      } catch {
+      } catch (error: unknown) {
+        if ((error as { name?: string }).name === 'CanceledError') return;
         addToast('error', 'Failed to load studio data');
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     }
     load();
+    return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.studioId]);
 
@@ -201,8 +227,10 @@ export default function ShareLinksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
       </div>
     );
   }
@@ -286,15 +314,12 @@ export default function ShareLinksPage() {
       )}
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">
-          Share Links & QR Code
-        </h1>
-        <p className="text-sm text-[var(--foreground-secondary)] mt-1">
-          Share your public booking page with customers via links, QR codes, or
-          social media.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Marketing"
+        title="Share Links & QR Code"
+        subtitle="Share your public booking page with customers via links, QR codes, or social media."
+        accentColor="violet"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
         {/* Left: Booking Link */}
@@ -488,13 +513,13 @@ export default function ShareLinksPage() {
                 </div>
 
                 {/* Occasions */}
-                {Array.from(new Set(services.map(s => s.occasion).filter(Boolean))).length > 0 && (
+                {Array.from(new Set(services.map(s => s.occasion).filter((o): o is string => Boolean(o)))).length > 0 && (
                   <div className="space-y-2 pt-2 border-t border-[var(--border)]">
                     <h4 className="text-xs font-semibold text-[var(--foreground-tertiary)] uppercase tracking-wider">
                       By Category
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(new Set(services.map(s => s.occasion).filter(Boolean))).map((occasion: any) => (
+                  {Array.from(new Set(services.map(s => s.occasion).filter((o): o is string => Boolean(o)))).map((occasion) => (
                         <div key={occasion} className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-0)]">
                           <span className="text-sm font-medium text-[var(--foreground)]">{occasion}</span>
                           <div className="flex items-center">
@@ -535,7 +560,7 @@ export default function ShareLinksPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center" ref={qrRef}>
+              <div className="flex flex-col items-center">
                 {/* QR with studio branding */}
                 <div className="bg-white p-6 rounded-2xl shadow-[var(--shadow-md)] border border-[var(--border-light)]">
                   <QRCodeDisplay url={bookingUrl} size={qrSize} />
@@ -710,24 +735,25 @@ export default function ShareLinksPage() {
                     <p className="text-xs font-bold text-[var(--foreground-tertiary)] mb-1">Quick Actions</p>
                     <Button
                       variant="outline"
-                      className="w-full justify-start h-12 rounded-xl bg-white/50"
-                      onClick={() => {
-                        navigator.clipboard.writeText(bookingUrl);
-                        addToast('success', 'URL copied for sticker');
+                      className="w-full justify-start h-12 rounded-xl"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(bookingUrl);
+                          addToast('success', 'URL copied for sticker');
+                        } catch {
+                          addToast('error', 'Failed to copy URL');
+                        }
                       }}
                       leftIcon={<Copy className="h-4 w-4" />}
                     >
                       Copy URL for Sticker
                     </Button>
-                    <Button
-                      className="w-full justify-start h-12 rounded-xl shadow-lg shadow-[var(--primary)]/20"
-                      onClick={() => {
-                        addToast('info', 'Advanced Generation: High-res PNG export coming in V9. For now, please screenshot the preview!');
-                      }}
-                      leftIcon={<Download className="h-4 w-4" />}
-                    >
-                      Download as Image (PNG)
-                    </Button>
+                    <div className="flex items-start gap-2 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] text-xs text-[var(--foreground-secondary)]">
+                      <Info className="h-4 w-4 shrink-0 mt-0.5 text-[var(--primary)]" />
+                      <span>
+                        To save this graphic, take a screenshot of the preview on the left. Most browsers: <strong>Ctrl/Cmd + Shift + S</strong>.
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

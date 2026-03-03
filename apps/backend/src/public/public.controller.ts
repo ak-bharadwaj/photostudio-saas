@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Param, Query, Req } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Req, BadRequestException } from "@nestjs/common";
+import { Request } from "express";
+import { Throttle } from "@nestjs/throttler";
 import { PublicService } from "./public.service";
 import { CreatePublicBookingDto } from "./dto/public-booking.dto";
 import { Public } from "../auth/decorators/public.decorator";
@@ -14,19 +16,7 @@ export class PublicController {
   @Public()
   @Get("studios/:slug")
   async getStudioBySlug(@Param("slug") slug: string) {
-    console.log(`[DEBUG] Incoming public request for studio slug: "${slug}"`);
-    try {
-      const studio = await this.publicService.getStudioBySlug(slug);
-      console.log(
-        `[DEBUG] Studio found for slug "${slug}": ${studio.name} (${studio.id})`,
-      );
-      return studio;
-    } catch (error: any) {
-      console.error(
-        `[DEBUG] Error fetching studio for slug "${slug}": ${error.message}`,
-      );
-      throw error;
-    }
+    return this.publicService.getStudioBySlug(slug);
   }
 
   /**
@@ -35,10 +25,11 @@ export class PublicController {
    */
   @Public()
   @Post("studios/:slug/bookings")
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 bookings per minute per IP
   async createPublicBooking(
     @Param("slug") slug: string,
     @Body() dto: CreatePublicBookingDto,
-    @Req() req: any,
+    @Req() req: Request & { user?: { id: string } },
   ) {
     // We manually extract the user if the token is present to link the booking
     // even though the route is @Public()
@@ -56,6 +47,22 @@ export class PublicController {
     @Param("serviceId") serviceId: string,
     @Query("date") date: string,
   ) {
+    // Validate date format (YYYY-MM-DD) before passing to service
+    if (!date) {
+      throw new BadRequestException("date query parameter is required");
+    }
+    const parsed = new Date(date);
+    if (isNaN(parsed.getTime())) {
+      throw new BadRequestException(
+        "Invalid date format — expected YYYY-MM-DD (e.g. 2024-01-31)",
+      );
+    }
+    // Guard against exotic inputs that new Date() accepts but aren't YYYY-MM-DD
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException(
+        "date must be in YYYY-MM-DD format (e.g. 2024-01-31)",
+      );
+    }
     return this.publicService.getAvailableTimeSlots(slug, serviceId, date);
   }
 }

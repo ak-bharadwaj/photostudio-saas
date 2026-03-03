@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input, Select, Textarea } from '@/components/ui/input';
-import { LoadingSpinner } from '@/components/ui/loading';
 import { Modal, ModalFooter } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { adminApi } from '@/lib/api';
@@ -27,6 +26,7 @@ import {
   Phone,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
 
 interface StudioDetail {
   id: string;
@@ -37,7 +37,7 @@ interface StudioDetail {
   status: string;
   subscriptionTier: string;
   logoUrl: string | null;
-  brandingConfig: Record<string, any> | null;
+  brandingConfig: Record<string, unknown> | null;
   defaultTerms: string | null;
   createdAt: string;
   updatedAt: string;
@@ -83,11 +83,7 @@ export default function StudioDetailPage() {
   }>({ open: false, action: 'suspend' });
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    loadStudio();
-  }, [studioId]);
-
-  const loadStudio = async () => {
+  const loadStudio = useCallback(async () => {
     try {
       setLoading(true);
       const res = await adminApi.getStudio(studioId);
@@ -99,12 +95,17 @@ export default function StudioDetailPage() {
         subscriptionTier: res.data.subscriptionTier,
         defaultTerms: res.data.defaultTerms || '',
       });
-    } catch (err: any) {
-      addToast('error', err.response?.data?.message || 'Failed to load studio');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      addToast('error', e.response?.data?.message || 'Failed to load studio');
     } finally {
       setLoading(false);
     }
-  };
+  }, [studioId, addToast]);
+
+  useEffect(() => {
+    loadStudio();
+  }, [loadStudio]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -119,8 +120,9 @@ export default function StudioDetailPage() {
       addToast('success', 'Studio updated successfully');
       setEditMode(false);
       loadStudio();
-    } catch (err: any) {
-      addToast('error', err.response?.data?.message || 'Failed to update studio');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      addToast('error', e.response?.data?.message || 'Failed to update studio');
     } finally {
       setSaving(false);
     }
@@ -143,8 +145,9 @@ export default function StudioDetailPage() {
       }
       setConfirmModal({ open: false, action: 'suspend' });
       loadStudio();
-    } catch (err: any) {
-      addToast('error', err.response?.data?.message || `Failed to ${confirmModal.action} studio`);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      addToast('error', e.response?.data?.message || `Failed to ${confirmModal.action} studio`);
     } finally {
       setActionLoading(false);
     }
@@ -162,8 +165,10 @@ export default function StudioDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
       </div>
     );
   }
@@ -194,7 +199,7 @@ export default function StudioDetailPage() {
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-[var(--radius-lg)] bg-[var(--primary-light)] flex items-center justify-center text-xl font-bold text-[var(--primary)]">
-            {studio.name.charAt(0)}
+            {studio.name?.charAt(0)?.toUpperCase() ?? '?'}
           </div>
           <div>
             <div className="flex items-center gap-3">
@@ -250,7 +255,7 @@ export default function StudioDetailPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Users', value: studio._count?.customers || studio.users?.length || 0, icon: Users, color: 'text-[var(--primary)]', bg: 'bg-[var(--primary-light)]' },
+          { label: 'Staff Users', value: studio.users?.length || 0, icon: Users, color: 'text-[var(--primary)]', bg: 'bg-[var(--primary-light)]' },
           { label: 'Services', value: studio._count?.services || 0, icon: Layers, color: 'text-[var(--accent)]', bg: 'bg-[var(--accent-light)]' },
           { label: 'Bookings', value: studio._count?.bookings || 0, icon: Calendar, color: 'text-[var(--success)]', bg: 'bg-[var(--success-light)]' },
           { label: 'Invoices', value: studio._count?.invoices || 0, icon: FileText, color: 'text-[var(--warning)]', bg: 'bg-[var(--warning-light)]' },
@@ -387,7 +392,7 @@ export default function StudioDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {studio.users?.length === 0 ? (
+          {!studio.users?.length ? (
             <p className="text-sm text-[var(--foreground-tertiary)] text-center py-4">No team members</p>
           ) : (
             <div className="space-y-2">
@@ -395,7 +400,7 @@ export default function StudioDetailPage() {
                 <div key={member.id} className="flex items-center justify-between p-3 rounded-[var(--radius-md)] bg-[var(--surface-1)]">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-[var(--primary-light)] flex items-center justify-center text-xs font-bold text-[var(--primary)]">
-                      {member.email.charAt(0).toUpperCase()}
+                      {(member.email || '?').charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[var(--foreground)]">{member.email}</p>

@@ -6,7 +6,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto } from "./dto/payment.dto";
 import { Decimal } from "@prisma/client/runtime/client";
-import { InvoiceStatus } from "@prisma/client";
+import { InvoiceStatus, PaymentMethod, Prisma } from "@prisma/client";
 
 @Injectable()
 export class PaymentService {
@@ -35,7 +35,7 @@ export class PaymentService {
 
     // Calculate total paid so far
     const totalPaid = invoice.payments.reduce(
-      (sum, payment) => sum + Number(payment.amount),
+      (sum: number, payment: { amount: unknown }) => sum + Number(payment.amount),
       0,
     );
 
@@ -43,12 +43,12 @@ export class PaymentService {
     const remaining = Number(invoice.total) - totalPaid;
     if (dto.amount > remaining) {
       throw new BadRequestException(
-        `Payment amount ($${dto.amount}) exceeds remaining balance ($${remaining.toFixed(2)})`,
+        `Payment amount (${dto.amount}) exceeds remaining balance (${remaining.toFixed(2)})`,
       );
     }
 
     // Create payment and update invoice status in transaction
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const payment = await tx.payment.create({
         data: {
           invoiceId: dto.invoiceId,
@@ -106,10 +106,10 @@ export class PaymentService {
               data: {
                 studioId,
                 invoiceId: dto.invoiceId,
-                bookingId: invoice.bookingId,
+                bookingId: invoice.bookingId ?? undefined,
                 amount: new Decimal(commissionAmount),
                 status: "PENDING",
-                notes: `Commission calculated for ${studio.commissionType === "PERCENTAGE" ? studio.commissionRate + "%" : "₹" + studio.commissionRate} rate`,
+                notes: `Commission calculated for ${studio.commissionType === "PERCENTAGE" ? studio.commissionRate + "%" : studio.commissionRate} rate`,
               },
             });
           }
@@ -151,7 +151,10 @@ export class PaymentService {
 
   async findOne(id: string, studioId: string) {
     const payment = await this.prisma.payment.findFirst({
-      where: { id },
+      where: {
+        id,
+        invoice: { studioId },
+      },
       include: {
         invoice: {
           include: {
@@ -171,19 +174,16 @@ export class PaymentService {
       throw new NotFoundException("Payment not found");
     }
 
-    // Verify payment belongs to studio
-    if (payment.invoice.studioId !== studioId) {
-      throw new NotFoundException("Payment not found");
-    }
-
     return payment;
   }
 
   async remove(id: string, studioId: string) {
     const payment = await this.findOne(id, studioId);
+    // Capture original invoice status before any changes
+    const originalInvoiceStatus = payment.invoice.status as InvoiceStatus;
 
     // Recalculate invoice status after removing payment
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Delete the payment
       await tx.payment.delete({
         where: { id },
@@ -196,16 +196,20 @@ export class PaymentService {
 
       // Calculate new total paid
       const totalPaid = remainingPayments.reduce(
-        (sum, p) => sum + Number(p.amount),
+        (sum: number, p: { amount: unknown }) => sum + Number(p.amount),
         0,
       );
 
       const invoiceTotal = Number(payment.invoice.total);
 
-      // Update invoice status
+      // Update invoice status — if no payments remain, restore to original
+      // pre-payment status (DRAFT or SENT) rather than blindly resetting to SENT
       let newStatus: InvoiceStatus;
       if (totalPaid === 0) {
-        newStatus = InvoiceStatus.SENT; // Or back to previous status
+        newStatus =
+          originalInvoiceStatus === InvoiceStatus.DRAFT
+            ? InvoiceStatus.DRAFT
+            : InvoiceStatus.SENT;
       } else if (totalPaid >= invoiceTotal) {
         newStatus = InvoiceStatus.PAID;
       } else {
@@ -223,42 +227,71 @@ export class PaymentService {
 
   async findAll(
     studioId: string,
-    params?: { limit?: number; paymentMethod?: string },
+    params?: { page?: number; limit?: number; paymentMethod?: string; search?: string },
   ) {
-    const limit = params?.limit || 100;
+    const page = params?.page ?? 1;
+    const limit = Math.min(params?.limit ?? 20, 100);
+    const skip = (page - 1) * limit;
 
-    const where: any = {
-      invoice: {
-        studioId,
-      },
+    const baseWhere: Prisma.PaymentWhereInput = {
+      invoice: { studioId },
     };
-
     if (params?.paymentMethod) {
-      where.paymentMethod = params.paymentMethod;
+      baseWhere.paymentMethod = params.paymentMethod as PaymentMethod;
     }
 
-    return this.prisma.payment.findMany({
-      where,
-      take: limit,
-      orderBy: { paidAt: "desc" },
-      include: {
-        invoice: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            total: true,
-            status: true,
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
+    const where: Prisma.PaymentWhereInput = params?.search
+      ? {
+          AND: [
+            baseWhere,
+            {
+              OR: [
+                { transactionId: { contains: params.search, mode: 'insensitive' } },
+                { invoice: { invoiceNumber: { contains: params.search, mode: 'insensitive' } } },
+                { invoice: { customer: { name: { contains: params.search, mode: 'insensitive' } } } },
+                { invoice: { customer: { email: { contains: params.search, mode: 'insensitive' } } } },
+              ],
+            },
+          ],
+        }
+      : baseWhere;
+
+    const [data, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { paidAt: "desc" },
+        include: {
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              total: true,
+              status: true,
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
               },
             },
           },
         },
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-    });
+    };
   }
 
   async getStats(studioId: string) {

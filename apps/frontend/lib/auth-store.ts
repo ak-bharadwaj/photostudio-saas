@@ -29,6 +29,22 @@ interface AuthState {
   clearError: () => void;
 }
 
+// Safe localStorage helpers — no-ops during SSR
+function storageGet(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function storageSet(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(key, value); } catch { /* quota/private mode */ }
+}
+
+function storageRemove(key: string): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(key); } catch { /* ignore */ }
+}
+
 export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
@@ -42,20 +58,21 @@ export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState
       const response = await authApi.login(email, password);
       const { accessToken, refreshToken, user, userType } = response.data;
 
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      storageSet('accessToken', accessToken);
+      storageSet('refreshToken', refreshToken);
 
-      // Handle the unified user object from the backend
-      const userData = userType === 'admin' ? { ...user, isAdmin: true } : user;
+      const userData: User =
+        userType === 'admin' ? { ...user, isAdmin: true } : user;
 
       set({
         user: userData,
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const e = error as { response?: { data?: { message?: string } } };
       set({
-        error: error.response?.data?.message || 'Login failed',
+        error: e.response?.data?.message || 'Login failed',
         isLoading: false,
       });
       throw error;
@@ -63,27 +80,23 @@ export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState
   },
 
   adminLogin: async (email: string, password: string) => {
-    // Redirect to the unified login
     return get().login(email, password);
   },
 
   logout: async () => {
     try {
       await authApi.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
+      /* ignore logout errors — clean up locally regardless */
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      set({
-        user: null,
-        isAuthenticated: false,
-      });
+      storageRemove('accessToken');
+      storageRemove('refreshToken');
+      set({ user: null, isAuthenticated: false });
     }
   },
 
   loadUser: async () => {
-    const token = localStorage.getItem('accessToken');
+    const token = storageGet('accessToken');
     if (!token) {
       set({ isAuthenticated: false, isLoading: false });
       return;
@@ -92,20 +105,12 @@ export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState
     try {
       set({ isLoading: true });
       const response = await authApi.me();
-      const userData = response.data.user || response.data;
-      set({
-        user: userData,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (error) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+      const userData: User = response.data.user || response.data;
+      set({ user: userData, isAuthenticated: true, isLoading: false });
+    } catch {
+      storageRemove('accessToken');
+      storageRemove('refreshToken');
+      set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
 

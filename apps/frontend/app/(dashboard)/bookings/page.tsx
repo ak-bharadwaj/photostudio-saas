@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,11 +11,14 @@ import { LoadingSpinner } from '@/components/ui/loading';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { bookingsApi, customersApi, servicesApi, invoicesApi } from '@/lib/api';
-import { formatDate, cn } from '@/lib/utils';
-import { Plus, Search, Calendar, Eye, FileText, ChevronDown, Send } from 'lucide-react';
+import { formatDate, formatCurrency, cn } from '@/lib/utils';
+import { Plus, Search, Calendar, Eye, FileText, ChevronDown, Send, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+
+const BOOKINGS_PAGE_SIZE = 20;
 
 interface Booking {
   id: string;
@@ -27,6 +31,7 @@ interface Booking {
 
 interface Customer { id: string; name: string; email: string }
 interface Service { id: string; name: string; price: number }
+interface BookingMeta { total: number; page: number; limit: number; totalPages: number }
 
 const bookingSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
@@ -37,12 +42,12 @@ const bookingSchema = z.object({
 type BookingFormData = z.infer<typeof bookingSchema>;
 
 const STATUS_FLOW = [
-  { value: 'INQUIRY', label: 'Inquiry', color: 'bg-slate-100 text-slate-700 border-slate-200' },
-  { value: 'QUOTED', label: 'Quoted', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  { value: 'CONFIRMED', label: 'Confirmed', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { value: 'IN_PROGRESS', label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { value: 'COMPLETED', label: 'Completed', color: 'bg-slate-900 text-white border-slate-900' },
-  { value: 'CANCELLED', label: 'Cancelled', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { value: 'INQUIRY',     label: 'Inquiry',     color: 'bg-[var(--surface-2)] text-[var(--foreground-secondary)] border-[var(--border)]' },
+  { value: 'QUOTED',      label: 'Quoted',      color: 'bg-[var(--primary-light)] text-[var(--primary)] border-[var(--primary)]/30' },
+  { value: 'CONFIRMED',   label: 'Confirmed',   color: 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/30' },
+  { value: 'IN_PROGRESS', label: 'In Progress', color: 'bg-[var(--info)]/10 text-[var(--info)] border-[var(--info)]/30' },
+  { value: 'COMPLETED',   label: 'Completed',   color: 'bg-[var(--foreground)] text-[var(--background)] border-[var(--foreground)]' },
+  { value: 'CANCELLED',   label: 'Cancelled',   color: 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/30' },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -50,7 +55,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className={cn(
       "inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all duration-300",
-      s?.color ?? 'bg-slate-100 text-slate-700 border-slate-200'
+      s?.color ?? 'bg-[var(--surface-2)] text-[var(--foreground-secondary)] border-[var(--border)]'
     )}>
       {s?.label ?? status}
     </span>
@@ -61,6 +66,7 @@ function StatusDropdown({ bookingId, current, onChanged }: { bookingId: string; 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { addToast } = useToast();
+  const listboxId = `status-listbox-${bookingId}`;
 
   const change = useCallback(async (next: string) => {
     if (next === current) { setOpen(false); return; }
@@ -83,18 +89,29 @@ function StatusDropdown({ bookingId, current, onChanged }: { bookingId: string; 
       <button
         disabled={busy}
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1 focus:outline-none"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-label={`Change status from ${STATUS_FLOW.find(s => s.value === current)?.label ?? current}`}
+        className="flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] rounded-full"
       >
         <StatusBadge status={current} />
         {busy ? <LoadingSpinner className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-0.5 opacity-50" />}
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-20 w-40 rounded-xl bg-[var(--surface-0)] border border-[var(--border)] shadow-xl py-1 overflow-hidden">
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div
+            id={listboxId}
+            role="listbox"
+            aria-label="Select booking status"
+            className="absolute left-0 top-full mt-1 z-20 w-40 rounded-xl bg-[var(--surface-0)] border border-[var(--border)] shadow-xl py-1 overflow-hidden"
+          >
             {STATUS_FLOW.map(s => (
               <button
                 key={s.value}
+                role="option"
+                aria-selected={s.value === current}
                 onClick={() => change(s.value)}
                 className={`w-full text-left px-3 py-2 text-xs font-semibold hover:bg-[var(--surface-1)] transition-colors ${s.value === current ? 'opacity-50 cursor-default' : ''}`}
               >
@@ -108,12 +125,25 @@ function StatusDropdown({ bookingId, current, onChanged }: { bookingId: string; 
   );
 }
 
-export default function BookingsPage() {
+export default function BookingsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-6 space-y-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-14 w-full rounded-xl" />)}</div>}>
+      <BookingsPage />
+    </Suspense>
+  );
+}
+
+function BookingsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingMeta, setBookingMeta] = useState<BookingMeta>({ total: 0, page: 1, limit: BOOKINGS_PAGE_SIZE, totalPages: 1 });
+  const [bookingPage, setBookingPage] = useState(1);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,6 +155,26 @@ export default function BookingsPage() {
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
 
   const { addToast } = useToast();
+
+  /* Auto-open create modal when ?create=1 is in the URL */
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setIsCreateModalOpen(true);
+      router.replace('/bookings', { scroll: false });
+    }
+  }, [searchParams, router]);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Debounce search term (500 ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset to page 1 when search or status filter changes
+  useEffect(() => {
+    setBookingPage(1);
+  }, [debouncedSearch, statusFilter]);
 
   const handleSendQuote = async () => {
     if (!quoteBooking) return;
@@ -150,23 +200,37 @@ export default function BookingsPage() {
   });
 
   const loadBookings = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       setIsLoading(true);
-      const params: Record<string, string | number> = { limit: 200 };
+      const params: Record<string, string | number> = { limit: BOOKINGS_PAGE_SIZE, page: bookingPage };
       if (statusFilter) params.status = statusFilter;
-      const response = await bookingsApi.getAll(params as any);
-      setBookings(response.data?.data || []);
+      if (debouncedSearch) params.search = debouncedSearch;
+      const response = await bookingsApi.getAll(params as Record<string, string | number>);
+      if (ctrl.signal.aborted) return;
+      const payload = response.data;
+      if (payload?.data && payload?.meta) {
+        setBookings(payload.data);
+        setBookingMeta(payload.meta);
+      } else {
+        setBookings(payload || []);
+        setBookingMeta({ total: (payload || []).length, page: 1, limit: BOOKINGS_PAGE_SIZE, totalPages: 1 });
+      }
     } catch {
+      if (abortRef.current?.signal.aborted) return;
       addToast('error', 'Failed to load bookings');
     } finally {
-      setIsLoading(false);
+      if (!abortRef.current?.signal.aborted) setIsLoading(false);
     }
-  }, [statusFilter, addToast]);
+  }, [statusFilter, debouncedSearch, bookingPage, addToast]);
 
   useEffect(() => {
     loadBookings();
-    customersApi.getAll({ limit: 1000 }).then(r => setCustomers(r.data?.data || [])).catch(() => { });
-    servicesApi.getAll({ limit: 1000, isActive: true }).then(r => setServices(r.data?.data || [])).catch(() => { });
+    customersApi.getAll({ limit: 100 }).then(r => setCustomers(r.data?.data || [])).catch(() => { });
+    servicesApi.getAll({ limit: 100, isActive: true }).then(r => setServices(r.data?.data || [])).catch(() => { });
+    return () => abortRef.current?.abort();
   }, [loadBookings]);
 
   const onCreateBooking = async (data: BookingFormData) => {
@@ -214,28 +278,29 @@ export default function BookingsPage() {
     }
   };
 
-  const filtered = bookings.filter(b => {
-    if (!b?.customer || !b?.service) return false;
-    const q = searchTerm.toLowerCase();
-    return (
-      b.customer.name.toLowerCase().includes(q) ||
-      b.customer.email.toLowerCase().includes(q) ||
-      b.service.name.toLowerCase().includes(q)
-    );
-  });
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)] font-heading">Bookings</h1>
-          <p className="mt-2 text-base text-[var(--foreground-secondary)] font-medium">Manage your studio schedule and client inquiries with clinical precision.</p>
-        </div>
-        <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-full shadow-lg shadow-indigo-200 hover:shadow-indigo-300" size="lg">
-          <Plus className="mr-2 h-5 w-5" /> Create Booking
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Studio Management"
+        title="Bookings"
+        subtitle="Manage your studio schedule and client inquiries with precision."
+        accentColor="violet"
+        actions={
+          <>
+            <Link
+              href="/bookings/kanban"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-white/20 text-white/80 hover:border-white/40 hover:text-white transition-all duration-200 bg-white/5 backdrop-blur-sm"
+              aria-label="Switch to Kanban view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Kanban View
+            </Link>
+            <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-full shadow-[var(--shadow-glow-primary)]" size="lg">
+              <Plus className="mr-2 h-5 w-5" /> Create Booking
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <Card className="card-luxury mb-8">
@@ -250,35 +315,37 @@ export default function BookingsPage() {
                 className="pl-10"
               />
             </div>
-            <select
+            <Select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-            >
-              <option value="">All Statuses</option>
-              {STATUS_FLOW.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+              options={[{ value: '', label: 'All Statuses' }, ...STATUS_FLOW.map(s => ({ value: s.value, label: s.label }))]}
+              aria-label="Filter by status"
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Table Section */}
-      <Card className="border-none shadow-premium overflow-hidden bg-white/50 backdrop-blur-sm">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <Card className="overflow-hidden">
+        <div className="px-6 py-5 border-b border-[var(--border-light)] flex items-center justify-between">
           <h2 className="text-xl font-bold text-[var(--foreground)] font-heading">Active Schedule</h2>
-          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-widest">{filtered.length} Bookings Found</span>
+          <span className="text-xs font-bold text-[var(--primary)] bg-[var(--primary-light)] px-2.5 py-1 rounded-full uppercase tracking-widest">{bookingMeta.total} Bookings Total</span>
         </div>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex justify-center py-10"><LoadingSpinner size="lg" /></div>
-          ) : filtered.length === 0 ? (
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="skeleton h-14 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : bookings.length === 0 ? (
             <div className="text-center py-12">
               <Calendar className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
               <h3 className="mt-3 text-sm font-semibold text-[var(--foreground)]">No bookings found</h3>
               <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
-                {searchTerm ? 'No bookings match your search.' : 'Create your first booking to get started.'}
+                {debouncedSearch || statusFilter ? 'No bookings match your filters.' : 'Create your first booking to get started.'}
               </p>
-              {!searchTerm && (
+              {!debouncedSearch && !statusFilter && (
                 <Button className="mt-4" onClick={() => setIsCreateModalOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" /> New Booking
                 </Button>
@@ -296,7 +363,7 @@ export default function BookingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(booking => (
+                {bookings.map((booking: Booking) => (
                   <TableRow key={booking.id}>
                     <TableCell>
                       <p className="font-medium text-[var(--foreground)]">{booking.customer.name}</p>
@@ -304,7 +371,7 @@ export default function BookingsPage() {
                     </TableCell>
                     <TableCell className="text-[var(--foreground)]">
                       <p>{booking.service.name}</p>
-                      <p className="text-xs text-[var(--foreground-tertiary)]">₹{booking.service.price.toLocaleString()}</p>
+                      <p className="text-xs text-[var(--foreground-tertiary)]">{formatCurrency(booking.service.price)}</p>
                     </TableCell>
                     <TableCell className="text-sm text-[var(--foreground-secondary)]">
                       {formatDate(booking.scheduledAt)}
@@ -320,7 +387,7 @@ export default function BookingsPage() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Link href={`/bookings/${booking.id}`}>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" aria-label={`View booking for ${booking.customer.name}`}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
@@ -328,8 +395,8 @@ export default function BookingsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                            title="Send Quote"
+                            className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:bg-[var(--primary-light)]"
+                            aria-label={`Send quote for ${booking.customer.name}`}
                             onClick={() => {
                               setQuoteBooking(booking);
                               setQuoteAmount(Number(booking.service.price));
@@ -343,10 +410,10 @@ export default function BookingsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Generate Invoice"
+                          aria-label={`Generate invoice for ${booking.customer.name}`}
                           disabled={generatingInvoice === booking.id}
                           onClick={() => handleGenerateInvoice(booking)}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          className="text-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/10"
                         >
                           {generatingInvoice === booking.id
                             ? <LoadingSpinner className="h-4 w-4" />
@@ -358,6 +425,35 @@ export default function BookingsPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+
+          {/* Pagination controls */}
+          {!isLoading && bookingMeta.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-4 border-t border-[var(--border)]">
+              <p className="text-sm text-[var(--foreground-secondary)]">
+                Page {bookingMeta.page} of {bookingMeta.totalPages} &mdash; {bookingMeta.total} bookings total
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBookingPage((p) => Math.max(1, p - 1))}
+                  disabled={bookingPage <= 1}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBookingPage((p) => Math.min(bookingMeta.totalPages, p + 1))}
+                  disabled={bookingPage >= bookingMeta.totalPages}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -382,7 +478,7 @@ export default function BookingsPage() {
           <Select
             label="Service"
             error={errors.serviceId?.message}
-            options={services.map(s => ({ value: s.id, label: `${s.name} (₹${s.price})` }))}
+            options={services.map(s => ({ value: s.id, label: `${s.name} (${formatCurrency(s.price)})` }))}
             placeholder="Select a service"
             {...register('serviceId')}
           />
@@ -416,8 +512,8 @@ export default function BookingsPage() {
         title="Send Quote"
       >
         <div className="space-y-4 py-4">
-          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-4">
-            <p className="text-sm text-indigo-800">
+          <div className="bg-[var(--primary-light)] p-4 rounded-xl border border-[var(--primary)]/20 mb-4">
+            <p className="text-sm text-[var(--primary)]">
               Sending a quote for <strong>{quoteBooking?.service.name}</strong> to <strong>{quoteBooking?.customer.name}</strong>.
             </p>
           </div>
@@ -434,17 +530,13 @@ export default function BookingsPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-              Notes for Customer
-            </label>
-            <textarea
-              className="flex w-full rounded-xl border border-[var(--border)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] h-24"
-              value={quoteNotes}
-              onChange={(e) => setQuoteNotes(e.target.value)}
-              placeholder="e.g. Total includes travel cost and editing..."
-            />
-          </div>
+          <Textarea
+            label="Notes for Customer"
+            value={quoteNotes}
+            onChange={(e) => setQuoteNotes(e.target.value)}
+            rows={4}
+            placeholder="e.g. Total includes travel cost and editing..."
+          />
 
           <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
             <Button variant="outline" onClick={() => setIsQuoteModalOpen(false)}>
@@ -453,7 +545,6 @@ export default function BookingsPage() {
             <Button
               onClick={handleSendQuote}
               disabled={sendingQuote}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {sendingQuote ? 'Sending...' : 'Send Quote'}
             </Button>

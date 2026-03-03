@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -11,21 +11,28 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, helperText, leftIcon, rightIcon, type = 'text', id, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const inputId = id ?? (label ? generatedId : undefined);
 
     return (
       <div className="w-full">
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-[var(--foreground)] mb-1.5"
+            className="block text-[13px] font-semibold text-[var(--foreground-secondary)] mb-1.5 tracking-wide"
           >
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative group">
           {leftIcon && (
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[var(--foreground-tertiary)]">
+            <div
+              className={cn(
+                'absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none',
+                'text-[var(--foreground-tertiary)] transition-colors duration-150',
+                'group-focus-within:text-[var(--primary)]',
+              )}
+            >
               {leftIcon}
             </div>
           )}
@@ -37,11 +44,17 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'border border-[var(--border)] bg-[var(--surface-0)]',
               'px-3 py-2 text-sm text-[var(--foreground)]',
               'placeholder:text-[var(--foreground-tertiary)]',
-              'transition-all duration-[var(--transition-fast)]',
-              'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent',
+              'transition-all duration-150',
+              // Focus state: glow ring + border color shift
+              'focus:outline-none focus:border-[var(--primary)]',
               'focus:shadow-[var(--shadow-focus)]',
+              // Hover: slightly stronger border
+              'hover:border-[var(--border-strong)]',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[var(--surface-1)]',
-              error && 'border-[var(--danger)] focus:ring-[var(--danger)] focus:shadow-[var(--shadow-focus-danger)]',
+              error && [
+                'border-[var(--danger)]',
+                'focus:border-[var(--danger)] focus:shadow-[var(--shadow-focus-danger)]',
+              ],
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
               className,
@@ -52,18 +65,24 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[var(--foreground-tertiary)]">
+            <div
+              className={cn(
+                'absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none',
+                'text-[var(--foreground-tertiary)] transition-colors duration-150',
+                'group-focus-within:text-[var(--primary)]',
+              )}
+            >
               {rightIcon}
             </div>
           )}
         </div>
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-[var(--danger)]" role="alert">
+          <p id={`${inputId}-error`} className="mt-1.5 text-xs font-medium text-[var(--danger)]" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-[var(--foreground-tertiary)]">
+          <p id={`${inputId}-helper`} className="mt-1.5 text-xs text-[var(--foreground-tertiary)]">
             {helperText}
           </p>
         )}
@@ -86,14 +105,15 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, label, error, helperText, id, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const inputId = id ?? (label ? generatedId : undefined);
 
     return (
       <div className="w-full">
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-[var(--foreground)] mb-1.5"
+            className="block text-[13px] font-semibold text-[var(--foreground-secondary)] mb-1.5 tracking-wide"
           >
             {label}
           </label>
@@ -105,12 +125,16 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             'border border-[var(--border)] bg-[var(--surface-0)]',
             'px-3 py-2 text-sm text-[var(--foreground)]',
             'placeholder:text-[var(--foreground-tertiary)]',
-            'transition-all duration-[var(--transition-fast)]',
-            'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent',
+            'transition-all duration-150',
+            'focus:outline-none focus:border-[var(--primary)]',
             'focus:shadow-[var(--shadow-focus)]',
+            'hover:border-[var(--border-strong)]',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[var(--surface-1)]',
             'resize-y',
-            error && 'border-[var(--danger)] focus:ring-[var(--danger)] focus:shadow-[var(--shadow-focus-danger)]',
+            error && [
+              'border-[var(--danger)]',
+              'focus:border-[var(--danger)] focus:shadow-[var(--shadow-focus-danger)]',
+            ],
             className,
           )}
           ref={ref}
@@ -119,12 +143,12 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-[var(--danger)]" role="alert">
+          <p id={`${inputId}-error`} className="mt-1.5 text-xs font-medium text-[var(--danger)]" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-[var(--foreground-tertiary)]">
+          <p id={`${inputId}-helper`} className="mt-1.5 text-xs text-[var(--foreground-tertiary)]">
             {helperText}
           </p>
         )}
@@ -149,14 +173,15 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, helperText, options, placeholder, id, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const inputId = id ?? (label ? generatedId : undefined);
 
     return (
       <div className="w-full">
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-[var(--foreground)] mb-1.5"
+            className="block text-[13px] font-semibold text-[var(--foreground-secondary)] mb-1.5 tracking-wide"
           >
             {label}
           </label>
@@ -167,11 +192,15 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             'flex h-10 w-full rounded-[var(--radius-md)]',
             'border border-[var(--border)] bg-[var(--surface-0)]',
             'px-3 py-2 text-sm text-[var(--foreground)]',
-            'transition-all duration-[var(--transition-fast)]',
-            'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent',
+            'transition-all duration-150',
+            'focus:outline-none focus:border-[var(--primary)]',
             'focus:shadow-[var(--shadow-focus)]',
+            'hover:border-[var(--border-strong)]',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[var(--surface-1)]',
-            error && 'border-[var(--danger)] focus:ring-[var(--danger)] focus:shadow-[var(--shadow-focus-danger)]',
+            error && [
+              'border-[var(--danger)]',
+              'focus:border-[var(--danger)] focus:shadow-[var(--shadow-focus-danger)]',
+            ],
             className,
           )}
           ref={ref}
@@ -190,12 +219,12 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ))}
         </select>
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-[var(--danger)]" role="alert">
+          <p id={`${inputId}-error`} className="mt-1.5 text-xs font-medium text-[var(--danger)]" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-[var(--foreground-tertiary)]">
+          <p id={`${inputId}-helper`} className="mt-1.5 text-xs text-[var(--foreground-tertiary)]">
             {helperText}
           </p>
         )}

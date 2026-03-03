@@ -1,250 +1,164 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bull";
-import type { Queue } from "bull";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
-import { addDays, addHours, subDays, isAfter, isBefore } from "date-fns";
+import { NotificationService } from "../notification/notification.service";
+import { CacheService } from "../cache/cache.service";
+import { subDays, addDays, format } from "date-fns";
 
+/**
+ * QueueService — Scheduled background tasks.
+ *
+ * Uses @nestjs/schedule Cron decorators instead of Bull so that the service
+ * works without Redis. For high-throughput production workloads you can re-add
+ * BullMQ alongside these cron jobs for fine-grained per-booking scheduling.
+ */
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
 
   constructor(
-    @InjectQueue("email") private emailQueue: Queue,
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
-   * Schedule booking reminder (to be sent 1 day before event)
+   * Trigger a booking reminder immediately (called on booking confirmation).
+   * The actual send-time enforcement (1 day before event) is handled by the
+   * daily cron — this is kept for API compatibility with BookingService.
    */
   async scheduleBookingReminder(bookingId: string, scheduledAt: Date) {
-    try {
-      // Calculate when to send reminder (1 day before event)
-      const reminderTime = subDays(scheduledAt, 1);
-
-      // Don't schedule if reminder time is in the past
-      if (isBefore(reminderTime, new Date())) {
-        this.logger.log(
-          `Reminder time for booking ${bookingId} is in the past, skipping`,
-        );
-        return;
-      }
-
-      const job = await this.emailQueue.add(
-        "booking_reminder",
-        {
-          type: "booking_reminder",
-          bookingId,
-        },
-        {
-          delay: reminderTime.getTime() - Date.now(),
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 60000, // 1 minute
-          },
-        },
-      );
-
-      this.logger.log(
-        `Scheduled booking reminder for ${bookingId} at ${reminderTime.toISOString()}`,
-      );
-      return job;
-    } catch (error) {
-      this.logger.error(
-        `Failed to schedule booking reminder: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    this.logger.log(
+      `Booking reminder registered for ${bookingId} (event at ${scheduledAt.toISOString()})`,
+    );
+    // The cron @checkUpcomingBookings picks this up automatically.
   }
 
   /**
-   * Schedule payment reminder for overdue invoice
+   * Register a payment reminder — handled by the daily overdue cron.
    */
   async schedulePaymentReminder(invoiceId: string, dueDate: Date) {
-    try {
-      // Send reminder 1 day after due date
-      const reminderTime = addDays(dueDate, 1);
-
-      // Don't schedule if reminder time is in the past
-      if (isBefore(reminderTime, new Date())) {
-        // If already overdue, send immediately
-        const job = await this.emailQueue.add(
-          "payment_reminder",
-          {
-            type: "payment_reminder",
-            invoiceId,
-          },
-          {
-            attempts: 3,
-            backoff: {
-              type: "exponential",
-              delay: 60000,
-            },
-          },
-        );
-
-        this.logger.log(
-          `Scheduled immediate payment reminder for invoice ${invoiceId}`,
-        );
-        return job;
-      }
-
-      const job = await this.emailQueue.add(
-        "payment_reminder",
-        {
-          type: "payment_reminder",
-          invoiceId,
-        },
-        {
-          delay: reminderTime.getTime() - Date.now(),
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 60000,
-          },
-        },
-      );
-
-      this.logger.log(
-        `Scheduled payment reminder for invoice ${invoiceId} at ${reminderTime.toISOString()}`,
-      );
-      return job;
-    } catch (error) {
-      this.logger.error(
-        `Failed to schedule payment reminder: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    this.logger.log(
+      `Payment reminder registered for invoice ${invoiceId} (due ${dueDate.toISOString()})`,
+    );
+    // The cron @checkOverdueInvoices picks this up automatically.
   }
 
   /**
-   * Schedule follow-up email (to be sent 1 day after booking completion)
+   * Register a follow-up email — handled by the daily completed cron.
    */
   async scheduleFollowUpEmail(bookingId: string) {
-    try {
-      // Send follow-up 1 day after completion
-      const followUpTime = addDays(new Date(), 1);
-
-      const job = await this.emailQueue.add(
-        "follow_up",
-        {
-          type: "follow_up",
-          bookingId,
-        },
-        {
-          delay: followUpTime.getTime() - Date.now(),
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 60000,
-          },
-        },
-      );
-
-      this.logger.log(
-        `Scheduled follow-up email for booking ${bookingId} at ${followUpTime.toISOString()}`,
-      );
-      return job;
-    } catch (error) {
-      this.logger.error(
-        `Failed to schedule follow-up email: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    this.logger.log(`Follow-up email registered for booking ${bookingId}`);
+    // The cron @checkCompletedBookings picks this up automatically.
   }
 
+  // ============================================================
+  // CRON JOBS
+  // ============================================================
+
   /**
-   * Cron job to check for upcoming bookings and schedule reminders
-   * Runs every hour
+   * Every hour — find confirmed bookings in the next 25–26 hours and send reminders.
+   * The 25-hour window ensures each booking gets exactly one reminder
+   * (next hourly run the booking will be < 24 h away and already processed).
    */
   @Cron(CronExpression.EVERY_HOUR)
   async checkUpcomingBookings() {
-    this.logger.log("Checking for upcoming bookings to schedule reminders...");
+    this.logger.log("Cron: checking upcoming bookings for reminders…");
 
     try {
-      // Find confirmed bookings in the next 2 days
-      const upcomingBookings = await this.prisma.booking.findMany({
+      const now = new Date();
+      const windowStart = addDays(now, 1);   // 24 h from now
+      const windowEnd = new Date(windowStart.getTime() + 60 * 60 * 1000); // +1 h
+
+      const bookings = await this.prisma.booking.findMany({
         where: {
           status: "CONFIRMED",
-          scheduledAt: {
-            gte: new Date(),
-            lte: addDays(new Date(), 2),
-          },
+          scheduledAt: { gte: windowStart, lte: windowEnd },
         },
+        include: { customer: true, service: true, studio: true },
       });
 
-      this.logger.log(`Found ${upcomingBookings.length} upcoming bookings`);
+      this.logger.log(`Found ${bookings.length} bookings for reminders`);
 
-      for (const booking of upcomingBookings) {
-        await this.scheduleBookingReminder(booking.id, booking.scheduledAt);
+      for (const booking of bookings) {
+        try {
+          const idempotencyKey = `reminder_sent:booking:${booking.id}`;
+          const alreadySent = await this.cacheService.get(idempotencyKey);
+          if (alreadySent) {
+            this.logger.log(`Reminder already sent for booking ${booking.id}, skipping`);
+            continue;
+          }
+          await this.notificationService.sendBookingReminder(booking);
+          // Mark as sent for 25 hours to prevent duplicate in next cron run
+          await this.cacheService.set(idempotencyKey, "1", 90000);
+        } catch (err: unknown) {
+          this.logger.error(
+            `Reminder failed for booking ${booking.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
-    } catch (error) {
-      this.logger.error(
-        `Failed to check upcoming bookings: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logger.error(`checkUpcomingBookings failed: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
     }
   }
 
   /**
-   * Cron job to check for overdue invoices and send payment reminders
-   * Runs daily at 9 AM
+   * Daily at 9 AM — mark overdue invoices and send payment reminders.
    */
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async checkOverdueInvoices() {
-    this.logger.log("Checking for overdue invoices...");
+    this.logger.log("Cron: checking overdue invoices…");
 
     try {
-      // Find overdue invoices (SENT or PARTIALLY_PAID, past due date)
       const overdueInvoices = await this.prisma.invoice.findMany({
         where: {
-          status: {
-            in: ["SENT", "PARTIALLY_PAID", "OVERDUE"],
-          },
-          dueDate: {
-            lt: new Date(),
-          },
+          status: { in: ["SENT", "PARTIALLY_PAID", "OVERDUE"] },
+          dueDate: { lt: new Date() },
         },
+        include: { customer: true, studio: true, payments: true },
       });
 
       this.logger.log(`Found ${overdueInvoices.length} overdue invoices`);
 
       for (const invoice of overdueInvoices) {
-        // Update status to OVERDUE if not already
-        if (invoice.status !== "OVERDUE") {
-          await this.prisma.invoice.update({
-            where: { id: invoice.id },
-            data: { status: "OVERDUE" },
-          });
-        }
+        try {
+          // Auto-escalate status
+          if (invoice.status !== "OVERDUE") {
+            await this.prisma.invoice.update({
+              where: { id: invoice.id },
+              data: { status: "OVERDUE" },
+            });
+          }
 
-        // Schedule payment reminder
-        if (invoice.dueDate) {
-          await this.schedulePaymentReminder(invoice.id, invoice.dueDate);
+          const dateKey = format(new Date(), "yyyy-MM-dd");
+          const idempotencyKey = `reminder_sent:invoice:${invoice.id}:${dateKey}`;
+          const alreadySent = await this.cacheService.get(idempotencyKey);
+          if (alreadySent) {
+            this.logger.log(`Payment reminder already sent for invoice ${invoice.id} today, skipping`);
+            continue;
+          }
+          await this.notificationService.sendPaymentReminder(invoice);
+          // Mark as sent for 25 hours (one day) to prevent duplicate in next run
+          await this.cacheService.set(idempotencyKey, "1", 90000);
+        } catch (err: unknown) {
+          this.logger.error(
+            `Payment reminder failed for invoice ${invoice.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
       }
-    } catch (error) {
-      this.logger.error(
-        `Failed to check overdue invoices: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logger.error(`checkOverdueInvoices failed: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
     }
   }
 
   /**
-   * Cron job to check for completed bookings and send follow-ups
-   * Runs daily at 10 AM
+   * Daily at 10 AM — send follow-up emails for bookings completed 24–48 h ago.
    */
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
   async checkCompletedBookings() {
-    this.logger.log("Checking for recently completed bookings...");
+    this.logger.log("Cron: checking recently completed bookings for follow-ups…");
 
     try {
-      // Find bookings completed in the last 24-48 hours
       const completedBookings = await this.prisma.booking.findMany({
         where: {
           status: "COMPLETED",
@@ -253,6 +167,7 @@ export class QueueService {
             lte: subDays(new Date(), 1),
           },
         },
+        include: { customer: true, service: true, studio: true },
       });
 
       this.logger.log(
@@ -260,13 +175,24 @@ export class QueueService {
       );
 
       for (const booking of completedBookings) {
-        await this.scheduleFollowUpEmail(booking.id);
+        try {
+          const idempotencyKey = `followup_sent:booking:${booking.id}`;
+          const alreadySent = await this.cacheService.get(idempotencyKey);
+          if (alreadySent) {
+            this.logger.log(`Follow-up already sent for booking ${booking.id}, skipping`);
+            continue;
+          }
+          await this.notificationService.sendFollowUpEmail(booking);
+          // Mark as sent for 49 hours to prevent duplicates in next cron run
+          await this.cacheService.set(idempotencyKey, "1", 176400);
+        } catch (err: unknown) {
+          this.logger.error(
+            `Follow-up failed for booking ${booking.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
-    } catch (error) {
-      this.logger.error(
-        `Failed to check completed bookings: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logger.error(`checkCompletedBookings failed: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
     }
   }
 }

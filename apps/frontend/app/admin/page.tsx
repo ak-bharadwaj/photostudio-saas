@@ -3,18 +3,18 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LoadingSpinner } from '@/components/ui/loading';
 import { adminApi } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import {
   Building2,
   Users,
   Calendar,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Activity,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
 
 interface PlatformAnalytics {
   studios: {
@@ -68,8 +68,9 @@ export default function AdminDashboard() {
       ]);
       setAnalytics(analyticsRes.data);
       setActivities(activitiesRes.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load dashboard data');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -77,8 +78,14 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton h-28 w-full rounded-2xl" />
+          ))}
+        </div>
+        <div className="skeleton h-64 w-full rounded-2xl" />
       </div>
     );
   }
@@ -119,7 +126,7 @@ export default function AdminDashboard() {
     {
       title: 'Total Revenue',
       value: formatCurrency(analytics?.revenue.total || 0),
-      icon: DollarSign,
+      icon: IndianRupee,
       color: 'text-[var(--success)]',
       bg: 'bg-[var(--success-light)]',
     },
@@ -148,12 +155,12 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Platform Dashboard</h1>
-        <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
-          Overview of your Photo Studio SaaS platform
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Admin"
+        title="Platform Dashboard"
+        subtitle="Overview of your Photo Studio SaaS platform"
+        accentColor="violet"
+      />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

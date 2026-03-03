@@ -230,7 +230,7 @@ describe("AuthService", () => {
         (bcrypt.compare as jest.Mock).mockResolvedValue(true);
         mockJwtService.sign.mockReturnValue("mock-token");
 
-        const result = await service.userLogin(loginDto);
+        const result = await service.login(loginDto);
 
         expect(result).toHaveProperty("user");
         expect(result.user).toHaveProperty("email");
@@ -253,7 +253,7 @@ describe("AuthService", () => {
 
         mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
 
-        await expect(service.userLogin(loginDto)).rejects.toThrow(
+        await expect(service.login(loginDto)).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -278,7 +278,7 @@ describe("AuthService", () => {
         mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
         (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-        await expect(service.userLogin(loginDto)).rejects.toThrow(
+        await expect(service.login(loginDto)).rejects.toThrow(
           UnauthorizedException,
         );
       });

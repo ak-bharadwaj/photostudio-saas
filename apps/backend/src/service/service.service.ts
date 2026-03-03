@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";
@@ -37,7 +38,7 @@ export class ServiceService {
       return cached;
     }
 
-    const where: any = { studioId };
+    const where: Prisma.ServiceWhereInput = { studioId };
     if (!includeInactive) {
       where.isActive = true;
     }

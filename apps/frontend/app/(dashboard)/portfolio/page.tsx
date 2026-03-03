@@ -1,15 +1,28 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Modal } from '@/components/ui/modal';
+import { Modal, ModalFooter } from '@/components/ui/modal';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { useToast } from '@/components/ui/toast';
 import { portfolioApi, uploadApi } from '@/lib/api';
-import { Plus, Edit2, Trash2, Eye, EyeOff, Image as ImageIcon, Upload } from 'lucide-react';
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Upload,
+  Grid3X3,
+  LayoutGrid,
+  Filter,
+} from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 interface PortfolioItem {
   id: string;
@@ -22,6 +35,9 @@ interface PortfolioItem {
   createdAt: string;
 }
 
+/* ── Inline SVG fallback for broken images ──────────────────────────────── */
+const PLACEHOLDER_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Cg fill='%23cbd5e1'%3E%3Crect x='160' y='110' width='80' height='60' rx='6'/%3E%3Ccircle cx='175' cy='125' r='8'/%3E%3Cpolygon points='155,170 195,130 225,160 245,140 265,170'/%3E%3C/g%3E%3C/svg%3E`;
+
 export default function PortfolioPage() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +45,14 @@ export default function PortfolioPage() {
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Confirm-delete modal
+  const [confirmDelete, setConfirmDelete] = useState<PortfolioItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { addToast } = useToast();
+  const abortRef = useRef<AbortController | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -39,23 +62,34 @@ export default function PortfolioPage() {
     category: '',
   });
 
+  const resetForm = () => {
+    setFormData({ title: '', description: '', imageUrl: '', category: '' });
+  };
+
   useEffect(() => {
     loadPortfolio();
+    return () => abortRef.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter]);
 
   const loadPortfolio = async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     try {
       setIsLoading(true);
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (categoryFilter) params.category = categoryFilter;
 
       const response = await portfolioApi.getAll(params);
-      setItems(response.data || []);
+      if (ctrl.signal.aborted) return;
+      setItems(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error('Failed to load portfolio:', error);
+      if (ctrl.signal.aborted) return;
       addToast('error', 'Failed to load portfolio items');
     } finally {
-      setIsLoading(false);
+      if (!ctrl.signal.aborted) setIsLoading(false);
     }
   };
 
@@ -70,12 +104,7 @@ export default function PortfolioPage() {
       });
     } else {
       setEditingItem(null);
-      setFormData({
-        title: '',
-        description: '',
-        imageUrl: '',
-        category: '',
-      });
+      resetForm();
     }
     setIsModalOpen(true);
   };
@@ -83,12 +112,7 @@ export default function PortfolioPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingItem(null);
-    setFormData({
-      title: '',
-      description: '',
-      imageUrl: '',
-      category: '',
-    });
+    resetForm();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,52 +122,58 @@ export default function PortfolioPage() {
       addToast('error', 'Title is required');
       return;
     }
-
     if (!formData.imageUrl.trim()) {
       addToast('error', 'Image URL is required');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       if (editingItem) {
         await portfolioApi.update(editingItem.id, formData);
-        addToast('success', 'Portfolio item updated successfully');
+        addToast('success', 'Portfolio item updated');
       } else {
         await portfolioApi.create(formData);
-        addToast('success', 'Portfolio item created successfully');
+        addToast('success', 'Portfolio item created');
       }
-
       handleCloseModal();
       loadPortfolio();
-    } catch (error: any) {
-      console.error('Failed to save portfolio item:', error);
-      addToast('error', error.response?.data?.message || 'Failed to save portfolio item');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to save portfolio item');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleToggleVisibility = async (item: PortfolioItem) => {
     try {
       await portfolioApi.toggleVisibility(item.id);
-      addToast('success', `Portfolio item ${item.isVisible ? 'hidden' : 'shown'}`);
+      addToast('success', item.isVisible ? 'Item hidden from portfolio' : 'Item shown in portfolio');
       loadPortfolio();
-    } catch (error: any) {
-      console.error('Failed to toggle visibility:', error);
-      addToast('error', error.response?.data?.message || 'Failed to toggle visibility');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to toggle visibility');
     }
   };
 
-  const handleDelete = async (item: PortfolioItem) => {
-    if (!confirm(`Are you sure you want to delete "${item.title}"?`)) {
-      return;
-    }
+  const handleDeleteRequest = (item: PortfolioItem) => {
+    setConfirmDelete(item);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!confirmDelete) return;
+    setIsDeleting(true);
     try {
-      await portfolioApi.delete(item.id);
-      addToast('success', 'Portfolio item deleted successfully');
+      await portfolioApi.delete(confirmDelete.id);
+      addToast('success', `"${confirmDelete.title}" deleted`);
+      setConfirmDelete(null);
       loadPortfolio();
-    } catch (error: any) {
-      console.error('Failed to delete portfolio item:', error);
-      addToast('error', error.response?.data?.message || 'Failed to delete portfolio item');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to delete portfolio item');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -151,13 +181,10 @@ export default function PortfolioPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       addToast('error', 'Please upload an image file');
       return;
     }
-
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       addToast('error', 'File size must be less than 10MB');
       return;
@@ -166,184 +193,199 @@ export default function PortfolioPage() {
     try {
       setIsUploading(true);
       const response = await uploadApi.uploadPortfolioImage(file);
-      setFormData({ ...formData, imageUrl: response.data.url });
-      addToast('success', 'Image uploaded successfully');
-    } catch (error: any) {
-      console.error('Failed to upload image:', error);
-      addToast('error', error.response?.data?.message || 'Failed to upload image');
+      setFormData((prev) => ({ ...prev, imageUrl: response.data.url }));
+      addToast('success', 'Image uploaded');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to upload image');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const categories = Array.from(new Set(items.map(item => item.category).filter(Boolean)));
+  const categories = Array.from(new Set(items.map((item) => item.category).filter(Boolean))) as string[];
+  const visibleCount = items.filter((i) => i.isVisible).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Portfolio</h1>
-          <p className="mt-2 text-gray-600">Showcase your best work to potential clients</p>
-        </div>
-        <Button onClick={() => handleOpenModal()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Item
-        </Button>
-      </div>
+    <div className="space-y-6 animate-luxury-in">
+      <PageHeader
+        eyebrow="Showcase"
+        title="Portfolio"
+        subtitle="Showcase your best work to attract new clients."
+        accentColor="violet"
+        actions={
+          <Button onClick={() => handleOpenModal()} leftIcon={<Plus className="h-4 w-4" />} size="lg">
+            Add Item
+          </Button>
+        }
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Items
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{items.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Visible
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {items.filter(item => item.isVisible).length}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="card-luxury p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center">
+              <LayoutGrid className="h-5 w-5 text-[var(--primary)]" />
             </div>
-          </CardContent>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--foreground-tertiary)]">Total Items</p>
+              <p className="text-2xl font-black text-[var(--foreground)] font-heading">{items.length}</p>
+            </div>
+          </div>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Categories
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{categories.length}</div>
-          </CardContent>
+        <Card className="card-luxury p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[var(--success)]/10 flex items-center justify-center">
+              <Eye className="h-5 w-5 text-[var(--success)]" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--foreground-tertiary)]">Visible</p>
+              <p className="text-2xl font-black text-[var(--foreground)] font-heading">{visibleCount}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="card-luxury p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[var(--warning)]/10 flex items-center justify-center">
+              <Grid3X3 className="h-5 w-5 text-[var(--warning)]" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--foreground-tertiary)]">Categories</p>
+              <p className="text-2xl font-black text-[var(--foreground)] font-heading">{categories.length}</p>
+            </div>
+          </div>
         </Card>
       </div>
 
-      {/* Filter */}
+      {/* Category filter */}
       {categories.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-gray-700">Filter by Category:</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="flex h-10 w-full max-w-xs rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--foreground-secondary)]">
+            <Filter className="h-4 w-4" /> Filter:
+          </div>
+          <button
+            onClick={() => setCategoryFilter('')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+              categoryFilter === ''
+                ? 'bg-[var(--primary)] text-white border-transparent shadow-sm'
+                : 'border-[var(--border)] text-[var(--foreground-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)]'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                categoryFilter === cat
+                  ? 'bg-[var(--primary)] text-white border-transparent shadow-sm'
+                  : 'border-[var(--border)] text-[var(--foreground-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)]'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Portfolio Grid */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Portfolio Items ({items.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner size="lg" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="skeleton h-48 w-full rounded-2xl" />
+              ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="text-center py-12">
-              <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">No portfolio items</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Get started by adding your first portfolio item.
+            <div className="text-center py-16 animate-luxury-in">
+              <div className="h-20 w-20 rounded-full bg-[var(--surface-2)] flex items-center justify-center mx-auto mb-5">
+                <ImageIcon className="h-10 w-10 text-[var(--foreground-tertiary)]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">No portfolio items yet</h3>
+              <p className="text-sm text-[var(--foreground-secondary)] mb-6 max-w-sm mx-auto">
+                {categoryFilter
+                  ? `No items in the "${categoryFilter}" category.`
+                  : 'Start building your portfolio by adding your first photo.'}
               </p>
-              <Button className="mt-4" onClick={() => handleOpenModal()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
+              {!categoryFilter && (
+                <Button onClick={() => handleOpenModal()} leftIcon={<Plus className="h-4 w-4" />}>
+                  Add Your First Item
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="relative group rounded-lg border border-gray-200 overflow-hidden bg-white hover:shadow-lg transition-shadow"
+                  className="group relative rounded-2xl border border-[var(--border)] overflow-hidden bg-[var(--surface-0)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5 transition-all duration-300"
                 >
                   {/* Image */}
-                  <div className="aspect-video relative bg-gray-100">
-                    <img
-                      src={item.imageUrl}
+                  <div className="aspect-video relative bg-[var(--surface-1)]">
+                    <Image
+                      src={item.imageUrl || PLACEHOLDER_SVG}
                       alt={item.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+                        (e.target as HTMLImageElement).src = PLACEHOLDER_SVG;
                       }}
                     />
 
-                    {/* Overlay on hover */}
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-gray-900 hover:bg-gray-100"
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/55 transition-all duration-300 flex items-center justify-center gap-2">
+                      <button
+                        aria-label={`Edit ${item.title}`}
                         onClick={() => handleOpenModal(item)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--surface-0)] text-[var(--foreground)] hover:bg-[var(--surface-2)] p-2 rounded-lg shadow-lg"
                       >
                         <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-gray-900 hover:bg-gray-100"
+                      </button>
+                      <button
+                        aria-label={item.isVisible ? `Hide ${item.title}` : `Show ${item.title}`}
                         onClick={() => handleToggleVisibility(item)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--surface-0)] text-[var(--foreground)] hover:bg-[var(--surface-2)] p-2 rounded-lg shadow-lg"
                       >
-                        {item.isVisible ? (
-                          <Eye className="h-4 w-4" />
-                        ) : (
-                          <EyeOff className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-red-600 hover:bg-red-50"
-                        onClick={() => handleDelete(item)}
+                        {item.isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                      <button
+                        aria-label={`Delete ${item.title}`}
+                        onClick={() => handleDeleteRequest(item)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--surface-0)] text-[var(--danger)] hover:bg-[var(--danger)]/10 p-2 rounded-lg shadow-lg"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
 
-                    {/* Visibility Badge */}
+                    {/* Hidden badge */}
                     {!item.isVisible && (
-                      <div className="absolute top-2 right-2">
-                        <Badge variant="secondary">Hidden</Badge>
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <EyeOff className="h-3 w-3" /> Hidden
+                        </Badge>
                       </div>
                     )}
                   </div>
 
                   {/* Content */}
                   <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 truncate">{item.title}</h3>
+                    <h3 className="font-semibold text-[var(--foreground)] truncate">{item.title}</h3>
                     {item.description && (
-                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                      <p className="mt-1 text-sm text-[var(--foreground-secondary)] line-clamp-2">
                         {item.description}
                       </p>
                     )}
                     {item.category && (
                       <div className="mt-2">
-                        <Badge variant="secondary">{item.category}</Badge>
+                        <Badge variant="secondary" className="text-xs">{item.category}</Badge>
                       </div>
                     )}
                   </div>
@@ -354,19 +396,20 @@ export default function PortfolioPage() {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Modal */}
+      {/* ── Add/Edit Modal ──────────────────────────────────────────────────── */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingItem ? 'Edit Portfolio Item' : 'Add Portfolio Item'}
+        size="md"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="portfolio-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Title <span className="text-red-500">*</span>
+            <label htmlFor="pf-title" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
+              Title <span className="text-[var(--danger)]" aria-hidden="true">*</span>
             </label>
             <Input
-              id="title"
+              id="pf-title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Wedding at Sunset"
@@ -375,97 +418,120 @@ export default function PortfolioPage() {
           </div>
 
           <div>
-            <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">
-              Image <span className="text-red-500">*</span>
+            <label htmlFor="pf-image" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
+              Image <span className="text-[var(--danger)]" aria-hidden="true">*</span>
             </label>
 
-            {/* File Upload Button */}
-            <div className="mb-2">
-              <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <Upload className="h-4 w-4 mr-2" />
-                {isUploading ? 'Uploading...' : 'Upload Image'}
+            {/* File upload */}
+            <div className="mb-2 flex items-center gap-3">
+              <label
+                htmlFor="pf-file-upload"
+                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] border border-[var(--border)] text-sm font-medium text-[var(--foreground)] bg-[var(--surface-0)] hover:bg-[var(--surface-1)] transition-colors focus-within:ring-2 focus-within:ring-[var(--primary)]"
+              >
+                <Upload className="h-4 w-4" />
+                {isUploading ? 'Uploading…' : 'Upload Image'}
+                <input
+                  id="pf-file-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                  className="sr-only"
+                />
               </label>
-              <input
-                id="file-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-                className="hidden"
-              />
-              <span className="ml-2 text-xs text-gray-500">
-                or enter URL below
-              </span>
+              <span className="text-xs text-[var(--foreground-tertiary)]">or paste URL below (max 10MB)</span>
             </div>
 
-            {/* URL Input */}
             <Input
-              id="imageUrl"
+              id="pf-image"
               value={formData.imageUrl}
               onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              placeholder="https://example.com/image.jpg"
+              placeholder="https://res.cloudinary.com/…"
               required
               disabled={isUploading}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Upload from your computer or paste an existing URL (max 10MB)
-            </p>
           </div>
 
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="pf-category" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
               Category
             </label>
             <Input
-              id="category"
+              id="pf-category"
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              placeholder="Wedding, Portrait, Event, etc."
+              placeholder="Wedding, Portrait, Event…"
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              id="description"
+            <Textarea
+              id="pf-desc"
+              label="Description"
               rows={3}
-              className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Brief description of this photo..."
+              placeholder="A brief description of this photo…"
             />
           </div>
 
           {/* Preview */}
           {formData.imageUrl && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Preview
-              </label>
-              <div className="aspect-video relative bg-gray-100 rounded-md overflow-hidden">
-                <img
+              <p className="block text-sm font-medium text-[var(--foreground)] mb-1.5">Preview</p>
+              <div className="aspect-video relative rounded-xl overflow-hidden bg-[var(--surface-1)]">
+                <Image
                   src={formData.imageUrl}
                   alt="Preview"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="480px"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Invalid+URL';
+                    (e.target as HTMLImageElement).src = PLACEHOLDER_SVG;
                   }}
                 />
               </div>
             </div>
           )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="secondary" onClick={handleCloseModal}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              {editingItem ? 'Update' : 'Create'}
-            </Button>
-          </div>
         </form>
+
+        <ModalFooter>
+          <Button type="button" variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="portfolio-form"
+            isLoading={isSubmitting || isUploading}
+            disabled={isSubmitting || isUploading}
+          >
+            {editingItem ? 'Update' : 'Create'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* ── Delete Confirmation Modal ────────────────────────────────────────── */}
+      <Modal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Delete Portfolio Item"
+        description={`Are you sure you want to delete "${confirmDelete?.title}"? This action cannot be undone.`}
+        size="sm"
+      >
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDeleteConfirm}
+            isLoading={isDeleting}
+            disabled={isDeleting}
+            leftIcon={<Trash2 className="h-4 w-4" />}
+          >
+            Delete
+          </Button>
+        </ModalFooter>
       </Modal>
     </div>
   );

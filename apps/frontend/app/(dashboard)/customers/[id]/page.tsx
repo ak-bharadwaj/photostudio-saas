@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LoadingPage } from '@/components/ui/loading';
+
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
-import { customersApi } from '@/lib/api';
+import { customersApi, bookingsApi, invoicesApi } from '@/lib/api';
 import { formatDate, formatCurrency, formatPhoneNumber, getBookingStatusBadge, getInvoiceStatusBadge } from '@/lib/utils';
-import { ArrowLeft, User, Mail, Phone, MapPin, Edit2, FileText, Calendar, DollarSign } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, MapPin, Edit2, FileText, Calendar, IndianRupee } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -74,6 +74,7 @@ export default function CustomerDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const {
     register,
@@ -84,36 +85,49 @@ export default function CustomerDetailsPage() {
     resolver: zodResolver(customerSchema),
   });
 
-  useEffect(() => {
-    loadCustomerData();
-  }, [params.id]);
-
-  const loadCustomerData = async () => {
+  const loadCustomerData = useCallback(async (ctrl?: AbortController) => {
     try {
       setIsLoading(true);
-      const response = await customersApi.getOne(params.id as string);
-      setCustomer(response.data);
+      const [customerRes, statsRes, bookingsRes, invoicesRes] = await Promise.all([
+        customersApi.getOne(params.id as string),
+        customersApi.getStats(params.id as string),
+        bookingsApi.getAll({ customerId: params.id as string, limit: 10 }),
+        invoicesApi.getAll({ customerId: params.id as string, limit: 10 }),
+      ]);
 
-      // Load stats
-      const statsResponse = await customersApi.getStats(params.id as string);
-      setStats(statsResponse.data);
+      if (ctrl?.signal.aborted) return;
+
+      setCustomer(customerRes.data);
+      setStats(statsRes.data);
+      // bookingsApi.getAll returns { data: { data: [], meta: {} } }
+      setBookings(bookingsRes.data?.data ?? []);
+      // invoicesApi.getAll returns { data: { data: [], meta: {} } }
+      setInvoices(invoicesRes.data?.data ?? []);
 
       // Reset form with customer data
       reset({
-        name: response.data.name,
-        email: response.data.email,
-        phone: response.data.phone || '',
-        address: response.data.address || '',
-        notes: response.data.notes || '',
+        name: customerRes.data.name,
+        email: customerRes.data.email,
+        phone: customerRes.data.phone || '',
+        address: customerRes.data.address || '',
+        notes: customerRes.data.notes || '',
       });
     } catch (error) {
-      console.error('Failed to load customer:', error);
+      if ((error as { name?: string }).name === 'CanceledError') return;
       addToast('error', 'Failed to load customer details');
       router.push('/customers');
     } finally {
-      setIsLoading(false);
+      if (!abortRef.current?.signal.aborted) setIsLoading(false);
     }
-  };
+  }, [params.id, addToast, reset, router]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    loadCustomerData(ctrl);
+    return () => ctrl.abort();
+  }, [loadCustomerData]);
 
   const onUpdateCustomer = async (data: CustomerFormData) => {
     if (!customer) return;
@@ -125,15 +139,22 @@ export default function CustomerDetailsPage() {
       addToast('success', 'Customer updated successfully');
       setIsEditModalOpen(false);
       loadCustomerData();
-    } catch (error: any) {
-      addToast('error', error.response?.data?.message || 'Failed to update customer');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to update customer');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
-    return <LoadingPage message="Loading customer details..." />;
+    return (
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+      </div>
+    );
   }
 
   if (!customer) {
@@ -152,8 +173,8 @@ export default function CustomerDetailsPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{customer?.name}</h1>
-            <p className="mt-1 text-gray-600">Customer Details</p>
+            <h1 className="text-3xl font-bold text-[var(--foreground)]">{customer?.name}</h1>
+            <p className="mt-1 text-[var(--foreground-secondary)]">Customer Details</p>
           </div>
         </div>
         <Button onClick={() => setIsEditModalOpen(true)}>
@@ -167,10 +188,10 @@ export default function CustomerDetailsPage() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
+              <CardTitle className="text-sm font-medium text-[var(--foreground-secondary)]">
                 Total Bookings
               </CardTitle>
-              <Calendar className="h-5 w-5 text-blue-600" />
+              <Calendar className="h-5 w-5 text-[var(--primary)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalBookings}</div>
@@ -179,10 +200,10 @@ export default function CustomerDetailsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
+              <CardTitle className="text-sm font-medium text-[var(--foreground-secondary)]">
                 Total Revenue
               </CardTitle>
-              <DollarSign className="h-5 w-5 text-green-600" />
+              <IndianRupee className="h-5 w-5 text-[var(--success)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
@@ -191,10 +212,10 @@ export default function CustomerDetailsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
+              <CardTitle className="text-sm font-medium text-[var(--foreground-secondary)]">
                 Pending Invoices
               </CardTitle>
-              <FileText className="h-5 w-5 text-yellow-600" />
+              <FileText className="h-5 w-5 text-[var(--warning)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.pendingInvoices}</div>
@@ -206,23 +227,71 @@ export default function CustomerDetailsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recent Bookings - Placeholder */}
+          {/* Recent Bookings */}
           <Card>
             <CardHeader>
               <CardTitle>Recent Bookings</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-500">No bookings found for this customer.</p>
+              {bookings.length === 0 ? (
+                <p className="text-sm text-[var(--foreground-secondary)]">No bookings found for this customer.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-medium">{booking.service?.name ?? '—'}</TableCell>
+                        <TableCell>{formatDate(booking.scheduledAt || booking.bookingDate || '')}</TableCell>
+                        <TableCell>
+                           <Badge variant={getBookingStatusBadge(booking.status).variant}>{booking.status}</Badge>
+                         </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
 
-          {/* Recent Invoices - Placeholder */}
+          {/* Recent Invoices */}
           <Card>
             <CardHeader>
               <CardTitle>Recent Invoices</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-500">No invoices found for this customer.</p>
+              {invoices.length === 0 ? (
+                <p className="text-sm text-[var(--foreground-secondary)]">No invoices found for this customer.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-mono text-sm">{invoice.invoiceNumber}</TableCell>
+                        <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>
+                        <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                        <TableCell>
+                           <Badge variant={getInvoiceStatusBadge(invoice.status).variant}>{invoice.status}</Badge>
+                         </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -239,12 +308,12 @@ export default function CustomerDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-3">
-                <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
+                <Mail className="h-5 w-5 text-[var(--foreground-tertiary)] mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="text-sm font-medium text-[var(--foreground-secondary)]">Email</p>
                   <a
                     href={`mailto:${customer?.email}`}
-                    className="text-base text-blue-600 hover:underline"
+                    className="text-base text-[var(--primary)] hover:underline"
                   >
                     {customer?.email}
                   </a>
@@ -253,12 +322,12 @@ export default function CustomerDetailsPage() {
 
               {customer.phone && (
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Phone className="h-5 w-5 text-[var(--foreground-tertiary)] mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Phone</p>
+                    <p className="text-sm font-medium text-[var(--foreground-secondary)]">Phone</p>
                     <a
                       href={`tel:${customer?.phone}`}
-                      className="text-base text-blue-600 hover:underline"
+                      className="text-base text-[var(--primary)] hover:underline"
                     >
                       {formatPhoneNumber(customer?.phone || '')}
                     </a>
@@ -268,10 +337,10 @@ export default function CustomerDetailsPage() {
 
               {customer.address && (
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <MapPin className="h-5 w-5 text-[var(--foreground-tertiary)] mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Address</p>
-                    <p className="text-base text-gray-900">{customer.address}</p>
+                    <p className="text-sm font-medium text-[var(--foreground-secondary)]">Address</p>
+                    <p className="text-base text-[var(--foreground)]">{customer.address}</p>
                   </div>
                 </div>
               )}
@@ -285,7 +354,7 @@ export default function CustomerDetailsPage() {
                 <CardTitle>Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{customer.notes}</p>
+                <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap">{customer.notes}</p>
               </CardContent>
             </Card>
           )}
@@ -297,12 +366,12 @@ export default function CustomerDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-sm font-medium text-gray-500">Created</p>
-                <p className="text-sm text-gray-900">{formatDate(customer.createdAt)}</p>
+                <p className="text-sm font-medium text-[var(--foreground-secondary)]">Created</p>
+                <p className="text-sm text-[var(--foreground)]">{formatDate(customer.createdAt)}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Last Updated</p>
-                <p className="text-sm text-gray-900">{formatDate(customer.updatedAt)}</p>
+                <p className="text-sm font-medium text-[var(--foreground-secondary)]">Last Updated</p>
+                <p className="text-sm text-[var(--foreground)]">{formatDate(customer.updatedAt)}</p>
               </div>
             </CardContent>
           </Card>
@@ -348,17 +417,13 @@ export default function CustomerDetailsPage() {
             {...register('address')}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes (Optional)
-            </label>
-            <textarea
-              {...register('notes')}
-              rows={3}
-              className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="Add any notes about this customer..."
-            />
-          </div>
+          <Textarea
+            label="Notes"
+            {...register('notes')}
+            rows={3}
+            placeholder="Add any notes about this customer..."
+            helperText="Optional"
+          />
 
           <div className="flex items-center justify-end gap-3 pt-4">
             <Button

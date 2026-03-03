@@ -47,68 +47,100 @@ interface ContractData {
 export class PdfService {
   private readonly logger = new Logger(PdfService.name);
   private browser: Browser | null = null;
+  private browserLaunchPromise: Promise<Browser> | null = null;
 
   async onModuleInit() {
-    // Initialize browser on module startup
-    try {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-      this.logger.log("Puppeteer browser initialized");
-    } catch (error) {
-      this.logger.error("Failed to initialize Puppeteer browser", error.stack);
-    }
+    await this.ensureBrowser();
   }
 
   async onModuleDestroy() {
-    // Close browser on module shutdown
     if (this.browser) {
-      await this.browser.close();
+      try {
+        await this.browser.close();
+      } catch {
+        // Ignore close errors on shutdown
+      }
       this.logger.log("Puppeteer browser closed");
     }
   }
 
-  async generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
-    if (!this.browser) {
-      throw new Error("Puppeteer browser not initialized");
+  /**
+   * Ensures a browser instance is available. Reconnects if the browser has
+   * disconnected. Uses a single promise to prevent concurrent launches.
+   */
+  private async ensureBrowser(): Promise<Browser> {
+    if (this.browser?.isConnected()) {
+      return this.browser;
     }
 
-    const page = await this.browser.newPage();
+    if (this.browserLaunchPromise) {
+      return this.browserLaunchPromise;
+    }
+
+    this.browserLaunchPromise = puppeteer
+      .launch({
+        headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage", // Prevents OOM in containers
+        ],
+      })
+      .then((browser) => {
+        this.browser = browser;
+        this.browserLaunchPromise = null;
+
+        // Clean up on unexpected disconnect
+        browser.on("disconnected", () => {
+          this.logger.warn("Puppeteer browser disconnected; will reconnect on next request");
+          this.browser = null;
+        });
+
+        this.logger.log("Puppeteer browser initialized");
+        return browser;
+      })
+      .catch((err) => {
+        this.browserLaunchPromise = null;
+        this.logger.error("Failed to launch Puppeteer browser", err.stack);
+        throw err;
+      });
+
+    return this.browserLaunchPromise;
+  }
+
+  async generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
+    const browser = await this.ensureBrowser();
+    let page: Awaited<ReturnType<typeof browser.newPage>> | null = null;
 
     try {
+      page = await browser.newPage();
       const html = this.generateInvoiceHtml(data);
       await page.setContent(html, { waitUntil: "networkidle0" });
 
       const pdf = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: {
-          top: "20px",
-          right: "20px",
-          bottom: "20px",
-          left: "20px",
-        },
+        margin: { top: "20px", right: "20px", bottom: "20px", left: "20px" },
       });
 
       this.logger.log(`Generated PDF for invoice ${data.invoiceNumber}`);
       return Buffer.from(pdf);
-    } catch (error) {
-      this.logger.error("Failed to generate PDF", error.stack);
+    } catch (error: unknown) {
+      this.logger.error("Failed to generate invoice PDF", error instanceof Error ? error.stack : String(error));
       throw error;
     } finally {
-      await page.close();
+      if (page) {
+        await page.close().catch(() => {/* page already closed */});
+      }
     }
   }
 
   async generateContractPdf(data: ContractData): Promise<Buffer> {
-    if (!this.browser) {
-      throw new Error("Puppeteer browser not initialized");
-    }
-
-    const page = await this.browser.newPage();
+    const browser = await this.ensureBrowser();
+    let page: Awaited<ReturnType<typeof browser.newPage>> | null = null;
 
     try {
+      page = await browser.newPage();
       const html = this.generateContractHtml(data);
       await page.setContent(html, { waitUntil: "networkidle0" });
 
@@ -125,12 +157,25 @@ export class PdfService {
 
       this.logger.log(`Generated contract PDF for booking ${data.bookingId}`);
       return Buffer.from(pdf);
-    } catch (error) {
-      this.logger.error("Failed to generate contract PDF", error.stack);
+    } catch (error: unknown) {
+      this.logger.error("Failed to generate contract PDF", error instanceof Error ? error.stack : String(error));
       throw error;
     } finally {
-      await page.close();
+      if (page) {
+        await page.close().catch(() => {/* page already closed */});
+      }
     }
+  }
+
+  /** Escapes HTML special characters to prevent XSS in generated PDFs. */
+  private esc(value: string | null | undefined): string {
+    if (value == null) return "";
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   private generateInvoiceHtml(data: InvoiceData): string {
@@ -146,12 +191,14 @@ export class PdfService {
       return `₹${amount.toLocaleString("en-IN")}`;
     };
 
+    const e = this.esc.bind(this);
+
     return `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="UTF-8">
-          <title>Invoice ${data.invoiceNumber}</title>
+          <title>Invoice ${e(data.invoiceNumber)}</title>
           <style>
             * {
               margin: 0;
@@ -281,13 +328,13 @@ export class PdfService {
         <body>
           <div class="invoice-header">
             <div class="studio-info">
-              <h1>${data.studioName}</h1>
-              <p>${data.studioEmail}</p>
-              <p>${data.studioPhone}</p>
+              <h1>${e(data.studioName)}</h1>
+              <p>${e(data.studioEmail)}</p>
+              <p>${e(data.studioPhone)}</p>
             </div>
             <div class="invoice-meta">
               <h2>INVOICE</h2>
-              <p><strong>Invoice #:</strong> ${data.invoiceNumber}</p>
+              <p><strong>Invoice #:</strong> ${e(data.invoiceNumber)}</p>
               <p><strong>Date:</strong> ${formatDate(data.createdAt)}</p>
               ${data.dueDate ? `<p><strong>Due Date:</strong> ${formatDate(data.dueDate)}</p>` : ""}
             </div>
@@ -295,9 +342,9 @@ export class PdfService {
 
           <div class="billing-section">
             <h3>Bill To:</h3>
-            <p><strong>${data.customerName}</strong></p>
-            ${data.customerEmail ? `<p>${data.customerEmail}</p>` : ""}
-            <p>${data.customerPhone}</p>
+            <p><strong>${e(data.customerName)}</strong></p>
+            ${data.customerEmail ? `<p>${e(data.customerEmail)}</p>` : ""}
+            <p>${e(data.customerPhone)}</p>
           </div>
 
           <div class="line-items">
@@ -315,7 +362,7 @@ export class PdfService {
                   .map(
                     (item) => `
                   <tr>
-                    <td>${item.description}</td>
+                    <td>${e(item.description)}</td>
                     <td class="text-right">${item.quantity}</td>
                     <td class="text-right">${formatCurrency(item.rate)}</td>
                     <td class="text-right">${formatCurrency(item.amount)}</td>
@@ -363,7 +410,7 @@ export class PdfService {
               ? `
           <div class="notes">
             <h3>Notes:</h3>
-            <p>${data.notes}</p>
+            <p>${e(data.notes)}</p>
           </div>
           `
               : ""
@@ -402,13 +449,17 @@ export class PdfService {
     };
 
     const primaryColor = data.primaryColor || "#3498db";
+    // Validate primaryColor is a safe CSS color value (hex only) to prevent CSS injection
+    const safePrimaryColor = /^#[0-9a-fA-F]{3,6}$/.test(primaryColor) ? primaryColor : "#3498db";
+
+    const e = this.esc.bind(this);
 
     return `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="UTF-8">
-          <title>Booking Contract - ${data.bookingId}</title>
+          <title>Booking Contract - ${e(data.bookingId)}</title>
           <style>
             * {
               margin: 0;
@@ -426,10 +477,10 @@ export class PdfService {
               text-align: center;
               margin-bottom: 40px;
               padding-bottom: 20px;
-              border-bottom: 3px solid ${primaryColor};
+              border-bottom: 3px solid ${safePrimaryColor};
             }
             .contract-header h1 {
-              color: ${primaryColor};
+              color: ${safePrimaryColor};
               font-size: 28px;
               margin-bottom: 5px;
             }
@@ -447,7 +498,7 @@ export class PdfService {
               margin-bottom: 30px;
             }
             .section h3 {
-              color: ${primaryColor};
+              color: ${safePrimaryColor};
               font-size: 16px;
               margin-bottom: 12px;
               padding-bottom: 5px;
@@ -478,7 +529,7 @@ export class PdfService {
               background-color: #f8f9fa;
               border-radius: 8px;
               padding: 20px;
-              border-left: 4px solid ${primaryColor};
+              border-left: 4px solid ${safePrimaryColor};
             }
             .service-box .name {
               font-size: 18px;
@@ -494,7 +545,7 @@ export class PdfService {
             .service-box .price {
               font-size: 22px;
               font-weight: 700;
-              color: ${primaryColor};
+              color: ${safePrimaryColor};
             }
             .terms-box {
               background-color: #fafafa;
@@ -564,9 +615,9 @@ export class PdfService {
         </head>
         <body>
           <div class="contract-header">
-            <h1>${data.studioName}</h1>
+            <h1>${e(data.studioName)}</h1>
             <h2>Photography Service Contract</h2>
-            <p class="ref">Contract Ref: ${data.bookingId}</p>
+            <p class="ref">Contract Ref: ${e(data.bookingId)}</p>
           </div>
 
           <div class="section">
@@ -575,26 +626,26 @@ export class PdfService {
               <div>
                 <div class="detail-group">
                   <label>Service Provider</label>
-                  <p>${data.studioName}</p>
+                  <p>${e(data.studioName)}</p>
                 </div>
                 <div class="detail-group">
                   <label>Email</label>
-                  <p>${data.studioEmail}</p>
+                  <p>${e(data.studioEmail)}</p>
                 </div>
                 <div class="detail-group">
                   <label>Phone</label>
-                  <p>${data.studioPhone}</p>
+                  <p>${e(data.studioPhone)}</p>
                 </div>
               </div>
               <div>
                 <div class="detail-group">
                   <label>Client</label>
-                  <p>${data.customerName}</p>
+                  <p>${e(data.customerName)}</p>
                 </div>
-                ${data.customerEmail ? `<div class="detail-group"><label>Email</label><p>${data.customerEmail}</p></div>` : ""}
+                ${data.customerEmail ? `<div class="detail-group"><label>Email</label><p>${e(data.customerEmail)}</p></div>` : ""}
                 <div class="detail-group">
                   <label>Phone</label>
-                  <p>${data.customerPhone}</p>
+                  <p>${e(data.customerPhone)}</p>
                 </div>
               </div>
             </div>
@@ -603,8 +654,8 @@ export class PdfService {
           <div class="section">
             <h3>Service Details</h3>
             <div class="service-box">
-              <div class="name">${data.serviceName}</div>
-              ${data.serviceDescription ? `<div class="desc">${data.serviceDescription}</div>` : ""}
+              <div class="name">${e(data.serviceName)}</div>
+              ${data.serviceDescription ? `<div class="desc">${e(data.serviceDescription)}</div>` : ""}
               <div class="price">${formatCurrency(data.price)}</div>
             </div>
           </div>
@@ -618,7 +669,7 @@ export class PdfService {
               </div>
               ${
                 data.location
-                  ? `<div class="detail-group"><label>Location</label><p>${data.location}</p></div>`
+                  ? `<div class="detail-group"><label>Location</label><p>${e(data.location)}</p></div>`
                   : ""
               }
             </div>
@@ -626,31 +677,31 @@ export class PdfService {
 
           <div class="section">
             <h3>Terms & Conditions</h3>
-            <div class="terms-box">${data.terms}</div>
+            <div class="terms-box">${e(data.terms)}</div>
           </div>
 
           <div class="signature-section">
             <div class="signature-block">
               <div class="label">Service Provider</div>
               <div class="signature-line"></div>
-              <div class="signature-name">${data.studioName}</div>
+              <div class="signature-name">${e(data.studioName)}</div>
             </div>
             <div class="signature-block">
               <div class="label">Client</div>
               <div class="signature-line"></div>
-              <div class="signature-name">${data.customerName}</div>
+              <div class="signature-name">${e(data.customerName)}</div>
               <div class="signature-date">Accepted on: ${formatDate(data.acceptedAt)}</div>
             </div>
           </div>
 
           <div class="acceptance-note">
             <div class="checkmark">&#10003;</div>
-            <p>Terms accepted electronically by <strong>${data.customerName}</strong> on ${formatDateTime(data.acceptedAt)}</p>
+            <p>Terms accepted electronically by <strong>${e(data.customerName)}</strong> on ${formatDateTime(data.acceptedAt)}</p>
           </div>
 
           <div class="footer">
-            <p>This contract was generated electronically by ${data.studioName}</p>
-            <p>Contract Reference: ${data.bookingId} | Generated on ${formatDate(new Date())}</p>
+            <p>This contract was generated electronically by ${e(data.studioName)}</p>
+            <p>Contract Reference: ${e(data.bookingId)} | Generated on ${formatDate(new Date())}</p>
           </div>
         </body>
       </html>

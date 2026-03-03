@@ -29,10 +29,10 @@ export class CustomerController {
     @Body() createCustomerDto: CreateCustomerDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.customerService.create(createCustomerDto, user.studioId!);
+    return this.customerService.create(createCustomerDto, user.studioId);
   }
 
   @Get()
@@ -42,7 +42,7 @@ export class CustomerController {
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("search") search?: string,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
@@ -50,7 +50,7 @@ export class CustomerController {
     const limitNum = limit || 10;
 
     return this.customerService.findAll(
-      user.studioId!,
+      user.studioId,
       pageNum,
       limitNum,
       search,
@@ -59,18 +59,18 @@ export class CustomerController {
 
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.customerService.findOne(id, user.studioId!);
+    return this.customerService.findOne(id, user.studioId);
   }
 
   @Get(":id/stats")
   getStats(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.customerService.getStats(id, user.studioId!);
+    return this.customerService.getStats(id, user.studioId);
   }
 
   @Patch(":id")
@@ -79,18 +79,18 @@ export class CustomerController {
     @Body() updateCustomerDto: UpdateCustomerDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.customerService.update(id, updateCustomerDto, user.studioId!);
+    return this.customerService.update(id, updateCustomerDto, user.studioId);
   }
 
   @Delete(":id")
   @Roles("OWNER") // Only owners can delete customers
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.customerService.remove(id, user.studioId!);
+    return this.customerService.remove(id, user.studioId);
   }
 }

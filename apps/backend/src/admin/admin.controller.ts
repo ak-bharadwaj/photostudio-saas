@@ -8,7 +8,13 @@ import {
   Param,
   Query,
   UseGuards,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
+import { ConfigService } from "@nestjs/config";
 import { AdminService } from "./admin.service";
 import {
   CreateAdminDto,
@@ -21,17 +27,34 @@ import { Public } from "../auth/decorators/public.decorator";
 
 @Controller("admin")
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // Admin Authentication
   @Public()
   @Post("auth/register")
-  async register(@Body() createAdminDto: CreateAdminDto) {
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 registrations per minute
+  async register(
+    @Body() createAdminDto: CreateAdminDto,
+    @Headers("x-bootstrap-secret") bootstrapSecret?: string,
+  ) {
+    const requiredSecret = this.configService.get<string>("BOOTSTRAP_SECRET");
+    if (!requiredSecret) {
+      throw new UnauthorizedException(
+        "Admin registration is disabled. Set BOOTSTRAP_SECRET in environment to enable it.",
+      );
+    }
+    if (bootstrapSecret !== requiredSecret) {
+      throw new UnauthorizedException("Invalid bootstrap secret");
+    }
     return this.adminService.createAdmin(createAdminDto);
   }
 
   @Public()
   @Post("auth/login")
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 login attempts per minute
   async login(@Body() adminLoginDto: AdminLoginDto) {
     return this.adminService.login(adminLoginDto);
   }
@@ -51,9 +74,11 @@ export class AdminController {
     @Query("status") status?: string,
     @Query("tier") tier?: string,
   ) {
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
     return this.adminService.getAllStudios(
-      page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 20,
+      isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage,
+      isNaN(parsedLimit) || parsedLimit < 1 ? 20 : Math.min(parsedLimit, 100),
       status,
       tier,
     );
@@ -76,6 +101,7 @@ export class AdminController {
 
   @UseGuards(JwtAuthGuard)
   @Post("studios/:id/suspend")
+  @HttpCode(HttpStatus.OK)
   async suspendStudio(
     @Param("id") id: string,
     @Body("reason") reason?: string,
@@ -85,6 +111,7 @@ export class AdminController {
 
   @UseGuards(JwtAuthGuard)
   @Post("studios/:id/activate")
+  @HttpCode(HttpStatus.OK)
   async activateStudio(@Param("id") id: string) {
     return this.adminService.activateStudio(id);
   }
@@ -105,6 +132,9 @@ export class AdminController {
   @UseGuards(JwtAuthGuard)
   @Get("activities")
   async getRecentActivities(@Query("limit") limit?: string) {
-    return this.adminService.getRecentActivities(limit ? parseInt(limit) : 20);
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    return this.adminService.getRecentActivities(
+      isNaN(parsedLimit) || parsedLimit < 1 ? 20 : Math.min(parsedLimit, 100),
+    );
   }
 }

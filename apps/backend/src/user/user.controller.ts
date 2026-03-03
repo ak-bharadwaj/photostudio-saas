@@ -41,10 +41,10 @@ export class UserController {
     @Body() createUserDto: CreateUserDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.userService.create(createUserDto, user.studioId!, user.role!);
+    return this.userService.create(createUserDto, user.studioId, user.role!);
   }
 
   @Get()
@@ -54,10 +54,10 @@ export class UserController {
     description: "List of users retrieved successfully",
   })
   findAll(@CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.userService.findAll(user.studioId!);
+    return this.userService.findAll(user.studioId);
   }
 
   @Get("statistics")
@@ -67,10 +67,10 @@ export class UserController {
     description: "User statistics retrieved successfully",
   })
   getStatistics(@CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.userService.getStatistics(user.studioId!);
+    return this.userService.getStatistics(user.studioId);
   }
 
   @Get(":id")
@@ -78,10 +78,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: "User retrieved successfully" })
   @ApiResponse({ status: 404, description: "User not found" })
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.userService.findOne(id, user.studioId!);
+    return this.userService.findOne(id, user.studioId);
   }
 
   @Patch(":id")
@@ -95,13 +95,13 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
     return this.userService.update(
       id,
       updateUserDto,
-      user.studioId!,
+      user.studioId,
       user.role!,
       user.id,
     );
@@ -117,12 +117,12 @@ export class UserController {
   })
   @ApiResponse({ status: 404, description: "User not found" })
   toggleActive(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
     return this.userService.toggleActive(
       id,
-      user.studioId!,
+      user.studioId,
       user.role!,
       user.id,
     );
@@ -139,13 +139,13 @@ export class UserController {
     @Body() changePasswordDto: ChangePasswordDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
     return this.userService.changePassword(
       id,
       changePasswordDto,
-      user.studioId!,
+      user.studioId,
       user.id,
     );
   }
@@ -161,9 +161,9 @@ export class UserController {
     description: "Cannot delete user with assigned bookings",
   })
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.userService.remove(id, user.studioId!, user.role!, user.id);
+    return this.userService.remove(id, user.studioId, user.role!, user.id);
   }
 }

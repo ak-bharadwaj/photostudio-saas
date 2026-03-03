@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsNotEmpty,
   IsObject,
+  Matches,
 } from "class-validator";
 import { Transform } from "class-transformer";
 
@@ -20,6 +21,7 @@ export class CreateCustomerDto {
 
   @IsString()
   @IsNotEmpty()
+  @Matches(/^\+?[\d\s\-().]{7,20}$/, { message: "Invalid phone number format" })
   @Transform(({ value }) => value?.trim())
   phone: string;
 
@@ -41,6 +43,7 @@ export class UpdateCustomerDto {
 
   @IsString()
   @IsOptional()
+  @Matches(/^\+?[\d\s\-().]{7,20}$/, { message: "Invalid phone number format" })
   @Transform(({ value }) => value?.trim())
   phone?: string;
 

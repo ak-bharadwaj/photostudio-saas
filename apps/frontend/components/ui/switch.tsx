@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 export interface SwitchProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     checked?: boolean;
     onCheckedChange?: (checked: boolean) => void;
+    /** Accessible label for screen readers. Passed through via ButtonHTMLAttributes. */
+    'aria-label'?: string;
 }
 
 export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
@@ -28,7 +30,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
                 <span
                     data-state={checked ? 'checked' : 'unchecked'}
                     className={cn(
-                        'pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform',
+                        'pointer-events-none block h-5 w-5 rounded-full bg-[var(--surface-0)] shadow-lg ring-0 transition-transform',
                         checked ? 'translate-x-5' : 'translate-x-0'
                     )}
                 />

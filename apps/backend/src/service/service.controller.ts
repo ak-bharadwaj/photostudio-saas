@@ -9,6 +9,8 @@ import {
   Query,
   UseGuards,
   ForbiddenException,
+  HttpCode,
+  HttpStatus,
 } from "@nestjs/common";
 import { ServiceService } from "./service.service";
 import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";
@@ -29,10 +31,10 @@ export class ServiceController {
     @Body() createServiceDto: CreateServiceDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.create(createServiceDto, user.studioId!);
+    return this.serviceService.create(createServiceDto, user.studioId);
   }
 
   @Get()
@@ -40,28 +42,28 @@ export class ServiceController {
     @CurrentUser() user: UserPayload,
     @Query("includeInactive") includeInactive?: string,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
     const includeInactiveBool = includeInactive === "true";
-    return this.serviceService.findAll(user.studioId!, includeInactiveBool);
+    return this.serviceService.findAll(user.studioId, includeInactiveBool);
   }
 
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.findOne(id, user.studioId!);
+    return this.serviceService.findOne(id, user.studioId);
   }
 
   @Get(":id/stats")
   getStats(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.getStats(id, user.studioId!);
+    return this.serviceService.getStats(id, user.studioId);
   }
 
   @Patch(":id")
@@ -71,39 +73,40 @@ export class ServiceController {
     @Body() updateServiceDto: UpdateServiceDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.update(id, updateServiceDto, user.studioId!);
+    return this.serviceService.update(id, updateServiceDto, user.studioId);
   }
 
   @Patch(":id/toggle-active")
   @Roles("OWNER") // Only owners can toggle service status
   toggleActive(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.toggleActive(id, user.studioId!);
+    return this.serviceService.toggleActive(id, user.studioId);
   }
 
   @Post("reorder")
+  @HttpCode(HttpStatus.OK)
   @Roles("OWNER") // Only owners can reorder services
   reorder(
     @Body() body: { serviceIds: string[] },
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.reorder(user.studioId!, body.serviceIds);
+    return this.serviceService.reorder(user.studioId, body.serviceIds);
   }
 
   @Delete(":id")
   @Roles("OWNER") // Only owners can delete services
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.serviceService.remove(id, user.studioId!);
+    return this.serviceService.remove(id, user.studioId);
   }
 }

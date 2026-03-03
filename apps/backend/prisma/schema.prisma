@@ -21,7 +21,7 @@ model Studio {
   id                    String           @id @default(uuid())
   name                  String
   slug                  String           @unique
-  email                 String
+  email                 String           @unique
   phone                 String
   logoUrl               String?          @map("logo_url")
   brandingConfig        Json?            @map("branding_config")
@@ -35,7 +35,7 @@ model Studio {
   commissionType        CommissionType?  @default(PERCENTAGE) @map("commission_type")
   currency              String           @default("INR")
   defaultTerms          String?          @map("default_terms")
-  taxRate               Decimal?         @default(18.00) @map("tax_rate") @db.Decimal(5, 2)
+  taxRate               Decimal?         @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
   bookings              Booking[]
   commissions           Commission[]
   customers             Customer[]

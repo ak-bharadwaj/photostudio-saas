@@ -9,6 +9,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationService } from "../notification/notification.service";
 import { CreateStudioDto, UpdateStudioDto } from "./dto/studio.dto";
+import { StudioStatus, Prisma } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
 @Injectable()
@@ -44,7 +45,7 @@ export class StudioService {
     const passwordHash = await bcrypt.hash(dto.ownerPassword, 12);
 
     // Create studio with owner in a transaction
-    const studio = await this.prisma.$transaction(async (tx) => {
+    const studio = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newStudio = await tx.studio.create({
         data: {
           name: dto.name,
@@ -52,7 +53,7 @@ export class StudioService {
           email: dto.email,
           phone: dto.phone,
           logoUrl: dto.logoUrl,
-          brandingConfig: dto.brandingConfig,
+          brandingConfig: dto.brandingConfig as Prisma.InputJsonValue | undefined,
           subscriptionTier: dto.subscriptionTier || "STARTER",
           status: dto.status || "TRIAL",
           subscriptionExpiresAt: new Date(
@@ -76,8 +77,12 @@ export class StudioService {
       return newStudio;
     });
 
-    // Cache the studio
-    await this.cacheService.set(`studio:slug:${studio.slug}`, studio, 3600);
+    // Cache the studio (non-critical — failure must not block studio creation)
+    try {
+      await this.cacheService.set(`studio:slug:${studio.slug}`, studio, 3600);
+    } catch (cacheErr: unknown) {
+      this.logger.error(`Failed to cache studio ${studio.id}: ${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`);
+    }
 
     // Send welcome email to studio owner
     try {
@@ -87,9 +92,9 @@ export class StudioService {
         dto.ownerName,
         studio.slug,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Log error but don't fail the studio creation
-      this.logger.error("Failed to send welcome email:", error.stack);
+      this.logger.error("Failed to send welcome email:", error instanceof Error ? error.stack : String(error));
     }
 
     return studio;
@@ -98,9 +103,9 @@ export class StudioService {
   async findAll(page: number = 1, limit: number = 10, status?: string) {
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.StudioWhereInput = {};
     if (status) {
-      where.status = status;
+      where.status = status as StudioStatus;
     }
 
     const [studios, total] = await Promise.all([
@@ -219,7 +224,12 @@ export class StudioService {
 
     const updated = await this.prisma.studio.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        ...(dto.brandingConfig !== undefined && {
+          brandingConfig: dto.brandingConfig as Prisma.InputJsonValue,
+        }),
+      },
     });
 
     // Invalidate cache
@@ -248,14 +258,14 @@ export class StudioService {
   }
 
   async suspend(id: string) {
-    return this.updateStatus(id, "SUSPENDED");
+    return this.updateStatus(id, StudioStatus.SUSPENDED);
   }
 
   async activate(id: string) {
-    return this.updateStatus(id, "ACTIVE");
+    return this.updateStatus(id, StudioStatus.ACTIVE);
   }
 
-  private async updateStatus(id: string, status: any) {
+  private async updateStatus(id: string, status: StudioStatus) {
     const studio = await this.prisma.studio.findUnique({
       where: { id },
     });

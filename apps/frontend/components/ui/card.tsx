@@ -7,22 +7,48 @@ import { cn } from '@/lib/utils';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
-  /** Adds hover lift effect */
+  /** Adds hover lift effect + gradient top-border reveal */
   interactive?: boolean;
   /** Removes padding (useful for full-bleed content like tables) */
   noPadding?: boolean;
+  /** Glass morphism variant */
+  glass?: boolean;
+  /** Stat card variant — stronger icon bg support */
+  variant?: 'default' | 'stat' | 'elevated';
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, children, interactive, noPadding, ...props }, ref) => {
+  ({ className, children, interactive, noPadding, glass, variant = 'default', ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
-          'rounded-[var(--radius-lg)] border border-[var(--border-light)]',
-          'bg-[var(--surface-0)] shadow-[var(--shadow-sm)]',
-          'transition-all duration-[var(--transition-base)]',
-          interactive && 'hover-lift cursor-pointer',
+          // Base
+          'relative rounded-[var(--radius-lg)] border border-[var(--border-light)]',
+          'transition-all duration-300 ease-out',
+          // Gradient top-line pseudo via CSS — revealed on hover
+          'before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-[var(--radius-lg)]',
+          'before:bg-gradient-to-r before:from-transparent before:via-[var(--primary)] before:to-transparent',
+          'before:opacity-0 before:transition-opacity before:duration-300',
+          // Default surface
+          !glass && 'bg-[var(--surface-0)] shadow-[var(--shadow-card)]',
+          // Glass variant
+          glass && [
+            'bg-[var(--glass-bg)] backdrop-blur-xl',
+            'border-[var(--glass-border)]',
+            'shadow-[var(--shadow-card)]',
+          ],
+          // Stat variant — slightly elevated
+          variant === 'stat' && 'shadow-[var(--shadow-md)]',
+          variant === 'elevated' && 'shadow-[var(--shadow-lg)]',
+          // Interactive: lift + glow + reveal gradient line
+          interactive && [
+            'cursor-pointer',
+            'hover:shadow-[var(--shadow-card-hover)]',
+            'hover:-translate-y-0.5',
+            'hover:border-[var(--border)]',
+            'hover:before:opacity-100',
+          ],
           className,
         )}
         {...props}

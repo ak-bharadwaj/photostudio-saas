@@ -49,8 +49,17 @@ export const tenantExtension = Prisma.defineExtension((client) => {
           if (result && isTenantModel(model)) {
             const studioId = getCurrentStudioId();
             const admin = isCurrentUserAdmin();
-            if (studioId && !admin && (result as any).studioId !== studioId) {
-              return null;
+            // Only enforce tenant isolation when studioId is present in the result.
+            // If the query used a `select` that excludes studioId, (result as any).studioId
+            // will be `undefined` — in that case we skip the cross-tenant check rather than
+            // silently returning null for valid records. The Prisma WHERE clause injected by
+            // injectTenantFilter on findMany/findFirst already enforces isolation at the DB
+            // layer; findUnique bypasses that path so we check post-fetch here.
+            if (studioId && !admin) {
+              const resultStudioId = (result as any).studioId;
+              if (resultStudioId !== undefined && resultStudioId !== studioId) {
+                return null;
+              }
             }
           }
           return result;

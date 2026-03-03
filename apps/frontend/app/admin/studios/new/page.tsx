@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { adminApi } from '@/lib/api';
 import { ArrowLeft, Building2, User, Palette } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
 
 export default function CreateStudioPage() {
   const router = useRouter();
@@ -102,16 +103,12 @@ export default function CreateStudioPage() {
       addToast('success', `Studio "${formData.studioName}" created successfully!`);
 
       router.push('/admin/studios');
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to create studio';
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      const message = Array.isArray(e.response?.data?.message)
+        ? (e.response?.data?.message as string[]).join(', ')
+        : e.response?.data?.message || 'Failed to create studio';
       addToast('error', message);
-
-      if (message.includes('slug')) {
-        setErrors((prev) => ({ ...prev, slug: message }));
-      }
-      if (message.includes('email')) {
-        setErrors((prev) => ({ ...prev, ownerEmail: message }));
-      }
     } finally {
       setLoading(false);
     }
@@ -129,12 +126,12 @@ export default function CreateStudioPage() {
       </Link>
 
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Create New Studio</h1>
-        <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
-          Set up a new photography studio with an owner account
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Admin"
+        title="Create New Studio"
+        subtitle="Set up a new photography studio with an owner account"
+        accentColor="violet"
+      />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Studio Details */}
@@ -252,9 +249,10 @@ export default function CreateStudioPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-[var(--foreground)]">Primary Color</label>
+                <label htmlFor="primary-color-input" className="block text-sm font-medium text-[var(--foreground)]">Primary Color</label>
                 <div className="flex items-center gap-3">
                   <input
+                    id="primary-color-input"
                     type="color"
                     value={formData.primaryColor}
                     onChange={(e) => handleChange('primaryColor', e.target.value)}
@@ -268,9 +266,10 @@ export default function CreateStudioPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-[var(--foreground)]">Accent Color</label>
+                <label htmlFor="accent-color-input" className="block text-sm font-medium text-[var(--foreground)]">Accent Color</label>
                 <div className="flex items-center gap-3">
                   <input
+                    id="accent-color-input"
                     type="color"
                     value={formData.accentColor}
                     onChange={(e) => handleChange('accentColor', e.target.value)}

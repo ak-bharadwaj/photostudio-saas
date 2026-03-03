@@ -2,8 +2,9 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
+import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
 import { PrismaService } from "../prisma/prisma.service";
@@ -91,11 +92,17 @@ export class AuthService {
   // ============================================
 
   async login(dto: UserLoginDto) {
-    // 1. Try Admin
-    const admin = await this.prisma.admin.findUnique({
-      where: { email: dto.email },
-    });
+    // Run both DB lookups in parallel to eliminate timing oracle that would
+    // reveal whether an email belongs to an admin vs. a regular user.
+    const [admin, user] = await Promise.all([
+      this.prisma.admin.findUnique({ where: { email: dto.email } }),
+      this.prisma.user.findUnique({
+        where: { email: dto.email },
+        include: { studio: true },
+      }),
+    ]);
 
+    // 1. Try Admin
     if (admin) {
       const isPasswordValid = await bcrypt.compare(
         dto.password,
@@ -123,12 +130,13 @@ export class AuthService {
     }
 
     // 2. Try User
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { studio: true },
-    });
-
     if (!user || !user.isActive) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // If the user registered via OAuth they have no passwordHash — treat as
+    // invalid credentials rather than letting bcrypt throw on a null value.
+    if (!user.passwordHash) {
       throw new UnauthorizedException("Invalid credentials");
     }
 
@@ -142,7 +150,7 @@ export class AuthService {
     }
 
     // Check studio status for non-admins (allow ACTIVE and TRIAL)
-    if (user.studio.status !== "ACTIVE" && user.studio.status !== "TRIAL") {
+    if (user.studio && user.studio.status !== "ACTIVE" && user.studio.status !== "TRIAL") {
       throw new UnauthorizedException("Studio is not active");
     }
 
@@ -150,7 +158,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       type: "user",
-      studioId: user.studioId,
+      studioId: user.studioId ?? undefined,
     });
 
     return {
@@ -160,19 +168,17 @@ export class AuthService {
         name: user.name,
         role: user.role,
         studioId: user.studioId,
-        studio: {
-          id: user.studio.id,
-          name: user.studio.name,
-          slug: user.studio.slug,
-        },
+        studio: user.studio
+          ? {
+            id: user.studio.id,
+            name: user.studio.name,
+            slug: user.studio.slug,
+          }
+          : null,
       },
       ...tokens,
       userType: "user",
     };
-  }
-
-  async userLogin(dto: UserLoginDto) {
-    return this.login(dto);
   }
 
   async userRegister(dto: UserRegisterDto, studioId: string) {
@@ -242,8 +248,18 @@ export class AuthService {
         data: { globalUserId: user.id },
       });
     } else {
-      // Update provider info if not set
-      if (user.provider === "local" || !user.providerId) {
+      // CRIT-04: If the user registered via email/password (provider === "local"),
+      // an OAuth sign-in with the same email MUST be rejected — allowing it would
+      // let an attacker take over any account by simply knowing its email address.
+      if (user.provider === "local") {
+        throw new UnauthorizedException(
+          "An account with this email already exists. Please sign in with your email and password.",
+        );
+      }
+
+      // Only set provider info when the user has never had an OAuth provider
+      // linked (e.g. legacy rows with null providerId).
+      if (!user.providerId) {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
@@ -288,21 +304,22 @@ export class AuthService {
 
   async generateTokens(payload: JwtPayload) {
     const secret = this.configService.get<string>("jwt.secret");
-    const expiresIn = (this.configService.get<string>("jwt.expiresIn") ||
-      "15m") as any;
-    const refreshExpiresIn = (this.configService.get<string>(
-      "jwt.refreshExpiresIn",
-    ) || "7d") as any;
+    const expiresIn =
+      this.configService.get<string>("jwt.expiresIn") || "15m";
+    const refreshExpiresIn =
+      this.configService.get<string>("jwt.refreshExpiresIn") || "7d";
 
-    const accessToken = this.jwtService.sign(payload as any, {
-      secret,
-      expiresIn,
-    });
+    const baseOpts: JwtSignOptions = { secret };
 
-    const refreshToken = this.jwtService.sign(payload as any, {
-      secret,
-      expiresIn: refreshExpiresIn,
-    });
+    const accessToken = this.jwtService.sign(
+      { ...payload },
+      { ...baseOpts, expiresIn: expiresIn as JwtSignOptions["expiresIn"] },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { ...payload },
+      { ...baseOpts, expiresIn: refreshExpiresIn as JwtSignOptions["expiresIn"] },
+    );
 
     // Store refresh token in Redis
     await this.cacheService.set(
@@ -332,6 +349,9 @@ export class AuthService {
         throw new UnauthorizedException("Invalid refresh token");
       }
 
+      // Invalidate the old refresh token before issuing new ones (token rotation)
+      await this.cacheService.del(`refresh_token:${payload.sub}`);
+
       // Generate new tokens
       return this.generateTokens({
         sub: payload.sub,
@@ -339,13 +359,55 @@ export class AuthService {
         type: payload.type,
         studioId: payload.studioId,
       });
-    } catch (error) {
-      throw new UnauthorizedException("Invalid refresh token");
+    } catch (error: unknown) {
+      if (error instanceof UnauthorizedException) throw error;
+      // JsonWebTokenError, TokenExpiredError, NotBeforeError from jsonwebtoken
+      if (
+        error instanceof Error &&
+        ["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(
+          error.constructor.name,
+        )
+      ) {
+        throw new UnauthorizedException("Invalid refresh token");
+      }
+      throw error; // Re-throw unexpected errors (Redis failures, programming errors)
     }
   }
 
   async logout(userId: string) {
     // Remove refresh token from Redis
+    await this.cacheService.del(`refresh_token:${userId}`);
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    // OAuth-only accounts have no password
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        "This account uses social login and does not have a password.",
+      );
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+
+    const newHash = await this.hashPassword(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    });
+
+    // Invalidate all existing refresh tokens so re-login is required on other devices
     await this.cacheService.del(`refresh_token:${userId}`);
   }
 

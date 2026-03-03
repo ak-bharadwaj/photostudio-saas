@@ -21,6 +21,7 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
 # IDE
 .vscode/*
@@ -38,3 +39,32 @@ yarn-error.log*
 
 # Docker
 docker-compose.override.yml
+
+# Debug / test artifact files (ad-hoc scripts and output logs)
+debug_*.ts
+debug_*.js
+debug-*.js
+check_*.ts
+list_*.js
+*_err.txt
+*_err_*.txt
+e2e_*.txt
+build_*.txt
+build_*.log
+*_test*.txt
+*_failures*.txt
+*_report.txt
+*_bak.*
+tsc_errors.txt
+compile_errors.txt
+eslint_*.txt
+out.txt
+# Uploaded files
+apps/backend/public/uploads/
+
+# Neon agent skills
+.agents/
+skills-lock.json
+
+nul
+

@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input, Select } from '@/components/ui/input';
-import { LoadingSpinner } from '@/components/ui/loading';
 import {
   Table,
   TableHeader,
@@ -33,6 +32,7 @@ import {
   Trash2,
   ExternalLink,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 interface Studio {
   id: string;
@@ -88,10 +88,11 @@ export default function AdminStudiosPage() {
         status: statusFilter || undefined,
         tier: tierFilter || undefined,
       });
-      setStudios(res.data.data);
+      setStudios(Array.isArray(res.data.data) ? res.data.data : []);
       setMeta(res.data.meta);
-    } catch (err: any) {
-      addToast('error', err.response?.data?.message || 'Failed to load studios');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      addToast('error', e.response?.data?.message || 'Failed to load studios');
     } finally {
       setLoading(false);
     }
@@ -118,8 +119,9 @@ export default function AdminStudiosPage() {
       }
       setConfirmModal({ open: false, action: 'suspend', studio: null });
       loadStudios();
-    } catch (err: any) {
-      addToast('error', err.response?.data?.message || `Failed to ${confirmModal.action} studio`);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      addToast('error', e.response?.data?.message || `Failed to ${confirmModal.action} studio`);
     } finally {
       setActionLoading(false);
     }
@@ -138,29 +140,31 @@ export default function AdminStudiosPage() {
   const filteredStudios = searchQuery
     ? studios.filter(
         (s) =>
-          s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.slug.toLowerCase().includes(searchQuery.toLowerCase()),
+          (s.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (s.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (s.slug ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : studios;
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">Studios</h1>
-          <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
-            Manage all photography studios on the platform
-          </p>
-        </div>
-        <Button
-          leftIcon={<Plus className="h-4 w-4" />}
-          onClick={() => router.push('/admin/studios/new')}
-        >
-          Create Studio
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Admin"
+        title="Studios"
+        subtitle="Manage all photography studios on the platform"
+        accentColor="violet"
+        actions={
+          <button
+            className="btn-shimmer inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
+            onClick={() => router.push('/admin/studios/new')}
+          >
+            <Plus className="h-4 w-4" />
+            Create Studio
+          </button>
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -205,8 +209,10 @@ export default function AdminStudiosPage() {
       {/* Studios Table */}
       <Card>
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <LoadingSpinner size="lg" />
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="skeleton h-14 w-full rounded-xl" />
+            ))}
           </div>
         ) : (
           <Table>
@@ -243,7 +249,7 @@ export default function AdminStudiosPage() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-[var(--primary-light)] flex items-center justify-center text-xs font-bold text-[var(--primary)] shrink-0">
-                          {studio.name.charAt(0)}
+                          {(studio.name || '?').charAt(0)}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-[var(--foreground)] truncate">{studio.name}</p>
@@ -273,11 +279,11 @@ export default function AdminStudiosPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
+                         <Button
                           variant="ghost"
                           size="xs"
                           onClick={() => router.push(`/admin/studios/${studio.id}`)}
-                          title="View details"
+                          aria-label="View details"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -286,7 +292,7 @@ export default function AdminStudiosPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center h-7 px-2 rounded-[var(--radius-sm)] text-[var(--foreground-secondary)] hover:bg-[var(--overlay-light)] hover:text-[var(--foreground)] transition-colors"
-                          title="View public page"
+                          aria-label="View public page"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </a>
@@ -295,7 +301,7 @@ export default function AdminStudiosPage() {
                             variant="ghost"
                             size="xs"
                             onClick={() => setConfirmModal({ open: true, action: 'suspend', studio })}
-                            title="Suspend studio"
+                            aria-label="Suspend studio"
                           >
                             <Pause className="h-4 w-4 text-[var(--warning)]" />
                           </Button>
@@ -304,7 +310,7 @@ export default function AdminStudiosPage() {
                             variant="ghost"
                             size="xs"
                             onClick={() => setConfirmModal({ open: true, action: 'activate', studio })}
-                            title="Activate studio"
+                            aria-label="Activate studio"
                           >
                             <Play className="h-4 w-4 text-[var(--success)]" />
                           </Button>
@@ -313,7 +319,7 @@ export default function AdminStudiosPage() {
                           variant="ghost"
                           size="xs"
                           onClick={() => setConfirmModal({ open: true, action: 'delete', studio })}
-                          title="Delete studio"
+                          aria-label="Delete studio"
                         >
                           <Trash2 className="h-4 w-4 text-[var(--danger)]" />
                         </Button>

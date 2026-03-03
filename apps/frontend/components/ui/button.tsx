@@ -28,46 +28,67 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const base = [
       'relative inline-flex items-center justify-center gap-2',
-      'font-medium whitespace-nowrap select-none',
-      'transition-all duration-[var(--transition-fast)]',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+      'font-medium whitespace-nowrap select-none overflow-hidden',
+      // Shimmer pseudo-element base (activated per variant)
+      'transition-all duration-200 ease-out',
+      'focus-visible:outline-none',
       'disabled:opacity-50 disabled:pointer-events-none',
-      'active:scale-[0.98]',
+      'active:scale-[0.97]',
     ].join(' ');
 
     const variants: Record<string, string> = {
       primary: [
-        'bg-[var(--primary)] text-[var(--primary-foreground)]',
-        'hover:bg-[var(--primary-hover)]',
-        'focus-visible:ring-[var(--primary)]',
-        'shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]',
+        // Gradient fill
+        'bg-gradient-to-br from-[var(--primary)] to-[var(--accent)]',
+        'text-white',
+        // Hover: deepen + slight glow
+        'hover:from-[var(--primary-hover)] hover:to-[var(--accent-hover)]',
+        'hover:shadow-[var(--shadow-glow-primary)]',
+        // Shadow
+        'shadow-[var(--shadow-sm)]',
+        // Focus ring
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary)]',
+        // Shimmer sweep on hover
+        'after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/20 after:to-transparent',
+        'after:translate-x-[-100%] hover:after:translate-x-[100%] after:transition-transform after:duration-500',
       ].join(' '),
       secondary: [
         'bg-[var(--surface-2)] text-[var(--foreground)]',
-        'hover:bg-[var(--surface-3)]',
-        'focus-visible:ring-[var(--secondary)]',
+        'border border-[var(--border)]',
+        'hover:bg-[var(--surface-3)] hover:border-[var(--border-strong)]',
+        'shadow-[var(--shadow-xs)]',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary)]',
       ].join(' '),
       outline: [
-        'border border-[var(--border)] bg-transparent text-[var(--foreground)]',
-        'hover:bg-[var(--overlay-light)] hover:border-[var(--foreground-tertiary)]',
-        'focus-visible:ring-[var(--primary)]',
+        'border border-[var(--border-strong)] bg-transparent text-[var(--foreground)]',
+        'hover:bg-[var(--overlay-light)] hover:border-[var(--primary)]',
+        'hover:text-[var(--primary)]',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary)]',
       ].join(' '),
       ghost: [
         'bg-transparent text-[var(--foreground-secondary)]',
         'hover:bg-[var(--overlay-light)] hover:text-[var(--foreground)]',
-        'focus-visible:ring-[var(--primary)]',
+        'focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
       ].join(' '),
       danger: [
-        'bg-[var(--danger)] text-[var(--danger-foreground)]',
-        'hover:bg-[var(--danger-hover)]',
-        'focus-visible:ring-[var(--danger)]',
-        'shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]',
+        'bg-gradient-to-br from-[var(--danger)] to-[var(--danger-hover)]',
+        'text-white',
+        'hover:from-[var(--danger-hover)] hover:to-[var(--danger)]',
+        'hover:shadow-[0_4px_16px_rgba(239,68,68,0.35)]',
+        'shadow-[var(--shadow-sm)]',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--danger)]',
+        'after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/15 after:to-transparent',
+        'after:translate-x-[-100%] hover:after:translate-x-[100%] after:transition-transform after:duration-500',
       ].join(' '),
       success: [
-        'bg-[var(--success)] text-[var(--success-foreground)]',
-        'hover:bg-[var(--success-hover)]',
-        'focus-visible:ring-[var(--success)]',
-        'shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]',
+        'bg-gradient-to-br from-[var(--success)] to-[var(--success-hover)]',
+        'text-white',
+        'hover:from-[var(--success-hover)] hover:to-[var(--success)]',
+        'hover:shadow-[var(--shadow-glow-success)]',
+        'shadow-[var(--shadow-sm)]',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--success)]',
+        'after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/15 after:to-transparent',
+        'after:translate-x-[-100%] hover:after:translate-x-[100%] after:transition-transform after:duration-500',
       ].join(' '),
     };
 
@@ -90,10 +111,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         ref={ref}
         disabled={disabled || isLoading}
+        aria-busy={isLoading || undefined}
         {...props}
       >
         {isLoading ? (
           <>
+            {/* Gradient ring spinner */}
             <svg
               className="h-4 w-4 animate-spin"
               xmlns="http://www.w3.org/2000/svg"
@@ -115,7 +138,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span>{children}</span>
+            <span className="sr-only">Loading</span>
+            <span aria-hidden="true">{children}</span>
           </>
         ) : (
           <>

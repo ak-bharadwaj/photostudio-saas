@@ -40,10 +40,14 @@ export class StudioController {
   // Admin only: List all studios with pagination
   @Get()
   findAll(
+    @CurrentUser() user: UserPayload,
     @Query("page", new ParseIntPipe({ optional: true })) page?: number,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("status") status?: string,
   ) {
+    if (!user.isAdmin) {
+      throw new ForbiddenException("Only admins can list all studios");
+    }
     const pageNum = page || 1;
     const limitNum = limit || 10;
     return this.studioService.findAll(pageNum, limitNum, status);

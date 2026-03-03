@@ -14,6 +14,7 @@ import { PortfolioService } from "./portfolio.service";
 import {
   CreatePortfolioItemDto,
   UpdatePortfolioItemDto,
+  ReorderPortfolioDto,
 } from "./dto/portfolio.dto";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -32,10 +33,10 @@ export class PortfolioController {
     @Body() createPortfolioItemDto: CreatePortfolioItemDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.portfolioService.create(createPortfolioItemDto, user.studioId!);
+    return this.portfolioService.create(createPortfolioItemDto, user.studioId);
   }
 
   @Get("studio/:studioId")
@@ -50,30 +51,30 @@ export class PortfolioController {
     @CurrentUser() user: UserPayload,
     @Query("includeHidden") includeHidden?: string,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
     const includeHiddenBool = includeHidden === "true";
-    return this.portfolioService.findAll(user.studioId!, includeHiddenBool);
+    return this.portfolioService.findAll(user.studioId, includeHiddenBool);
   }
 
   @Get("categories")
   @Roles("OWNER", "PHOTOGRAPHER", "ASSISTANT")
   getCategories(@CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.portfolioService.getCategories(user.studioId!);
+    return this.portfolioService.getCategories(user.studioId);
   }
 
   @Get(":id")
   @Roles("OWNER", "PHOTOGRAPHER", "ASSISTANT")
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.portfolioService.findOne(id, user.studioId!);
+    return this.portfolioService.findOne(id, user.studioId);
   }
 
   @Patch(":id")
@@ -83,43 +84,43 @@ export class PortfolioController {
     @Body() updatePortfolioItemDto: UpdatePortfolioItemDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
     return this.portfolioService.update(
       id,
       updatePortfolioItemDto,
-      user.studioId!,
+      user.studioId,
     );
   }
 
   @Patch(":id/toggle-visibility")
   @Roles("OWNER") // Only owners can toggle visibility
   toggleVisibility(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.portfolioService.toggleVisibility(id, user.studioId!);
+    return this.portfolioService.toggleVisibility(id, user.studioId);
   }
 
   @Post("reorder")
   @Roles("OWNER") // Only owners can reorder portfolio items
   reorder(
-    @Body() body: { itemIds: string[] },
+    @Body() dto: ReorderPortfolioDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.portfolioService.reorder(user.studioId!, body.itemIds);
+    return this.portfolioService.reorder(user.studioId, dto.itemIds);
   }
 
   @Delete(":id")
   @Roles("OWNER") // Only owners can delete portfolio items
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.portfolioService.remove(id, user.studioId!);
+    return this.portfolioService.remove(id, user.studioId);
   }
 }

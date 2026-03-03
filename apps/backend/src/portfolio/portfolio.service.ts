@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import {
@@ -28,7 +29,7 @@ export class PortfolioService {
   }
 
   async findAll(studioId: string, includeHidden: boolean = false) {
-    const where: any = { studioId };
+    const where: Prisma.PortfolioItemWhereInput = { studioId };
     if (!includeHidden) {
       where.isVisible = true;
     }
@@ -161,8 +162,8 @@ export class PortfolioService {
     });
 
     return items
-      .map((item) => item.category)
-      .filter((category) => category !== null);
+      .map((item: { category: string | null }) => item.category)
+      .filter((category): category is string => category !== null);
   }
 
   private async invalidateStudioCache(studioId: string) {

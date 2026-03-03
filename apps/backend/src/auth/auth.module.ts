@@ -18,8 +18,8 @@ import { RolesGuard } from "./guards/roles.guard";
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>("jwt.secret"),
         signOptions: {
-          expiresIn: (configService.get<string>("jwt.expiresIn") ||
-            "15m") as any,
+          // expiresIn expects StringValue (branded ms type); cast is safe — value is always a valid ms duration string
+          expiresIn: (configService.get<string>("jwt.expiresIn") ?? "15m") as unknown as number,
         },
       }),
     }),

@@ -25,7 +25,12 @@ export class EmailProcessor {
     this.logger.log(`Processing booking reminder job ${job.id}`);
 
     try {
-      const { bookingId, studioId } = job.data;
+      const { bookingId } = job.data;
+
+      if (!bookingId) {
+        this.logger.warn(`Booking reminder job ${job.id} missing bookingId — skipping`);
+        return;
+      }
 
       const booking = await this.prisma.booking.findUnique({
         where: { id: bookingId },
@@ -53,10 +58,10 @@ export class EmailProcessor {
       await this.notificationService.sendBookingReminder(booking);
 
       this.logger.log(`Booking reminder sent for ${bookingId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to process booking reminder: ${error.message}`,
-        error.stack,
+        `Failed to process booking reminder: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error; // Bull will retry
     }
@@ -67,7 +72,12 @@ export class EmailProcessor {
     this.logger.log(`Processing payment reminder job ${job.id}`);
 
     try {
-      const { invoiceId, studioId } = job.data;
+      const { invoiceId } = job.data;
+
+      if (!invoiceId) {
+        this.logger.warn(`Payment reminder job ${job.id} missing invoiceId — skipping`);
+        return;
+      }
 
       const invoice = await this.prisma.invoice.findUnique({
         where: { id: invoiceId },
@@ -95,10 +105,10 @@ export class EmailProcessor {
       await this.notificationService.sendPaymentReminder(invoice);
 
       this.logger.log(`Payment reminder sent for invoice ${invoiceId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to process payment reminder: ${error.message}`,
-        error.stack,
+        `Failed to process payment reminder: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error; // Bull will retry
     }
@@ -109,7 +119,12 @@ export class EmailProcessor {
     this.logger.log(`Processing follow-up job ${job.id}`);
 
     try {
-      const { bookingId, studioId } = job.data;
+      const { bookingId } = job.data;
+
+      if (!bookingId) {
+        this.logger.warn(`Follow-up job ${job.id} missing bookingId — skipping`);
+        return;
+      }
 
       const booking = await this.prisma.booking.findUnique({
         where: { id: bookingId },
@@ -137,10 +152,10 @@ export class EmailProcessor {
       await this.notificationService.sendFollowUpEmail(booking);
 
       this.logger.log(`Follow-up email sent for ${bookingId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to process follow-up: ${error.message}`,
-        error.stack,
+        `Failed to process follow-up: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error; // Bull will retry
     }

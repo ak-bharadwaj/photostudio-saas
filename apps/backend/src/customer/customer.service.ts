@@ -4,6 +4,7 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { Prisma } from "@prisma/client";
 import { CreateCustomerDto, UpdateCustomerDto } from "./dto/customer.dto";
 
 @Injectable()
@@ -25,6 +26,22 @@ export class CustomerService {
       );
     }
 
+    // Check if customer with same email exists in this studio
+    if (dto.email) {
+      const existingEmail = await this.prisma.customer.findFirst({
+        where: {
+          email: dto.email,
+          studioId,
+        },
+      });
+
+      if (existingEmail) {
+        throw new ConflictException(
+          "Customer with this email address already exists",
+        );
+      }
+    }
+
     return this.prisma.customer.create({
       data: {
         ...dto,
@@ -41,7 +58,7 @@ export class CustomerService {
   ) {
     const skip = (page - 1) * limit;
 
-    const where: any = { studioId };
+    const where: Prisma.CustomerWhereInput = { studioId };
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -138,6 +155,23 @@ export class CustomerService {
       if (existingCustomer) {
         throw new ConflictException(
           "Another customer with this phone number already exists",
+        );
+      }
+    }
+
+    // If updating email, check for conflicts
+    if (dto.email && dto.email !== customer.email) {
+      const existingEmail = await this.prisma.customer.findFirst({
+        where: {
+          email: dto.email,
+          studioId,
+          id: { not: id },
+        },
+      });
+
+      if (existingEmail) {
+        throw new ConflictException(
+          "Another customer with this email address already exists",
         );
       }
     }

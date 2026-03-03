@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LoadingPage } from '@/components/ui/loading';
 import { useToast } from '@/components/ui/toast';
 import { studiosApi, authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { Save, Building2, User, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Save, Building2, User, Sparkles, Lock } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 interface Studio {
   id: string;
@@ -29,15 +28,44 @@ interface Studio {
   subscriptionExpiresAt?: string;
 }
 
+// ─── Profile form state ───────────────────────────────────────────────────────
+interface ProfileForm {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  website: string;
+  description: string;
+  slug: string;
+}
+
+// ─── Branding form state ──────────────────────────────────────────────────────
+interface BrandingForm {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  heroStyle: string;
+  cardTheme: string;
+  buttonShape: string;
+  headerText: string;
+  tagline: string;
+}
+
 export default function SettingsPage() {
   const [studio, setStudio] = useState<Studio | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const { addToast } = useToast();
   const { user } = useAuthStore();
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Form state
-  const [formData, setFormData] = useState({
+  const [profileForm, setProfileForm] = useState<ProfileForm>({
     name: '',
     email: '',
     phone: '',
@@ -48,7 +76,9 @@ export default function SettingsPage() {
     website: '',
     description: '',
     slug: '',
-    // Branding
+  });
+
+  const [brandingForm, setBrandingForm] = useState<BrandingForm>({
     primaryColor: '#1a73e8',
     secondaryColor: '#5f6368',
     accentColor: '#7c3aed',
@@ -60,9 +90,13 @@ export default function SettingsPage() {
   });
 
   const loadStudio = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       setIsLoading(true);
       const response = await authApi.me();
+      if (ctrl.signal.aborted) return;
       const userData = response.data.user;
 
       if (userData.studioId) {
@@ -70,8 +104,7 @@ export default function SettingsPage() {
         const studioData = studioResponse.data;
         setStudio(studioData);
 
-        // Populate form
-        setFormData({
+        setProfileForm({
           name: studioData.name || '',
           email: studioData.email || '',
           phone: studioData.phone || '',
@@ -82,7 +115,9 @@ export default function SettingsPage() {
           website: studioData.website || '',
           description: studioData.description || '',
           slug: studioData.slug || '',
-          // Branding
+        });
+
+        setBrandingForm({
           primaryColor: studioData.brandingConfig?.primaryColor || '#1a73e8',
           secondaryColor: studioData.brandingConfig?.secondaryColor || '#5f6368',
           accentColor: studioData.brandingConfig?.accentColor || '#7c3aed',
@@ -94,23 +129,25 @@ export default function SettingsPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to load studio:', error);
+      if ((error as { name?: string }).name === 'CanceledError') return;
       addToast('error', 'Failed to load studio settings');
     } finally {
-      setIsLoading(false);
+      if (!abortRef.current?.signal.aborted) setIsLoading(false);
     }
   }, [addToast]);
 
   useEffect(() => {
     loadStudio();
+    return () => abortRef.current?.abort();
   }, [loadStudio]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ─── Save studio identity only ──────────────────────────────────────────────
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!studio) {
@@ -118,51 +155,121 @@ export default function SettingsPage() {
       return;
     }
 
-    // Basic validation
-    if (!formData.name.trim()) {
+    if (!profileForm.name.trim()) {
       addToast('error', 'Studio name is required');
       return;
     }
 
-    if (!formData.email.trim()) {
+    if (!profileForm.email.trim()) {
       addToast('error', 'Email is required');
       return;
     }
 
     try {
-      setIsSaving(true);
+      setIsSavingProfile(true);
 
-      const updateData = {
-        ...formData,
-        brandingConfig: {
-          primaryColor: formData.primaryColor,
-          secondaryColor: formData.secondaryColor,
-          accentColor: formData.accentColor,
-          heroStyle: formData.heroStyle,
-          cardTheme: formData.cardTheme,
-          buttonShape: formData.buttonShape,
-          headerText: formData.headerText,
-          tagline: formData.tagline,
-        }
-      };
+      await studiosApi.update(studio.id, {
+        name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        address: profileForm.address,
+        city: profileForm.city,
+        state: profileForm.state,
+        zipCode: profileForm.zipCode,
+        website: profileForm.website,
+        description: profileForm.description,
+        slug: profileForm.slug,
+      });
 
-      await studiosApi.update(studio.id, updateData);
-      addToast('success', 'Settings saved successfully');
-      if (formData.slug !== studio.slug) {
+      addToast('success', 'Studio profile saved successfully');
+
+      if (profileForm.slug !== studio.slug) {
         addToast('warning', 'Studio URL has changed. Old links are now invalid.');
       }
-      loadStudio(); // Reload to get updated data
-    } catch (e) {
-      const error = e as { response?: { data?: { message?: string } } };
-      console.error('Failed to save settings:', error);
-      addToast('error', error.response?.data?.message || 'Failed to save settings');
+
+      await loadStudio();
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      addToast('error', error.response?.data?.message || 'Failed to save studio profile');
     } finally {
-      setIsSaving(false);
+      setIsSavingProfile(false);
+    }
+  };
+
+  // ─── Save branding config only ──────────────────────────────────────────────
+  const handleBrandingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!studio) {
+      addToast('error', 'Studio not found');
+      return;
+    }
+
+    try {
+      setIsSavingBranding(true);
+
+      await studiosApi.update(studio.id, {
+        brandingConfig: {
+          primaryColor: brandingForm.primaryColor,
+          secondaryColor: brandingForm.secondaryColor,
+          accentColor: brandingForm.accentColor,
+          heroStyle: brandingForm.heroStyle,
+          cardTheme: brandingForm.cardTheme,
+          buttonShape: brandingForm.buttonShape,
+          headerText: brandingForm.headerText,
+          tagline: brandingForm.tagline,
+        },
+      });
+
+      addToast('success', 'Branding configuration saved successfully');
+      await loadStudio();
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      addToast('error', error.response?.data?.message || 'Failed to save branding configuration');
+    } finally {
+      setIsSavingBranding(false);
+    }
+  };
+
+  // ─── Change Password ────────────────────────────────────────────────────────
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      addToast('error', 'Please fill in all password fields');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      addToast('error', 'New password must be at least 8 characters');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      addToast('error', 'New passwords do not match');
+      return;
+    }
+    try {
+      setIsSavingPassword(true);
+      await authApi.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      addToast('success', 'Password changed successfully');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      addToast('error', error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
   if (isLoading) {
-    return <LoadingPage />;
+    return (
+      <div className="space-y-6">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+      </div>
+    );
   }
 
   if (!studio) {
@@ -177,15 +284,12 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-4xl page-enter pb-12">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-[var(--foreground)] tracking-tight italic uppercase">
-            STUDIO SETTINGS
-          </h1>
-          <p className="mt-1 text-[var(--foreground-secondary)] font-medium">Manage your studio profile and premium preferences</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Configuration"
+        title="Studio Settings"
+        subtitle="Manage your studio profile and premium preferences."
+        accentColor="violet"
+      />
 
       {/* Subscription Info */}
       <Card className="overflow-hidden border-l-4 border-l-[var(--primary)]">
@@ -198,13 +302,13 @@ export default function SettingsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-4 rounded-xl bg-[var(--surface-1)] border border-[var(--border)]">
-              <label className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Current Plan</label>
+              <p className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Current Plan</p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)] capitalize">
                 {studio.subscriptionTier.toLowerCase().replace('_', ' ')}
               </p>
             </div>
             <div className="p-4 rounded-xl bg-[var(--surface-1)] border border-[var(--border)]">
-              <label className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Status</label>
+              <p className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Status</p>
               <div className="flex items-center gap-2 mt-1">
                 <div className="h-2.5 w-2.5 rounded-full bg-[var(--success)] animate-pulse" />
                 <p className="text-xl font-bold text-[var(--success)] capitalize">
@@ -214,7 +318,7 @@ export default function SettingsPage() {
             </div>
             {studio.subscriptionExpiresAt && (
               <div className="p-4 rounded-xl bg-[var(--surface-1)] border border-[var(--border)]">
-                <label className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Next Renewal</label>
+                <p className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Next Renewal</p>
                 <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                   {new Date(studio.subscriptionExpiresAt).toLocaleDateString()}
                 </p>
@@ -224,9 +328,9 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Studio Profile Form */}
-      <form onSubmit={handleSubmit}>
-        <Card className="shadow-premium">
+      {/* Studio Profile Form — saves identity fields only */}
+      <form onSubmit={handleProfileSubmit}>
+        <Card className="shadow-[var(--shadow-xl)]">
           <CardHeader>
             <CardTitle className="flex items-center">
               <User className="mr-2 h-5 w-5 text-[var(--primary)]" />
@@ -241,8 +345,8 @@ export default function SettingsPage() {
                 id="name"
                 name="name"
                 type="text"
-                value={formData.name}
-                onChange={handleChange}
+                value={profileForm.name}
+                onChange={handleProfileChange}
                 required
                 placeholder="The Lens & Light Studio"
               />
@@ -259,10 +363,10 @@ export default function SettingsPage() {
                     id="slug"
                     name="slug"
                     type="text"
-                    value={formData.slug}
+                    value={profileForm.slug}
                     onChange={(e) => {
                       const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-                      setFormData(prev => ({ ...prev, slug: value }));
+                      setProfileForm(prev => ({ ...prev, slug: value }));
                     }}
                     className="rounded-l-none"
                     placeholder="my-awesome-studio"
@@ -287,8 +391,8 @@ export default function SettingsPage() {
                 id="email"
                 name="email"
                 type="email"
-                value={formData.email}
-                onChange={handleChange}
+                value={profileForm.email}
+                onChange={handleProfileChange}
                 required
                 placeholder="contact@studio.com"
               />
@@ -298,9 +402,9 @@ export default function SettingsPage() {
                 id="phone"
                 name="phone"
                 type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="+1 (555) 000-0000"
+                value={profileForm.phone}
+                onChange={handleProfileChange}
+                placeholder="+91 98765 43210"
               />
             </div>
 
@@ -311,8 +415,8 @@ export default function SettingsPage() {
                 id="address"
                 name="address"
                 type="text"
-                value={formData.address}
-                onChange={handleChange}
+                value={profileForm.address}
+                onChange={handleProfileChange}
                 placeholder="123 Creative Way, Art District"
               />
 
@@ -322,9 +426,9 @@ export default function SettingsPage() {
                   id="city"
                   name="city"
                   type="text"
-                  value={formData.city}
-                  onChange={handleChange}
-                  placeholder="New York"
+                  value={profileForm.city}
+                  onChange={handleProfileChange}
+                  placeholder="Mumbai"
                 />
 
                 <Input
@@ -332,9 +436,9 @@ export default function SettingsPage() {
                   id="state"
                   name="state"
                   type="text"
-                  value={formData.state}
-                  onChange={handleChange}
-                  placeholder="NY"
+                  value={profileForm.state}
+                  onChange={handleProfileChange}
+                  placeholder="Maharashtra"
                 />
 
                 <Input
@@ -342,9 +446,9 @@ export default function SettingsPage() {
                   id="zipCode"
                   name="zipCode"
                   type="text"
-                  value={formData.zipCode}
-                  onChange={handleChange}
-                  placeholder="10001"
+                  value={profileForm.zipCode}
+                  onChange={handleProfileChange}
+                  placeholder="400001"
                 />
               </div>
             </div>
@@ -357,44 +461,35 @@ export default function SettingsPage() {
                 name="website"
                 type="url"
                 placeholder="https://yourportfolio.com"
-                value={formData.website}
-                onChange={handleChange}
+                value={profileForm.website}
+                onChange={handleProfileChange}
               />
 
-              <div className="space-y-1.5">
-                <label htmlFor="description" className="block text-sm font-medium text-[var(--foreground)]">
-                  Studio Story / About
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  rows={4}
-                  className={cn(
-                    "flex w-full rounded-xl border border-[var(--border)] bg-[var(--surface-0)] px-4 py-3 text-sm text-[var(--foreground)]",
-                    "focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all",
-                    "placeholder:text-[var(--foreground-tertiary)]"
-                  )}
-                  placeholder="Tell customers about your unique photography style, experience, and what makes your studio special..."
-                  value={formData.description}
-                  onChange={handleChange}
-                />
-              </div>
+              <Textarea
+                id="description"
+                name="description"
+                label="Studio Story / About"
+                rows={4}
+                placeholder="Tell customers about your unique photography style, experience, and what makes your studio special..."
+                value={profileForm.description}
+                onChange={handleProfileChange}
+              />
             </div>
 
             {/* Save Button */}
             <div className="flex justify-end pt-6 border-t border-[var(--border)]">
-              <Button type="submit" disabled={isSaving} className="h-11 px-8 shadow-lg shadow-[var(--primary)]/20">
+              <Button type="submit" disabled={isSavingProfile} className="h-11 px-8 shadow-lg shadow-[var(--primary)]/20">
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? 'Synchronizing...' : 'Save Identity Updates'}
+                {isSavingProfile ? 'Synchronizing...' : 'Save Identity Updates'}
               </Button>
             </div>
           </CardContent>
         </Card>
       </form>
 
-      {/* Luxury Branding Suite */}
-      <form onSubmit={handleSubmit}>
-        <Card className="border-2 border-[var(--primary)]/10 shadow-premium overflow-hidden bg-gradient-to-br from-[var(--surface-0)] to-[var(--surface-1)]">
+      {/* Luxury Branding Suite — saves branding config only */}
+      <form onSubmit={handleBrandingSubmit}>
+        <Card className="border-2 border-[var(--primary)]/10 shadow-[var(--shadow-xl)] overflow-hidden">
           <div className="h-2 bg-[var(--primary)] w-full" />
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -411,50 +506,44 @@ export default function SettingsPage() {
               <div className="space-y-4 p-5 rounded-2xl bg-[var(--surface-0)] border border-[var(--border)] shadow-sm">
                 <h4 className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Atmosphere</h4>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[var(--foreground-secondary)] mb-2 uppercase">Hero Visuals</label>
-                    <select
-                      name="heroStyle"
-                      value={formData.heroStyle}
-                      onChange={(e) => setFormData(prev => ({ ...prev, heroStyle: e.target.value }))}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] focus:ring-2 focus:ring-[var(--primary)] outline-none"
-                    >
-                      <option value="solid">Solid Color (Classic)</option>
-                      <option value="mesh">Mesh Gradient (Modern)</option>
-                      <option value="glass">Glossy Glass (Premium)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[var(--foreground-secondary)] mb-2 uppercase">UI Theme</label>
-                    <select
-                      name="cardTheme"
-                      value={formData.cardTheme}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cardTheme: e.target.value }))}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] focus:ring-2 focus:ring-[var(--primary)] outline-none"
-                    >
-                      <option value="modern">Modern Minimal</option>
-                      <option value="classic">Timeless Border</option>
-                      <option value="elevated">High-Shadow Glass</option>
-                    </select>
-                  </div>
+                  <Select
+                    label="Hero Visuals"
+                    name="heroStyle"
+                    value={brandingForm.heroStyle}
+                    onChange={(e) => setBrandingForm(prev => ({ ...prev, heroStyle: e.target.value }))}
+                    options={[
+                      { value: 'solid', label: 'Solid Color (Classic)' },
+                      { value: 'mesh', label: 'Mesh Gradient (Modern)' },
+                      { value: 'glass', label: 'Glossy Glass (Premium)' },
+                    ]}
+                  />
+                  <Select
+                    label="UI Theme"
+                    name="cardTheme"
+                    value={brandingForm.cardTheme}
+                    onChange={(e) => setBrandingForm(prev => ({ ...prev, cardTheme: e.target.value }))}
+                    options={[
+                      { value: 'modern', label: 'Modern Minimal' },
+                      { value: 'classic', label: 'Timeless Border' },
+                      { value: 'elevated', label: 'High-Shadow Glass' },
+                    ]}
+                  />
                 </div>
               </div>
 
               <div className="space-y-4 p-5 rounded-2xl bg-[var(--surface-0)] border border-[var(--border)] shadow-sm">
                 <h4 className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Geometry</h4>
-                <div>
-                  <label className="block text-xs font-bold text-[var(--foreground-secondary)] mb-2 uppercase">Interactive Elements</label>
-                  <select
-                    name="buttonShape"
-                    value={formData.buttonShape}
-                    onChange={(e) => setFormData(prev => ({ ...prev, buttonShape: e.target.value }))}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] focus:ring-2 focus:ring-[var(--primary)] outline-none"
-                  >
-                    <option value="rounded">Standard Rounded</option>
-                    <option value="pill">Luxury Pill</option>
-                    <option value="luxury-sharp">Artistic Sharp</option>
-                  </select>
-                </div>
+                <Select
+                  label="Interactive Elements"
+                  name="buttonShape"
+                  value={brandingForm.buttonShape}
+                  onChange={(e) => setBrandingForm(prev => ({ ...prev, buttonShape: e.target.value }))}
+                  options={[
+                    { value: 'rounded', label: 'Standard Rounded' },
+                    { value: 'pill', label: 'Luxury Pill' },
+                    { value: 'luxury-sharp', label: 'Artistic Sharp' },
+                  ]}
+                />
               </div>
 
               <div className="space-y-4 p-5 rounded-2xl bg-[var(--surface-0)] border border-[var(--border)] shadow-sm">
@@ -465,14 +554,14 @@ export default function SettingsPage() {
                     <div className="flex gap-3">
                       <input
                         type="color"
-                        value={formData.primaryColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        value={brandingForm.primaryColor}
+                        onChange={(e) => setBrandingForm(prev => ({ ...prev, primaryColor: e.target.value }))}
                         className="h-10 w-12 p-0 border-0 rounded-lg cursor-pointer overflow-hidden shadow-sm"
                       />
                       <input
                         type="text"
-                        value={formData.primaryColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        value={brandingForm.primaryColor}
+                        onChange={(e) => setBrandingForm(prev => ({ ...prev, primaryColor: e.target.value }))}
                         className="flex-1 text-xs font-mono border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--primary)]"
                       />
                     </div>
@@ -482,14 +571,14 @@ export default function SettingsPage() {
                     <div className="flex gap-3">
                       <input
                         type="color"
-                        value={formData.accentColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, accentColor: e.target.value }))}
+                        value={brandingForm.accentColor}
+                        onChange={(e) => setBrandingForm(prev => ({ ...prev, accentColor: e.target.value }))}
                         className="h-10 w-12 p-0 border-0 rounded-lg cursor-pointer overflow-hidden shadow-sm"
                       />
                       <input
                         type="text"
-                        value={formData.accentColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, accentColor: e.target.value }))}
+                        value={brandingForm.accentColor}
+                        onChange={(e) => setBrandingForm(prev => ({ ...prev, accentColor: e.target.value }))}
                         className="flex-1 text-xs font-mono border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--primary)]"
                       />
                     </div>
@@ -505,24 +594,24 @@ export default function SettingsPage() {
                 <Input
                   label="Portal Hero Headline"
                   placeholder="e.g. Capture Your Eternal Story"
-                  value={formData.headerText}
-                  onChange={(e) => setFormData(prev => ({ ...prev, headerText: e.target.value }))}
+                  value={brandingForm.headerText}
+                  onChange={(e) => setBrandingForm(prev => ({ ...prev, headerText: e.target.value }))}
                   helperText="Defaults to your Studio Name if empty."
                 />
                 <Input
                   label="Emotional Tagline"
                   placeholder="e.g. Fine-art photography for significant moments"
-                  value={formData.tagline}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tagline: e.target.value }))}
+                  value={brandingForm.tagline}
+                  onChange={(e) => setBrandingForm(prev => ({ ...prev, tagline: e.target.value }))}
                 />
               </div>
             </div>
 
             {/* Save Button */}
             <div className="flex justify-end pt-6 border-t border-[var(--border)]">
-              <Button type="submit" disabled={isSaving} className="h-11 px-8 shadow-lg shadow-[var(--primary)]/20 bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">
+              <Button type="submit" disabled={isSavingBranding} className="h-11 px-8 shadow-lg shadow-[var(--primary)]/20 bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">
                 <Sparkles className="mr-2 h-4 w-4" />
-                {isSaving ? 'Polishing Design...' : 'Apply Premium Branding'}
+                {isSavingBranding ? 'Polishing Design...' : 'Apply Premium Branding'}
               </Button>
             </div>
           </CardContent>
@@ -567,6 +656,52 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Change Password */}
+      <form onSubmit={handlePasswordSubmit}>
+        <Card className="shadow-[var(--shadow-xl)]">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Lock className="mr-2 h-5 w-5 text-[var(--primary)]" />
+              Change Password
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Input
+                label="Current Password"
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                placeholder="Enter current password"
+                autoComplete="current-password"
+              />
+              <Input
+                label="New Password"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                placeholder="Min 8 characters"
+                autoComplete="new-password"
+              />
+              <Input
+                label="Confirm New Password"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                placeholder="Repeat new password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex justify-end pt-2 border-t border-[var(--border)]">
+              <Button type="submit" disabled={isSavingPassword} className="h-11 px-8">
+                <Lock className="mr-2 h-4 w-4" />
+                {isSavingPassword ? 'Updating...' : 'Update Password'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
     </div>
   );
 }

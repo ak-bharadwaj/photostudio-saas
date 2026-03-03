@@ -47,7 +47,10 @@ export class BookingController {
     if (!user.studioId && !user.isAdmin) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.bookingService.createInternal(dto, user.studioId!);
+    if (!user.studioId) {
+      throw new ForbiddenException("Admin must specify a studio context for this operation");
+    }
+    return this.bookingService.createInternal(dto, user.studioId);
   }
 
   // Studio users: List all bookings for their studio
@@ -58,19 +61,21 @@ export class BookingController {
     @Query("page", new ParseIntPipe({ optional: true })) page?: number,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("status") status?: BookingStatus,
+    @Query("search") search?: string,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
     const pageNum = page || 1;
-    const limitNum = limit || 10;
+    const limitNum = Math.min(limit || 10, 100); // cap at 100 per page
 
     return this.bookingService.findAll(
-      user.studioId!,
+      user.studioId,
       pageNum,
       limitNum,
       status,
+      search,
     );
   }
 
@@ -79,14 +84,14 @@ export class BookingController {
   @Roles("OWNER", "PHOTOGRAPHER", "ASSISTANT")
   getUpcoming(
     @CurrentUser() user: UserPayload,
-    @Query("limit") limit?: string,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    const limitNum = limit ? parseInt(limit, 10) : 10;
-    return this.bookingService.getUpcoming(user.studioId!, limitNum);
+    const limitNum = Math.min(limit ?? 10, 100);
+    return this.bookingService.getUpcoming(user.studioId, limitNum);
   }
 
   // Studio users: Get booking by ID
@@ -97,7 +102,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.findOne(id, user.studioId);
+    return this.bookingService.findOne(id, user.studioId ?? undefined);
   }
 
   // Studio users: Update booking
@@ -112,7 +117,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.update(id, updateBookingDto, user.studioId);
+    return this.bookingService.update(id, updateBookingDto, user.studioId ?? undefined);
   }
 
   // Studio users: Update booking status
@@ -127,7 +132,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.updateStatus(id, updateStatusDto, user.studioId);
+    return this.bookingService.updateStatus(id, updateStatusDto, user.studioId ?? undefined);
   }
 
   // Studio users: Cancel booking
@@ -142,7 +147,7 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.cancel(id, body.notes, user.studioId);
+    return this.bookingService.cancel(id, body.notes, user.studioId ?? undefined);
   }
 
   @Post(":id/quote")
@@ -152,10 +157,10 @@ export class BookingController {
     @Body() dto: SendQuoteDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.sendQuote(id, user.studioId!, dto);
+    return this.bookingService.sendQuote(id, user.studioId, dto);
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,8 @@ import { useToast } from '@/components/ui/toast';
 import { servicesApi, uploadApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Edit2, Trash2, GripVertical, ToggleLeft, ToggleRight, Upload, X, Image as ImageIcon } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { PageHeader } from '@/components/ui/page-header';
+import { useForm, UseFormHandleSubmit, UseFormRegister, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
@@ -51,6 +53,215 @@ const serviceSchema = z.object({
 
 type ServiceFormData = z.infer<typeof serviceSchema>;
 
+/* -------------------------------------------------------------------------- */
+/*  Sub-components (defined outside ServicesPage to avoid re-creation)        */
+/* -------------------------------------------------------------------------- */
+
+interface CoverImageFieldProps {
+  coverImagePreview: string;
+  coverImageUrl: string;
+  isUploadingCover: boolean;
+  coverFileInputRef: React.RefObject<HTMLInputElement | null>;
+  onRemove: () => void;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function CoverImageField({
+  coverImagePreview,
+  coverImageUrl,
+  isUploadingCover,
+  coverFileInputRef,
+  onRemove,
+  onUpload,
+}: CoverImageFieldProps) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-[var(--foreground)]">Cover Image</label>
+
+      {coverImagePreview ? (
+        <div className="relative">
+          {/* native <img> needed for blob/data URLs — Next.js Image can't handle them */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={coverImagePreview}
+            alt="Cover preview"
+            className="w-full h-40 object-cover rounded-lg border border-[var(--border)]"
+          />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute top-2 right-2 p-1 bg-[var(--surface-0)] rounded-full border border-[var(--border)] hover:bg-[var(--surface-1)] transition-colors"
+            aria-label="Remove cover image"
+          >
+            <X className="h-4 w-4 text-[var(--foreground-secondary)]" />
+          </button>
+          {isUploadingCover && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+              <LoadingSpinner size="md" />
+            </div>
+          )}
+        </div>
+      ) : coverImageUrl ? (
+        <div className="relative h-40 rounded-lg overflow-hidden border border-[var(--border)]">
+          <NextImage
+            src={coverImageUrl}
+            alt="Cover image"
+            fill
+            className="object-cover"
+            unoptimized
+          />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute top-2 right-2 p-1 bg-[var(--surface-0)] rounded-full border border-[var(--border)] hover:bg-[var(--surface-1)] transition-colors"
+            aria-label="Remove cover image"
+          >
+            <X className="h-4 w-4 text-[var(--foreground-secondary)]" />
+          </button>
+        </div>
+      ) : (
+        <div
+          className="border-2 border-dashed border-[var(--border)] rounded-lg p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[var(--primary)] transition-colors"
+          onClick={() => coverFileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') coverFileInputRef.current?.click(); }}
+          aria-label="Upload cover image"
+        >
+          {isUploadingCover ? (
+            <LoadingSpinner size="md" />
+          ) : (
+            <>
+              <ImageIcon className="h-8 w-8 text-[var(--foreground-tertiary)]" />
+              <p className="text-sm text-[var(--foreground-tertiary)]">Click to upload cover image</p>
+              <p className="text-xs text-[var(--foreground-tertiary)]">PNG, JPG up to 5MB</p>
+            </>
+          )}
+        </div>
+      )}
+
+      <input
+        ref={coverFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={onUpload}
+        aria-hidden="true"
+      />
+
+      {(coverImagePreview || coverImageUrl) && !isUploadingCover && (
+        <button
+          type="button"
+          onClick={() => coverFileInputRef.current?.click()}
+          className="flex items-center gap-2 text-sm text-[var(--primary)] hover:underline"
+        >
+          <Upload className="h-4 w-4" />
+          Change image
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface ServiceFormProps {
+  onSubmit: (data: ServiceFormData) => void;
+  handleSubmit: UseFormHandleSubmit<ServiceFormData>;
+  register: UseFormRegister<ServiceFormData>;
+  errors: FieldErrors<ServiceFormData>;
+  isSubmitting: boolean;
+  isUploadingCover: boolean;
+  submitLabel: string;
+  onCancel: () => void;
+  coverImagePreview: string;
+  coverImageUrl: string;
+  coverFileInputRef: React.RefObject<HTMLInputElement | null>;
+  onRemoveCover: () => void;
+  onUploadCover: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function ServiceForm({
+  onSubmit,
+  handleSubmit,
+  register,
+  errors,
+  isSubmitting,
+  isUploadingCover,
+  submitLabel,
+  onCancel,
+  coverImagePreview,
+  coverImageUrl,
+  coverFileInputRef,
+  onRemoveCover,
+  onUploadCover,
+}: ServiceFormProps) {
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <CoverImageField
+        coverImagePreview={coverImagePreview}
+        coverImageUrl={coverImageUrl}
+        isUploadingCover={isUploadingCover}
+        coverFileInputRef={coverFileInputRef}
+        onRemove={onRemoveCover}
+        onUpload={onUploadCover}
+      />
+
+      <Input
+        label="Service Name"
+        {...register('name')}
+        error={errors.name?.message}
+        placeholder="e.g. Wedding Photography"
+        required
+      />
+
+      <Textarea
+        label="Description"
+        {...register('description')}
+        placeholder="Describe what's included in this service..."
+        rows={3}
+      />
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Price (₹)"
+          type="number"
+          step="0.01"
+          min="0"
+          {...register('price')}
+          error={errors.price?.message}
+          placeholder="e.g. 25000"
+          required
+        />
+        <Input
+          label="Duration (minutes)"
+          type="number"
+          min="0"
+          {...register('duration')}
+          placeholder="e.g. 120"
+        />
+      </div>
+
+      <Select
+        label="Occasion"
+        options={OCCASION_OPTIONS}
+        {...register('occasion')}
+      />
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          isLoading={isSubmitting || isUploadingCover}
+          disabled={isSubmitting || isUploadingCover}
+        >
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,20 +286,23 @@ export default function ServicesPage() {
   });
 
   useEffect(() => {
-    loadServices();
+    const ctrl = new AbortController();
+    loadServices(ctrl);
+    return () => ctrl.abort();
   }, []);
 
-  const loadServices = async () => {
+  const loadServices = async (ctrl?: AbortController) => {
     try {
       setIsLoading(true);
       const response = await servicesApi.getAll({ includeInactive: true });
-      const data = response.data || [];
+      if (ctrl?.signal.aborted) return;
+      const data = Array.isArray(response.data) ? response.data : [];
       setServices([...data].sort((a: Service, b: Service) => (a.sortOrder || 0) - (b.sortOrder || 0)));
     } catch (error) {
-      console.error('Failed to load services:', error);
+      if ((error as { name?: string }).name === 'CanceledError') return;
       addToast('error', 'Failed to load services');
     } finally {
-      setIsLoading(false);
+      if (!ctrl?.signal.aborted) setIsLoading(false);
     }
   };
 
@@ -111,7 +325,9 @@ export default function ServicesPage() {
     // Show local preview immediately
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setCoverImagePreview(ev.target?.result as string);
+      if (typeof ev.target?.result === 'string') {
+        setCoverImagePreview(ev.target.result);
+      }
     };
     reader.readAsDataURL(file);
 
@@ -122,7 +338,6 @@ export default function ServicesPage() {
       setCoverImageUrl(response.data.url);
       addToast('success', 'Cover image uploaded');
     } catch (error) {
-      console.error('Failed to upload cover image:', error);
       addToast('error', 'Failed to upload cover image');
       setCoverImagePreview('');
     } finally {
@@ -249,147 +464,27 @@ export default function ServicesPage() {
     return option?.label || occasion;
   };
 
-  const renderCoverImageField = () => (
-    <div>
-      <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-        Cover Image (Optional)
-      </label>
-      {(coverImagePreview || coverImageUrl) ? (
-        <div className="relative rounded-lg overflow-hidden border border-[var(--border)]">
-          <img
-            src={coverImagePreview || coverImageUrl}
-            alt="Cover preview"
-            className="w-full h-40 object-cover"
-          />
-          <button
-            type="button"
-            onClick={removeCoverImage}
-            className="absolute top-2 right-2 bg-[var(--surface-0)]/90 hover:bg-[var(--surface-0)] rounded-full p-1 shadow-sm"
-          >
-            <X className="h-4 w-4 text-[var(--foreground-secondary)]" />
-          </button>
-          {isUploadingCover && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <LoadingSpinner size="sm" />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div
-          onClick={() => coverFileInputRef.current?.click()}
-          className="border-2 border-dashed border-[var(--border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-colors"
-        >
-          {isUploadingCover ? (
-            <div className="flex flex-col items-center">
-              <LoadingSpinner size="sm" />
-              <span className="mt-2 text-sm text-[var(--foreground-tertiary)]">Uploading...</span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <ImageIcon className="h-8 w-8 text-[var(--foreground-tertiary)] mb-2" />
-              <span className="text-sm text-[var(--foreground-secondary)]">Click to upload cover image</span>
-              <span className="text-xs text-[var(--foreground-tertiary)] mt-1">JPG, PNG, WebP up to 5MB</span>
-            </div>
-          )}
-        </div>
-      )}
-      <input
-        ref={coverFileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleCoverImageUpload}
-        className="hidden"
-      />
-    </div>
-  );
-
-  const renderServiceForm = (onSubmit: (data: ServiceFormData) => void, submitLabel: string) => (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Input
-        label="Service Name"
-        placeholder="Wedding Photography"
-        error={errors.name?.message}
-        {...register('name')}
-      />
-
-      <Textarea
-        label="Description (Optional)"
-        {...register('description')}
-        rows={3}
-        placeholder="Describe your service..."
-        error={errors.description?.message}
-      />
-
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="Price"
-          type="number"
-          step="0.01"
-          placeholder="999.99"
-          error={errors.price?.message}
-          {...register('price')}
-        />
-
-        <Input
-          label="Duration (minutes)"
-          type="number"
-          placeholder="120"
-          error={errors.duration?.message}
-          {...register('duration')}
-        />
-      </div>
-
-      <Select
-        label="Occasion Category"
-        options={OCCASION_OPTIONS}
-        {...register('occasion')}
-        helperText="Services with the same occasion are grouped together on your public booking page."
-        error={errors.occasion?.message}
-      />
-
-      {renderCoverImageField()}
-
-      <div className="flex items-center justify-end gap-3 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            if (submitLabel === 'Create Service') {
-              setIsCreateModalOpen(false);
-            } else {
-              setIsEditModalOpen(false);
-              setSelectedService(null);
-            }
-            resetFormState();
-          }}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || isUploadingCover}>
-          {submitLabel}
-        </Button>
-      </div>
-    </form>
-  );
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)] tracking-tight">Services</h1>
-          <p className="mt-2 text-[var(--foreground-secondary)]">Manage your photography services and packages</p>
-        </div>
-        <Button onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Service
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Studio"
+        title="Services"
+        subtitle="Manage your photography services and packages"
+        accentColor="violet"
+        actions={
+          <Button onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Service
+          </Button>
+        }
+      />
 
       {/* Services Grid */}
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <LoadingSpinner size="lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-48 w-full rounded-2xl" />
+          ))}
         </div>
       ) : (services || []).length === 0 ? (
         <Card className="border-[var(--border)] bg-[var(--surface-0)]">
@@ -409,11 +504,14 @@ export default function ServicesPage() {
           {(services || []).map((service) => (
             <Card key={service.id} className="relative overflow-hidden">
               {service.coverImage && (
-                <div className="h-36 overflow-hidden">
-                  <img
+                <div className="relative h-36 overflow-hidden">
+                  <NextImage
                     src={service.coverImage}
                     alt={service.name}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    unoptimized
                   />
                 </div>
               )}
@@ -432,7 +530,7 @@ export default function ServicesPage() {
                       )}
                     </div>
                   </div>
-                  <button className="text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] cursor-move">
+                  <button aria-label="Drag to reorder" className="text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] cursor-move">
                     <GripVertical className="h-5 w-5" />
                   </button>
                 </div>
@@ -472,10 +570,11 @@ export default function ServicesPage() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label={service.isActive ? 'Deactivate service' : 'Activate service'}
                     onClick={() => handleToggleActive(service)}
                   >
                     {service.isActive ? (
-                      <ToggleRight className="h-5 w-5 text-green-600" />
+                      <ToggleRight className="h-5 w-5 text-[var(--success)]" />
                     ) : (
                       <ToggleLeft className="h-5 w-5 text-[var(--foreground-tertiary)]" />
                     )}
@@ -484,9 +583,10 @@ export default function ServicesPage() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label="Delete service"
                     onClick={() => openDeleteModal(service)}
                   >
-                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <Trash2 className="h-4 w-4 text-[var(--danger)]" />
                   </Button>
                 </div>
               </CardContent>
@@ -506,7 +606,21 @@ export default function ServicesPage() {
         description="Add a new photography service or package"
         size="lg"
       >
-        {renderServiceForm(onCreateService, 'Create Service')}
+        <ServiceForm
+          onSubmit={onCreateService}
+          submitLabel="Create Service"
+          onCancel={() => { setIsCreateModalOpen(false); resetFormState(); }}
+          handleSubmit={handleSubmit}
+          register={register}
+          errors={errors}
+          isSubmitting={isSubmitting}
+          isUploadingCover={isUploadingCover}
+          coverImagePreview={coverImagePreview}
+          coverImageUrl={coverImageUrl}
+          coverFileInputRef={coverFileInputRef}
+          onRemoveCover={removeCoverImage}
+          onUploadCover={handleCoverImageUpload}
+        />
       </Modal>
 
       {/* Edit Service Modal */}
@@ -521,7 +635,21 @@ export default function ServicesPage() {
         description="Update service information"
         size="lg"
       >
-        {renderServiceForm(onUpdateService, 'Update Service')}
+        <ServiceForm
+          onSubmit={onUpdateService}
+          submitLabel="Update Service"
+          onCancel={() => { setIsEditModalOpen(false); setSelectedService(null); resetFormState(); }}
+          handleSubmit={handleSubmit}
+          register={register}
+          errors={errors}
+          isSubmitting={isSubmitting}
+          isUploadingCover={isUploadingCover}
+          coverImagePreview={coverImagePreview}
+          coverImageUrl={coverImageUrl}
+          coverFileInputRef={coverFileInputRef}
+          onRemoveCover={removeCoverImage}
+          onUploadCover={handleCoverImageUpload}
+        />
       </Modal>
 
       {/* Delete Confirmation Modal */}

@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
-/*  Loading Spinner                                                           */
+/*  Loading Spinner — gradient stroke ring                                    */
 /* -------------------------------------------------------------------------- */
 
 export interface LoadingSpinnerProps {
@@ -22,27 +22,20 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   return (
     <div className="flex items-center justify-center" role="status" aria-label="Loading">
-      <svg
-        className={cn('animate-spin text-[var(--primary)]', sizes[size], className)}
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
+      {/* Outer gradient ring via box-shadow trick */}
+      <div
+        className={cn(
+          'rounded-full animate-spin',
+          sizes[size],
+          className,
+        )}
+        style={{
+          background: 'conic-gradient(from 0deg, transparent 0%, var(--primary) 70%, transparent 100%)',
+          WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))',
+          mask: 'radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))',
+        }}
         aria-hidden="true"
-      >
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
+      />
       <span className="sr-only">Loading</span>
     </div>
   );
@@ -60,15 +53,23 @@ export const LoadingPage: React.FC<LoadingPageProps> = ({
   message = 'Loading...',
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen animate-fade-in">
-      <LoadingSpinner size="lg" />
-      <p className="mt-4 text-sm text-[var(--foreground-secondary)]">{message}</p>
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 animate-fade-in">
+      <div className="relative">
+        <LoadingSpinner size="lg" />
+        {/* Glow behind spinner */}
+        <div
+          className="absolute inset-0 rounded-full blur-xl opacity-40 animate-pulse-soft"
+          style={{ background: 'var(--primary)' }}
+          aria-hidden="true"
+        />
+      </div>
+      <p className="text-sm font-medium text-[var(--foreground-secondary)]">{message}</p>
     </div>
   );
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Skeleton — content placeholder                                            */
+/*  Skeleton — shimmer placeholder                                            */
 /* -------------------------------------------------------------------------- */
 
 export interface SkeletonProps {
@@ -96,9 +97,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className, lines = 1 }) => {
   }
 
   return (
-    <div
-      className={cn('skeleton h-4 rounded-[var(--radius-sm)]', className)}
-    />
+    <div className={cn('skeleton h-4 rounded-[var(--radius-sm)]', className)} />
   );
 };
 
@@ -112,11 +111,12 @@ export const SkeletonCard: React.FC<{ className?: string }> = ({ className }) =>
       className={cn(
         'rounded-[var(--radius-lg)] border border-[var(--border-light)]',
         'bg-[var(--surface-0)] p-6 space-y-4',
+        'shadow-[var(--shadow-card)]',
         className,
       )}
     >
       <div className="flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-10 w-10 rounded-xl" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-4 w-1/3" />
           <Skeleton className="h-3 w-1/2" />
@@ -143,9 +143,9 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
   className,
 }) => {
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-0', className)}>
       {/* Header */}
-      <div className="flex gap-4 px-4 py-3">
+      <div className="flex gap-6 px-6 py-3 border-b border-[var(--border-light)] bg-[var(--surface-1)]">
         {Array.from({ length: columns }).map((_, i) => (
           <Skeleton key={i} className="h-3 flex-1" />
         ))}
@@ -154,7 +154,10 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
       {Array.from({ length: rows }).map((_, rowIdx) => (
         <div
           key={rowIdx}
-          className="flex gap-4 px-4 py-3 border-t border-[var(--border-light)]"
+          className={cn(
+            'flex gap-6 px-6 py-4 border-b border-[var(--border-light)]',
+            rowIdx % 2 === 1 && 'bg-[var(--surface-1)]/40',
+          )}
         >
           {Array.from({ length: columns }).map((_, colIdx) => (
             <Skeleton key={colIdx} className="h-4 flex-1" />
@@ -166,7 +169,7 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Empty State                                                               */
+/*  Empty State — rich centered placeholder                                   */
 /* -------------------------------------------------------------------------- */
 
 export interface EmptyStateProps {
@@ -185,19 +188,33 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className,
 }) => {
   return (
-    <div className={cn('flex flex-col items-center justify-center py-16 px-4 text-center', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center py-20 px-4 text-center',
+        'animate-fade-in',
+        className,
+      )}
+    >
       {icon && (
-        <div className="flex items-center justify-center h-14 w-14 rounded-full bg-[var(--surface-2)] text-[var(--foreground-tertiary)] mb-4">
+        <div
+          className={cn(
+            'flex items-center justify-center h-16 w-16 rounded-2xl mb-4',
+            'bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-3)]',
+            'text-[var(--foreground-tertiary)]',
+            'shadow-[var(--shadow-md)]',
+            'border border-[var(--border-light)]',
+          )}
+        >
           {icon}
         </div>
       )}
-      <h3 className="text-base font-medium text-[var(--foreground)]">{title}</h3>
+      <h3 className="text-base font-semibold text-[var(--foreground)]">{title}</h3>
       {description && (
-        <p className="mt-1.5 text-sm text-[var(--foreground-tertiary)] max-w-sm">
+        <p className="mt-2 text-sm text-[var(--foreground-tertiary)] max-w-sm leading-relaxed">
           {description}
         </p>
       )}
-      {action && <div className="mt-4">{action}</div>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 };

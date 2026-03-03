@@ -79,7 +79,7 @@ export const Modal: React.FC<ModalProps> = ({
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
       previousFocusRef.current?.focus();
     };
   }, [isOpen, handleKeyDown]);
@@ -98,10 +98,11 @@ export const Modal: React.FC<ModalProps> = ({
       className="fixed inset-0 flex items-center justify-center p-4"
       style={{ zIndex: 'var(--z-modal)' } as React.CSSProperties}
     >
-      {/* Overlay */}
+      {/* Backdrop — blur + dark overlay */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 bg-[var(--overlay)] animate-overlay-in"
+        className="fixed inset-0 backdrop-blur-sm animate-overlay-in"
+        style={{ background: 'var(--overlay)' }}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -111,7 +112,9 @@ export const Modal: React.FC<ModalProps> = ({
         ref={contentRef}
         className={cn(
           'relative w-full rounded-[var(--radius-xl)]',
-          'bg-[var(--surface-0)] shadow-[var(--shadow-2xl)]',
+          'bg-[var(--surface-0)]',
+          'shadow-[var(--shadow-2xl)]',
+          'border border-[var(--border-light)]',
           'animate-modal-in',
           'max-h-[90vh] flex flex-col',
           sizes[size],
@@ -121,14 +124,23 @@ export const Modal: React.FC<ModalProps> = ({
         aria-labelledby={title ? 'modal-title' : undefined}
         aria-describedby={description ? 'modal-description' : undefined}
       >
+        {/* Gradient top-line accent */}
+        <div
+          className="absolute inset-x-0 top-0 h-px rounded-t-[var(--radius-xl)]"
+          style={{
+            background: 'linear-gradient(90deg, transparent, var(--primary), var(--accent), transparent)',
+          }}
+          aria-hidden="true"
+        />
+
         {/* Header */}
-        {(title || description) && (
-          <div className="flex items-start justify-between p-6 pb-4 border-b border-[var(--border-light)]">
+        {(title || description || !hideClose) && (
+          <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-[var(--border-light)] shrink-0">
             <div className="flex-1 min-w-0 pr-4">
               {title && (
                 <h2
                   id="modal-title"
-                  className="text-lg font-semibold text-[var(--foreground)]"
+                  className="text-lg font-semibold text-[var(--foreground)] tracking-tight"
                 >
                   {title}
                 </h2>
@@ -146,15 +158,15 @@ export const Modal: React.FC<ModalProps> = ({
               <button
                 onClick={onClose}
                 className={cn(
-                  'flex items-center justify-center h-8 w-8 rounded-[var(--radius-md)]',
+                  'flex items-center justify-center h-8 w-8 rounded-[var(--radius-md)] shrink-0',
                   'text-[var(--foreground-tertiary)] hover:text-[var(--foreground)]',
-                  'hover:bg-[var(--overlay-light)]',
-                  'transition-colors duration-[var(--transition-fast)]',
+                  'hover:bg-[var(--surface-2)]',
+                  'transition-all duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
                 )}
                 aria-label="Close dialog"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -180,8 +192,10 @@ export const ModalFooter: React.FC<ModalFooterProps> = ({ children, className })
   return (
     <div
       className={cn(
-        'flex items-center justify-end gap-3 px-6 py-4',
+        'flex items-center justify-end gap-3 px-6 py-4 shrink-0',
         'border-t border-[var(--border-light)]',
+        'bg-[var(--surface-1)]/50',
+        'rounded-b-[var(--radius-xl)]',
         className,
       )}
     >

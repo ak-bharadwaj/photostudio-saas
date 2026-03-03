@@ -5,6 +5,8 @@ import { AppModule } from "./app.module";
 import { ConfigService } from "@nestjs/config";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import type { Request, Response, NextFunction } from "express";
 
 async function bootstrap() {
   const logger = new Logger("Bootstrap");
@@ -14,9 +16,9 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
-  const port = configService.get("PORT") || 3000;
+  const port = configService.get("PORT") || 3001;
   const frontendUrl =
-    configService.get("FRONTEND_URL") || "http://localhost:3001";
+    configService.get("FRONTEND_URL") || "http://localhost:3000";
 
   // Security headers with Helmet
   app.use(
@@ -26,12 +28,15 @@ async function bootstrap() {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:", "http://localhost:*"],
+          imgSrc: ["'self'", "data:", "https:"],
         },
       },
       crossOriginEmbedderPolicy: false,
     }),
   );
+
+  // Cookie parser — must be registered before CSRF middleware which reads req.cookies
+  app.use(cookieParser());
 
   // Global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter());
@@ -46,15 +51,19 @@ async function bootstrap() {
   );
 
   // CORS configuration
+  const allowedOrigins = [frontendUrl];
+  if (process.env.NODE_ENV !== "production") {
+    allowedOrigins.push("http://localhost:3000");
+  }
   app.enableCors({
-    origin: [frontendUrl, "http://localhost:3001"],
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   // Request logging middleware
-  app.use((req: any, res: any, next: any) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
 
     res.on("finish", () => {
@@ -132,7 +141,8 @@ async function bootstrap() {
   logger.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
 }
 
-bootstrap().catch((error) => {
-  console.error("Application failed to start:", error);
+bootstrap().catch((error: unknown) => {
+  const logger = new Logger("Bootstrap");
+  logger.error("Application failed to start", error instanceof Error ? error.stack : String(error));
   process.exit(1);
 });

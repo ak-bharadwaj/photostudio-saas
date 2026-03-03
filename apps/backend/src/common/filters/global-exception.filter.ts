@@ -33,9 +33,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         typeof exceptionResponse === "object" &&
         exceptionResponse !== null
       ) {
-        const responseObj = exceptionResponse as any;
-        message = responseObj.message || exception.message;
-        error = responseObj.error || error;
+        const responseObj = exceptionResponse as Record<string, unknown>;
+        const rawMessage = responseObj["message"];
+        if (typeof rawMessage === "string" || Array.isArray(rawMessage)) {
+          message = rawMessage as string | string[];
+        } else {
+          message = exception.message;
+        }
+        const rawError = responseObj["error"];
+        if (typeof rawError === "string") {
+          error = rawError;
+        }
       }
     }
     // Handle Prisma errors

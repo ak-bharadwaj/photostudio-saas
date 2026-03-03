@@ -4,6 +4,8 @@ import {
   IsBoolean,
   IsOptional,
   IsNotEmpty,
+  IsUrl,
+  IsArray,
 } from "class-validator";
 
 export class CreatePortfolioItemDto {
@@ -15,7 +17,7 @@ export class CreatePortfolioItemDto {
   @IsOptional()
   description?: string;
 
-  @IsString()
+  @IsUrl({ require_tld: true })
   @IsNotEmpty()
   imageUrl: string;
 
@@ -41,7 +43,7 @@ export class UpdatePortfolioItemDto {
   @IsOptional()
   description?: string;
 
-  @IsString()
+  @IsUrl({ require_tld: true })
   @IsOptional()
   imageUrl?: string;
 
@@ -56,4 +58,10 @@ export class UpdatePortfolioItemDto {
   @IsBoolean()
   @IsOptional()
   isVisible?: boolean;
+}
+
+export class ReorderPortfolioDto {
+  @IsArray()
+  @IsString({ each: true })
+  itemIds: string[];
 }

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadService } from "../upload/upload.service";
@@ -12,6 +13,17 @@ import { QueueService } from "../queue/queue.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 import { InvoiceStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/client";
+import { Prisma } from "@prisma/client";
+
+/** Shape of a single invoice line item stored in the JSON column. */
+interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  /** Unit rate (price per unit) */
+  rate: number;
+  /** Pre-computed total for this line (quantity * rate) */
+  amount: number;
+}
 
 @Injectable()
 export class InvoiceService {
@@ -69,42 +81,19 @@ export class InvoiceService {
     const discount = dto.discount || 0;
     const total = subtotal + tax - discount;
 
-    // Generate invoice number
-    const invoiceNumber = await this.generateInvoiceNumber(studioId);
-
-    // Create invoice
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        studioId,
-        customerId: dto.customerId,
-        bookingId: dto.bookingId,
-        invoiceNumber,
-        lineItems: dto.lineItems as any,
-        subtotal: new Decimal(subtotal),
-        tax: new Decimal(tax),
-        discount: new Decimal(discount),
-        total: new Decimal(total),
-        status: "DRAFT",
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-        notes: dto.notes,
-      },
-      include: {
-        customer: true,
-        booking: {
-          include: {
-            service: true,
-          },
-        },
-        studio: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            taxRate: true,
-          },
-        },
-      },
+    // Create invoice with retry-on-collision for invoice number uniqueness
+    const invoice = await this.generateAndReserveInvoice(studioId, {
+      studioId,
+      customerId: dto.customerId,
+      ...(dto.bookingId ? { bookingId: dto.bookingId } : {}),
+      lineItems: dto.lineItems as unknown as Prisma.InputJsonValue,
+      subtotal: new Decimal(subtotal),
+      tax: new Decimal(tax),
+      discount: new Decimal(discount),
+      total: new Decimal(total),
+      status: "DRAFT",
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      notes: dto.notes,
     });
 
     return invoice;
@@ -118,7 +107,7 @@ export class InvoiceService {
   ) {
     const skip = (page - 1) * limit;
 
-    const where: any = { studioId };
+    const where: Prisma.InvoiceWhereInput = { studioId };
     if (status) {
       where.status = status;
     }
@@ -204,7 +193,7 @@ export class InvoiceService {
     }
 
     // Recalculate totals if line items changed
-    let updateData: any = {};
+    let updateData: Prisma.InvoiceUpdateInput = {};
 
     if (dto.lineItems) {
       const subtotal = dto.lineItems.reduce(
@@ -217,7 +206,7 @@ export class InvoiceService {
       const total = subtotal + tax - discount;
 
       updateData = {
-        lineItems: dto.lineItems,
+        lineItems: dto.lineItems as unknown as Prisma.InputJsonValue,
         subtotal: new Decimal(subtotal),
         tax: new Decimal(tax),
         discount: new Decimal(discount),
@@ -301,11 +290,11 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       studioName: invoice.studio.name,
       studioEmail: invoice.studio.email,
-      studioPhone: invoice.studio.phone,
+      studioPhone: invoice.studio.phone ?? '',
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email || undefined,
       customerPhone: invoice.customer.phone,
-      lineItems: invoice.lineItems as any[],
+      lineItems: invoice.lineItems as unknown as InvoiceLineItem[],
       subtotal: Number(invoice.subtotal),
       tax: Number(invoice.tax),
       discount: Number(invoice.discount),
@@ -322,7 +311,10 @@ export class InvoiceService {
       pdfBuffer,
     );
 
-    // Update invoice status and add PDF URL (if you want to store it)
+    // Update invoice status to SENT.
+    // NOTE: The Invoice schema does not yet have a pdfUrl column — to persist
+    // the PDF URL a migration adding `pdfUrl String?` must be run first.
+    // The generated URL is returned in the response and included in the email.
     await this.prisma.invoice.update({
       where: { id },
       data: { status: "SENT" },
@@ -340,8 +332,8 @@ export class InvoiceService {
           dueDate: invoice.dueDate || undefined,
           invoiceUrl: pdfUrl,
         });
-      } catch (error: any) {
-        this.logger.error("Failed to send invoice email:", error.stack);
+      } catch (error: unknown) {
+        this.logger.error("Failed to send invoice email:", error instanceof Error ? error.stack : String(error));
       }
     }
 
@@ -352,10 +344,10 @@ export class InvoiceService {
         this.logger.log(
           `[Queue] Scheduled payment reminder for invoice ${invoice.invoiceNumber}`,
         );
-      } catch (error: any) {
+      } catch (error: unknown) {
         this.logger.error(
           "[Queue] Failed to schedule payment reminder:",
-          error.stack,
+          error instanceof Error ? error.stack : String(error),
         );
       }
     }
@@ -373,11 +365,11 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       studioName: invoice.studio.name,
       studioEmail: invoice.studio.email,
-      studioPhone: invoice.studio.phone,
+      studioPhone: invoice.studio.phone ?? '',
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email || undefined,
       customerPhone: invoice.customer.phone,
-      lineItems: invoice.lineItems as any[],
+      lineItems: invoice.lineItems as unknown as InvoiceLineItem[],
       subtotal: Number(invoice.subtotal),
       tax: Number(invoice.tax),
       discount: Number(invoice.discount),
@@ -391,16 +383,77 @@ export class InvoiceService {
   }
 
   private async generateInvoiceNumber(studioId: string): Promise<string> {
-    // Get the count of invoices for this studio
-    const count = await this.prisma.invoice.count({
+    // Sort by createdAt desc (chronological, not lexicographic) to avoid year-boundary
+    // bugs where INV-2025-00001 sorts before INV-2024-00100 lexicographically.
+    const last = await this.prisma.invoice.findFirst({
       where: { studioId },
+      orderBy: { createdAt: "desc" },
+      select: { invoiceNumber: true },
     });
 
-    // Generate invoice number: INV-YYYY-XXXXX
-    const year = new Date().getFullYear();
-    const sequence = (count + 1).toString().padStart(5, "0");
+    // Extract the numeric sequence from the last invoice number (INV-YYYY-XXXXX)
+    let sequence = 1;
+    if (last?.invoiceNumber) {
+      const parts = last.invoiceNumber.split("-");
+      const lastSeq = parseInt(parts[parts.length - 1], 10);
+      if (!isNaN(lastSeq)) {
+        sequence = lastSeq + 1;
+      }
+    }
 
-    return `INV-${year}-${sequence}`;
+    const year = new Date().getFullYear();
+    return `INV-${year}-${sequence.toString().padStart(5, "0")}`;
+  }
+
+  /**
+   * Generates an invoice number and retries with an incremented sequence if a
+   * unique-constraint violation (P2002) occurs due to a concurrent create.
+   * This eliminates the count+1 race condition while still producing
+   * predictable human-readable numbers.
+   */
+  private async generateAndReserveInvoice(
+    studioId: string,
+    invoiceData: Omit<Prisma.InvoiceUncheckedCreateInput, "invoiceNumber">,
+    maxRetries = 5,
+  ) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      const invoiceNumber = await this.generateInvoiceNumber(studioId);
+      try {
+        return await this.prisma.invoice.create({
+          data: { ...invoiceData, invoiceNumber } as unknown as Prisma.InvoiceCreateInput,
+          include: {
+            customer: true,
+            booking: { include: { service: true } },
+            studio: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                taxRate: true,
+              },
+            },
+          },
+        });
+      } catch (err: unknown) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002"
+        ) {
+          // Unique constraint on invoiceNumber — retry
+          attempt++;
+          this.logger.warn(
+            `Invoice number collision on attempt ${attempt}, retrying…`,
+          );
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new InternalServerErrorException(
+      "Unable to generate a unique invoice number after multiple attempts",
+    );
   }
 
   async getStats(studioId: string) {

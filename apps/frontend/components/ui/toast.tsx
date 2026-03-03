@@ -38,7 +38,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addToast = useCallback(
     (type: ToastType, message: string, duration = 5000) => {
-      const id = Math.random().toString(36).substring(2, 11);
+      const id = crypto.randomUUID();
       setToasts((prev) => [...prev, { id, type, message, duration }]);
 
       if (duration > 0) {
@@ -70,9 +70,10 @@ interface ToastContainerProps {
 const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeToast }) => {
   return (
     <div
-      className="fixed top-4 right-4 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
+      className="fixed top-4 right-4 flex flex-col gap-3 max-w-[380px] w-full pointer-events-none"
       style={{ zIndex: 'var(--z-toast)' } as React.CSSProperties}
       aria-live="polite"
+      aria-atomic="true"
       aria-label="Notifications"
     >
       {toasts.map((toast) => (
@@ -91,70 +92,116 @@ interface ToastItemProps {
   onClose: () => void;
 }
 
+/* Per-type design tokens */
+const TOAST_CONFIG: Record<ToastType, {
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  iconColor: string;
+  progressColor: string;
+  accentBorder: string;
+  label: string;
+}> = {
+  success: {
+    icon: CheckCircle,
+    iconBg: 'bg-[var(--success)]/15',
+    iconColor: 'text-[var(--success)]',
+    progressColor: 'bg-[var(--success)]',
+    accentBorder: 'shadow-[inset_0_0_0_1px_rgba(34,197,94,0.2)]',
+    label: 'Success',
+  },
+  error: {
+    icon: AlertCircle,
+    iconBg: 'bg-[var(--danger)]/15',
+    iconColor: 'text-[var(--danger)]',
+    progressColor: 'bg-[var(--danger)]',
+    accentBorder: 'shadow-[inset_0_0_0_1px_rgba(239,68,68,0.2)]',
+    label: 'Error',
+  },
+  warning: {
+    icon: AlertTriangle,
+    iconBg: 'bg-[var(--warning)]/15',
+    iconColor: 'text-[var(--warning)]',
+    progressColor: 'bg-[var(--warning)]',
+    accentBorder: 'shadow-[inset_0_0_0_1px_rgba(234,179,8,0.2)]',
+    label: 'Warning',
+  },
+  info: {
+    icon: Info,
+    iconBg: 'bg-[var(--primary)]/15',
+    iconColor: 'text-[var(--primary)]',
+    progressColor: 'bg-[var(--primary)]',
+    accentBorder: 'shadow-[inset_0_0_0_1px_rgba(99,102,241,0.2)]',
+    label: 'Info',
+  },
+};
+
 const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
   const [isExiting, setIsExiting] = useState(false);
   const progressRef = useRef<HTMLDivElement>(null);
+  const cfg = TOAST_CONFIG[toast.type];
+  const Icon = cfg.icon;
 
   const handleClose = useCallback(() => {
     setIsExiting(true);
-    setTimeout(onClose, 200); // match animation duration
+    setTimeout(onClose, 220);
   }, [onClose]);
 
   useEffect(() => {
     if (progressRef.current && toast.duration && toast.duration > 0) {
       progressRef.current.style.transition = `width ${toast.duration}ms linear`;
-      // Trigger reflow then start animation
       requestAnimationFrame(() => {
-        if (progressRef.current) {
-          progressRef.current.style.width = '0%';
-        }
+        requestAnimationFrame(() => {
+          if (progressRef.current) {
+            progressRef.current.style.width = '0%';
+          }
+        });
       });
     }
   }, [toast.duration]);
 
-  const icons: Record<ToastType, React.ReactNode> = {
-    success: <CheckCircle className="h-5 w-5" />,
-    error: <AlertCircle className="h-5 w-5" />,
-    warning: <AlertTriangle className="h-5 w-5" />,
-    info: <Info className="h-5 w-5" />,
-  };
-
-  const styles: Record<ToastType, string> = {
-    success: 'bg-[var(--surface-0)] border-[var(--success)] text-[var(--foreground)]',
-    error: 'bg-[var(--surface-0)] border-[var(--danger)] text-[var(--foreground)]',
-    warning: 'bg-[var(--surface-0)] border-[var(--warning)] text-[var(--foreground)]',
-    info: 'bg-[var(--surface-0)] border-[var(--primary)] text-[var(--foreground)]',
-  };
-
-  const iconColors: Record<ToastType, string> = {
-    success: 'text-[var(--success)]',
-    error: 'text-[var(--danger)]',
-    warning: 'text-[var(--warning)]',
-    info: 'text-[var(--primary)]',
-  };
-
-  const progressColors: Record<ToastType, string> = {
-    success: 'bg-[var(--success)]',
-    error: 'bg-[var(--danger)]',
-    warning: 'bg-[var(--warning)]',
-    info: 'bg-[var(--primary)]',
-  };
-
   return (
     <div
       className={cn(
+        // Base
         'pointer-events-auto relative overflow-hidden',
         'flex items-start gap-3 p-4',
-        'rounded-[var(--radius-lg)] border-l-4 shadow-[var(--shadow-lg)]',
+        'rounded-[var(--radius-xl)]',
+        // Frosted glass surface
+        'bg-[var(--surface-0)]/90 backdrop-blur-xl',
+        // Border + subtle glow ring
+        'border border-[var(--border)]',
+        cfg.accentBorder,
+        // Elevation
+        'shadow-[var(--shadow-lg)]',
+        // Animation
         isExiting ? 'animate-toast-out' : 'animate-toast-in',
-        styles[toast.type],
       )}
       role="alert"
+      aria-label={`${cfg.label}: ${toast.message}`}
     >
-      <div className={cn('shrink-0 mt-0.5', iconColors[toast.type])}>
-        {icons[toast.type]}
+      {/* Colored icon container */}
+      <div
+        className={cn(
+          'shrink-0 h-8 w-8 rounded-[var(--radius-md)]',
+          'flex items-center justify-center',
+          cfg.iconBg,
+        )}
+        aria-hidden="true"
+      >
+        <Icon className={cn('h-4 w-4', cfg.iconColor)} />
       </div>
-      <p className="flex-1 text-sm font-medium leading-relaxed">{toast.message}</p>
+
+      {/* Message */}
+      <div className="flex-1 min-w-0 pt-0.5">
+        <p className="text-xs font-bold uppercase tracking-wider text-[var(--foreground-tertiary)] mb-0.5">
+          {cfg.label}
+        </p>
+        <p className="text-sm font-medium leading-snug text-[var(--foreground)]">
+          {toast.message}
+        </p>
+      </div>
+
+      {/* Dismiss */}
       <button
         onClick={handleClose}
         className={cn(
@@ -165,15 +212,15 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
         )}
         aria-label="Dismiss notification"
       >
-        <X className="h-4 w-4" />
+        <X className="h-3.5 w-3.5" />
       </button>
 
       {/* Progress bar */}
       {toast.duration && toast.duration > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--surface-2)]">
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--surface-2)]">
           <div
             ref={progressRef}
-            className={cn('h-full w-full', progressColors[toast.type])}
+            className={cn('h-full w-full rounded-full', cfg.progressColor)}
           />
         </div>
       )}

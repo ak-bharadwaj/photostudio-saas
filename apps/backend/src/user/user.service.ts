@@ -275,6 +275,13 @@ export class UserService {
       throw new NotFoundException("User not found");
     }
 
+    // OAuth users have no passwordHash — they cannot use password-based auth
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        "OAuth users cannot change their password. Please use your OAuth provider to manage authentication.",
+      );
+    }
+
     // Verify current password
     const isPasswordValid = await bcrypt.compare(
       changePasswordDto.currentPassword,
@@ -373,7 +380,7 @@ export class UserService {
       totalUsers,
       activeUsers,
       inactiveUsers: totalUsers - activeUsers,
-      usersByRole: usersByRole.map((item) => ({
+      usersByRole: usersByRole.map((item: { role: UserRole; _count: number }) => ({
         role: item.role,
         count: item._count,
       })),

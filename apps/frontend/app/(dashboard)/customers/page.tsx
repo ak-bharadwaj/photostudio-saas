@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,8 @@ import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { customersApi } from '@/lib/api';
 import { formatPhoneNumber } from '@/lib/utils';
-import { Plus, Search, Users, Eye, Mail, Phone } from 'lucide-react';
+import { Plus, Search, Users, Eye, Mail, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,6 +27,15 @@ interface Customer {
   createdAt: string;
 }
 
+interface CustomerMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+const CUSTOMERS_PAGE_SIZE = 20;
+
 const customerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
@@ -35,14 +46,35 @@ const customerSchema = z.object({
 
 type CustomerFormData = z.infer<typeof customerSchema>;
 
-export default function CustomersPage() {
+export default function CustomersPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-6 space-y-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-14 w-full rounded-xl" />)}</div>}>
+      <CustomersPage />
+    </Suspense>
+  );
+}
+
+function CustomersPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [meta, setMeta] = useState<CustomerMeta>({ total: 0, page: 1, limit: CUSTOMERS_PAGE_SIZE, totalPages: 1 });
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const { addToast } = useToast();
+  const abortRef = useRef<AbortController | null>(null);
+
+  /* Auto-open create modal when ?create=1 is in the URL */
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setIsCreateModalOpen(true);
+      router.replace('/customers', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Debounce search term
   useEffect(() => {
@@ -51,6 +83,11 @@ export default function CustomersPage() {
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const {
     register,
@@ -61,27 +98,36 @@ export default function CustomersPage() {
     resolver: zodResolver(customerSchema),
   });
 
-  // Re-fetch customers when debounced search term changes
-  useEffect(() => {
-    loadCustomers(debouncedSearch);
-  }, [debouncedSearch]);
-
-  const loadCustomers = async (searchQuery: string = '') => {
+  const loadCustomers = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       setIsLoading(true);
-      const params: any = { limit: 50 }; // Fetch fewer by default for optimization
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
+      const params: Record<string, string | number> = { limit: CUSTOMERS_PAGE_SIZE, page };
+      if (debouncedSearch) params.search = debouncedSearch;
       const response = await customersApi.getAll(params);
+      if (ctrl.signal.aborted) return;
       setCustomers(response.data?.data || []);
+      if (response.data?.meta) {
+        setMeta(response.data.meta);
+      } else {
+        const list = response.data?.data || [];
+        setMeta({ total: list.length, page: 1, limit: CUSTOMERS_PAGE_SIZE, totalPages: 1 });
+      }
     } catch (error) {
-      console.error('Failed to load customers:', error);
+      if ((error as { name?: string }).name === 'CanceledError') return;
       addToast('error', 'Failed to load customers');
     } finally {
-      setIsLoading(false);
+      if (!ctrl.signal.aborted) setIsLoading(false);
     }
-  };
+  }, [debouncedSearch, page, addToast]);
+
+  // Re-fetch when page or search changes
+  useEffect(() => {
+    loadCustomers();
+    return () => abortRef.current?.abort();
+  }, [loadCustomers]);
 
   const onCreateCustomer = async (data: CustomerFormData) => {
     try {
@@ -92,29 +138,27 @@ export default function CustomersPage() {
       setIsCreateModalOpen(false);
       reset();
       loadCustomers();
-    } catch (error: any) {
-      addToast('error', error.response?.data?.message || 'Failed to create customer');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to create customer');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Client-side mapping since the API already filters
-  const displayCustomers = customers || [];
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Customers</h1>
-          <p className="mt-2 text-gray-600">Manage your customer database</p>
-        </div>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Customer
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="CRM"
+        title="Customers"
+        subtitle="Manage your customer database and relationships."
+        accentColor="violet"
+        actions={
+          <Button onClick={() => setIsCreateModalOpen(true)} size="lg" className="rounded-full shadow-lg shadow-[var(--primary)]/20">
+            <Plus className="mr-2 h-4 w-4" /> New Customer
+          </Button>
+        }
+      />
 
       {/* Search */}
       <Card>
@@ -131,14 +175,16 @@ export default function CustomersPage() {
       {/* Customers Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Customers {displayCustomers.length >= 50 ? '(50+)' : `(${displayCustomers.length})`}</CardTitle>
+          <CardTitle>All Customers ({meta.total})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner size="lg" />
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="skeleton h-14 w-full rounded-xl" />
+              ))}
             </div>
-          ) : displayCustomers.length === 0 ? (
+          ) : customers.length === 0 ? (
             <div className="text-center py-8">
               <Users className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
               <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">No customers</h3>
@@ -163,12 +209,12 @@ export default function CustomersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayCustomers.map((customer) => (
+                {customers.map((customer: Customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">{customer.name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-gray-400" />
+                        <Mail className="h-4 w-4 text-[var(--foreground-tertiary)]" />
                         <a
                           href={`mailto:${customer.email}`}
                           className="text-[var(--primary)] hover:underline"
@@ -180,7 +226,7 @@ export default function CustomersPage() {
                     <TableCell>
                       {customer.phone ? (
                         <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-gray-400" />
+                          <Phone className="h-4 w-4 text-[var(--foreground-tertiary)]" />
                           <a
                             href={`tel:${customer.phone}`}
                             className="text-[var(--primary)] hover:underline"
@@ -189,7 +235,7 @@ export default function CustomersPage() {
                           </a>
                         </div>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-[var(--foreground-tertiary)]">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -204,6 +250,35 @@ export default function CustomersPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+
+          {/* Pagination */}
+          {!isLoading && meta.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-4 border-t border-[var(--border)]">
+              <p className="text-sm text-[var(--foreground-secondary)]">
+                Page {meta.page} of {meta.totalPages} &mdash; {meta.total} customers total
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                  disabled={page >= meta.totalPages}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -7,9 +7,22 @@ import {
   IsNumber,
   IsEnum,
   Min,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from "class-validator";
 import { Transform } from "class-transformer";
 import { BookingStatus } from "@prisma/client";
+
+@ValidatorConstraint({ name: "isFutureDate", async: false })
+class IsFutureDateConstraint implements ValidatorConstraintInterface {
+  validate(value: string): boolean {
+    return new Date(value) > new Date();
+  }
+  defaultMessage(): string {
+    return "Scheduled date must be in the future";
+  }
+}
 
 export class CreateBookingDto {
   @IsString()
@@ -23,6 +36,7 @@ export class CreateBookingDto {
 
   @IsDateString()
   @IsNotEmpty()
+  @Validate(IsFutureDateConstraint)
   scheduledDate: string;
 
   @IsString()
@@ -95,6 +109,7 @@ export class CreateInternalBookingDto {
 
   @IsDateString()
   @IsNotEmpty()
+  @Validate(IsFutureDateConstraint)
   scheduledDate: string;
 
   @IsString()
@@ -104,8 +119,7 @@ export class CreateInternalBookingDto {
 }
 export class SendQuoteDto {
   @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
+  @Min(0.01)
   amount: number;
 
   @IsString()

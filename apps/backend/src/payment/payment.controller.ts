@@ -31,34 +31,38 @@ export class PaymentController {
     @Body() createPaymentDto: CreatePaymentDto,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.create(createPaymentDto, user.studioId!);
+    return this.paymentService.create(createPaymentDto, user.studioId);
   }
 
   @Get()
   findAll(
     @CurrentUser() user: UserPayload,
+    @Query("page", new ParseIntPipe({ optional: true })) page?: number,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("paymentMethod") paymentMethod?: string,
+    @Query("search") search?: string,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
     const params = {
+      page,
       limit,
       paymentMethod,
+      search,
     };
-    return this.paymentService.findAll(user.studioId!, params);
+    return this.paymentService.findAll(user.studioId, params);
   }
 
   @Get("stats")
   getStats(@CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.getStats(user.studioId!);
+    return this.paymentService.getStats(user.studioId);
   }
 
   @Get("invoice/:invoiceId")
@@ -66,26 +70,26 @@ export class PaymentController {
     @Param("invoiceId") invoiceId: string,
     @CurrentUser() user: UserPayload,
   ) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.findAllByInvoice(invoiceId, user.studioId!);
+    return this.paymentService.findAllByInvoice(invoiceId, user.studioId);
   }
 
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.findOne(id, user.studioId!);
+    return this.paymentService.findOne(id, user.studioId);
   }
 
   @Delete(":id")
   @Roles("OWNER") // Only owners can delete payments
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
-    return this.paymentService.remove(id, user.studioId!);
+    return this.paymentService.remove(id, user.studioId);
   }
 }

@@ -8,9 +8,32 @@ import {
   Matches,
   MinLength,
   MaxLength,
+  ValidateNested,
 } from "class-validator";
-import { Transform } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { SubscriptionTier, StudioStatus } from "@prisma/client";
+
+export class BrandingConfigDto {
+  @IsString()
+  @IsOptional()
+  primaryColor?: string;
+
+  @IsString()
+  @IsOptional()
+  secondaryColor?: string;
+
+  @IsString()
+  @IsOptional()
+  accentColor?: string;
+
+  @IsString()
+  @IsOptional()
+  fontFamily?: string;
+
+  @IsUrl()
+  @IsOptional()
+  logoUrl?: string;
+}
 
 export class CreateStudioDto {
   @IsString()
@@ -44,8 +67,10 @@ export class CreateStudioDto {
   @IsOptional()
   logoUrl?: string;
 
+  @ValidateNested()
+  @Type(() => BrandingConfigDto)
   @IsOptional()
-  brandingConfig?: any;
+  brandingConfig?: BrandingConfigDto;
 
   @IsEnum(SubscriptionTier)
   @IsOptional()
@@ -104,8 +129,10 @@ export class UpdateStudioDto {
   @IsOptional()
   logoUrl?: string;
 
+  @ValidateNested()
+  @Type(() => BrandingConfigDto)
   @IsOptional()
-  brandingConfig?: any;
+  brandingConfig?: BrandingConfigDto;
 
   @IsString()
   @IsOptional()

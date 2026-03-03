@@ -41,9 +41,10 @@ export const TableHeader = React.forwardRef<HTMLTableSectionElement, TableHeader
       <thead
         ref={ref}
         className={cn(
-          'bg-[var(--surface-1)] border-b border-[var(--border)]',
+          'border-b border-[var(--border-light)]',
           className,
         )}
+        style={{ background: 'linear-gradient(to right, var(--surface-2), var(--surface-1))' }}
         {...props}
       >
         {children}
@@ -67,7 +68,12 @@ export const TableBody = React.forwardRef<HTMLTableSectionElement, TableBodyProp
     return (
       <tbody
         ref={ref}
-        className={cn('[&_tr:last-child]:border-0 bg-white/40', className)}
+        className={cn(
+          '[&_tr:last-child]:border-0',
+          // Subtle striped rows
+          '[&_tr:nth-child(even)]:bg-[var(--surface-1)]/40',
+          className,
+        )}
         {...props}
       >
         {children}
@@ -95,9 +101,9 @@ export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
         ref={ref}
         className={cn(
           'border-b border-[var(--border-light)]',
-          'transition-all duration-[var(--transition-fast)]',
-          'hover:bg-[var(--primary-light)]/30 hover:shadow-sm',
-          selected && 'bg-[var(--primary-light)]',
+          'transition-all duration-150',
+          'hover:bg-[var(--surface-1)] hover:shadow-[inset_2px_0_0_var(--primary)]',
+          selected && 'bg-[var(--primary-light)]/70 border-[var(--primary)]/20 shadow-[inset_2px_0_0_var(--primary)]',
           className,
         )}
         {...props}
@@ -124,8 +130,8 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
       <th
         ref={ref}
         className={cn(
-          'h-14 px-6 text-left align-middle',
-          'text-[10px] font-black uppercase tracking-[0.1em]',
+          'h-11 px-6 text-left align-middle',
+          'text-[10px] font-bold uppercase tracking-[0.12em]',
           'text-[var(--foreground-tertiary)]',
           className,
         )}
@@ -153,7 +159,7 @@ export const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
       <td
         ref={ref}
         className={cn(
-          'px-6 py-5 align-middle text-sm text-[var(--foreground)] font-medium',
+          'px-6 py-4 align-middle text-sm text-[var(--foreground)] font-medium',
           className,
         )}
         {...props}
@@ -187,20 +193,30 @@ export const TableEmpty: React.FC<TableEmptyProps> = ({
 }) => {
   return (
     <tr>
-      <td colSpan={colSpan} className="py-16 text-center">
-        <div className="flex flex-col items-center gap-3">
+      <td colSpan={colSpan} className="py-24 text-center">
+        <div className="flex flex-col items-center gap-4">
           {icon && (
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[var(--surface-2)] text-[var(--foreground-tertiary)]">
+            <div
+              className={cn(
+                'flex items-center justify-center h-16 w-16 rounded-3xl',
+                'text-[var(--foreground-tertiary)]',
+              )}
+              style={{
+                background: 'linear-gradient(135deg, var(--surface-2), var(--surface-3))',
+                boxShadow: 'var(--shadow-md)',
+                border: '1px solid var(--border-light)',
+              }}
+            >
               {icon}
             </div>
           )}
           <div>
-            <p className="text-sm font-medium text-[var(--foreground)]">{title}</p>
+            <p className="text-sm font-bold text-[var(--foreground)]">{title}</p>
             {description && (
-              <p className="mt-1 text-sm text-[var(--foreground-tertiary)]">{description}</p>
+              <p className="mt-1 text-sm text-[var(--foreground-tertiary)] max-w-xs mx-auto">{description}</p>
             )}
           </div>
-          {action && <div className="mt-2">{action}</div>}
+          {action && <div className="mt-3">{action}</div>}
         </div>
       </td>
     </tr>

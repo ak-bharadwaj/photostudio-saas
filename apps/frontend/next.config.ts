@@ -6,6 +6,50 @@ const nextConfig: NextConfig = {
   
   // Disable x-powered-by header for security
   poweredByHeader: false,
+
+  // Allow next/image to optimise remote images from Cloudinary and Supabase Storage
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "**.supabase.co",
+        pathname: "/**",
+      },
+      {
+        // Unsplash — used for seeded demo data / avatars
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+      {
+        // Unsplash CDN
+        protocol: "https",
+        hostname: "plus.unsplash.com",
+        pathname: "/**",
+      },
+      {
+        // UI Avatars / DiceBear / other avatar services
+        protocol: "https",
+        hostname: "ui-avatars.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
+    ],
+  },
   
   // Configure headers for PWA
   async headers() {

@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
-import { SubscriptionTier } from "@prisma/client";
+import { SubscriptionTier, Prisma, StudioStatus, BillingModel, CommissionType } from "@prisma/client";
 import {
   CreateAdminDto,
   AdminLoginDto,
@@ -32,7 +32,7 @@ export class AdminService {
       throw new ConflictException("Admin with this email already exists");
     }
 
-    const hashedPassword = await bcrypt.hash(createAdminDto.password, 10);
+    const hashedPassword = await bcrypt.hash(createAdminDto.password, 12);
 
     const admin = await this.prisma.admin.create({
       data: {
@@ -106,7 +106,7 @@ export class AdminService {
     const passwordHash = await bcrypt.hash(dto.ownerPassword, 12);
 
     // Create studio with owner in a transaction
-    const studio = await this.prisma.$transaction(async (tx: any) => {
+    const studio = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newStudio = await tx.studio.create({
         data: {
           name: dto.studioName,
@@ -147,9 +147,9 @@ export class AdminService {
   async getAllStudios(page = 1, limit = 20, status?: string, tier?: string) {
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    if (status) where.status = status;
-    if (tier) where.subscriptionTier = tier;
+    const where: Prisma.StudioWhereInput = {};
+    if (status) where.status = status as StudioStatus;
+    if (tier) where.subscriptionTier = tier as SubscriptionTier;
 
     const [studios, total] = await Promise.all([
       this.prisma.studio.findMany({
@@ -220,23 +220,23 @@ export class AdminService {
       throw new NotFoundException("Studio not found");
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.StudioUpdateInput = {};
     if (updateStudioDto.name) updateData.name = updateStudioDto.name;
     if (updateStudioDto.email) updateData.email = updateStudioDto.email;
     if (updateStudioDto.phone) updateData.phone = updateStudioDto.phone;
-    if (updateStudioDto.status) updateData.status = updateStudioDto.status;
+    if (updateStudioDto.status) updateData.status = updateStudioDto.status as StudioStatus;
     if (updateStudioDto.subscriptionTier)
-      updateData.subscriptionTier = updateStudioDto.subscriptionTier;
+      updateData.subscriptionTier = updateStudioDto.subscriptionTier as SubscriptionTier;
     if (updateStudioDto.defaultTerms !== undefined)
       updateData.defaultTerms = updateStudioDto.defaultTerms;
     if (updateStudioDto.brandingConfig)
       updateData.brandingConfig = updateStudioDto.brandingConfig;
     if (updateStudioDto.billingModel)
-      updateData.billingModel = updateStudioDto.billingModel;
+      updateData.billingModel = updateStudioDto.billingModel as BillingModel;
     if (updateStudioDto.commissionRate !== undefined)
       updateData.commissionRate = updateStudioDto.commissionRate;
     if (updateStudioDto.commissionType)
-      updateData.commissionType = updateStudioDto.commissionType;
+      updateData.commissionType = updateStudioDto.commissionType as CommissionType;
     if (updateStudioDto.currency)
       updateData.currency = updateStudioDto.currency;
     if (updateStudioDto.subscriptionExpiresAt)

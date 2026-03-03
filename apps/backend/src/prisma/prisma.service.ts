@@ -2,7 +2,6 @@ import {
   Injectable,
   OnModuleInit,
   OnModuleDestroy,
-  INestApplication,
   Logger,
 } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
@@ -11,21 +10,26 @@ import { tenantExtension } from "../common/tenant";
 
 import { Pool } from "pg";
 
-function createBasePrismaClient() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const adapter = new PrismaPg(pool);
-  return new PrismaClient({ adapter });
+// Capture the type produced by applying our tenant extension to PrismaClient.
+// PrismaClient.$extends returns an opaque intersection type that cannot be
+// named directly, so we derive it via ReturnType + a helper function.
+function extendClient(base: PrismaClient) {
+  return base.$extends(tenantExtension);
 }
+type ExtendedPrismaClient = ReturnType<typeof extendClient>;
 
 // Create the extended client type
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
   private _baseClient: PrismaClient;
-  private _client: any; // Type will be inferred or cast
+  private _client: ExtendedPrismaClient;
 
   constructor() {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
     const adapter = new PrismaPg(pool);
     this._baseClient = new PrismaClient({ adapter });
     this._client = this._baseClient.$extends(tenantExtension);
@@ -38,12 +42,6 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     await this._baseClient.$disconnect();
-  }
-
-  async enableShutdownHooks(app: INestApplication) {
-    process.on("beforeExit", async () => {
-      await app.close();
-    });
   }
 
   // Proxy all model accessors to the extended client
@@ -84,15 +82,20 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this._client.workflow;
   }
 
-  // Proxy $ methods to the base client
+  // Proxy $ methods to the extended (tenant-aware) client so that
+  // transactions also respect the current tenant context.
+  // Note: $queryRaw / $executeRaw are raw SQL and do not go through the
+  // extension layer, so they stay on _baseClient intentionally.
   get $transaction() {
-    return (this._baseClient as any).$transaction.bind(this._baseClient);
+    // _client is an opaque intersection type from $extends; $transaction is
+    // present at runtime but not in the static type — cast to access it.
+    return (this._client as unknown as PrismaClient).$transaction.bind(this._client);
   }
   get $queryRaw() {
-    return (this._baseClient as any).$queryRaw.bind(this._baseClient);
+    return this._baseClient.$queryRaw.bind(this._baseClient);
   }
   get $executeRaw() {
-    return (this._baseClient as any).$executeRaw.bind(this._baseClient);
+    return this._baseClient.$executeRaw.bind(this._baseClient);
   }
 
   async $connect() {
@@ -108,17 +111,17 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Delete in order to respect FK constraints
-    await (this._baseClient as any).bookingStatusLog.deleteMany();
-    await (this._baseClient as any).payment.deleteMany();
-    await (this._baseClient as any).commission.deleteMany();
-    await (this._baseClient as any).invoice.deleteMany();
-    await (this._baseClient as any).booking.deleteMany();
-    await (this._baseClient as any).portfolioItem.deleteMany();
-    await (this._baseClient as any).workflow.deleteMany();
-    await (this._baseClient as any).service.deleteMany();
-    await (this._baseClient as any).customer.deleteMany();
-    await (this._baseClient as any).user.deleteMany();
-    await (this._baseClient as any).studio.deleteMany();
-    await (this._baseClient as any).admin.deleteMany();
+    await this._baseClient.bookingStatusLog.deleteMany();
+    await this._baseClient.payment.deleteMany();
+    await this._baseClient.commission.deleteMany();
+    await this._baseClient.invoice.deleteMany();
+    await this._baseClient.booking.deleteMany();
+    await this._baseClient.portfolioItem.deleteMany();
+    await this._baseClient.workflow.deleteMany();
+    await this._baseClient.service.deleteMany();
+    await this._baseClient.customer.deleteMany();
+    await this._baseClient.user.deleteMany();
+    await this._baseClient.studio.deleteMany();
+    await this._baseClient.admin.deleteMany();
   }
 }

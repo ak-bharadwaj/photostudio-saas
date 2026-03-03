@@ -1,9 +1,9 @@
-import { Injectable, BadRequestException, Logger } from "@nestjs/common";
+import { Injectable, BadRequestException, InternalServerErrorException, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
+import { v2 as cloudinary, UploadApiResponse, UploadApiOptions } from "cloudinary";
 import * as fs from "fs";
 import * as path from "path";
-const { v4: uuidv4 } = require("uuid");
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class UploadService {
@@ -35,8 +35,11 @@ export class UploadService {
 
     // Local fallback paths
     this.localUploadDir = path.join(process.cwd(), "public", "uploads");
-    const port = this.configService.get<number>("PORT") || 3000;
-    this.localBaseUrl = `http://localhost:${port}/uploads`;
+    const port = this.configService.get<number>("PORT") || 3001;
+    const backendUrl =
+      this.configService.get<string>("BACKEND_URL") ||
+      `http://localhost:${port}`;
+    this.localBaseUrl = `${backendUrl}/uploads`;
   }
 
   /** Upload studio logo */
@@ -58,8 +61,9 @@ export class UploadService {
         allowed_formats: ["jpg", "jpeg", "png", "webp", "gif", "svg"],
       });
       return result.secure_url;
-    } catch (error) {
-      throw new BadRequestException(`Failed to upload logo: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error("Logo upload failed:", error);
+      throw new InternalServerErrorException("Failed to upload logo");
     }
   }
 
@@ -82,10 +86,9 @@ export class UploadService {
         allowed_formats: ["jpg", "jpeg", "png", "webp"],
       });
       return result.secure_url;
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to upload portfolio image: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      this.logger.error("Portfolio image upload failed:", error);
+      throw new InternalServerErrorException("Failed to upload portfolio image");
     }
   }
 
@@ -108,10 +111,9 @@ export class UploadService {
         allowed_formats: ["jpg", "jpeg", "png", "webp"],
       });
       return result.secure_url;
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to upload service cover: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      this.logger.error("Service cover upload failed:", error);
+      throw new InternalServerErrorException("Failed to upload service cover");
     }
   }
 
@@ -132,10 +134,9 @@ export class UploadService {
         allowed_formats: ["pdf"],
       });
       return result.secure_url;
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to upload contract PDF: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      this.logger.error("Contract PDF upload failed:", error);
+      throw new InternalServerErrorException("Failed to upload contract PDF");
     }
   }
 
@@ -156,10 +157,9 @@ export class UploadService {
         allowed_formats: ["pdf"],
       });
       return result.secure_url;
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to upload invoice PDF: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      this.logger.error("Invoice PDF upload failed:", error);
+      throw new InternalServerErrorException("Failed to upload invoice PDF");
     }
   }
 
@@ -168,8 +168,8 @@ export class UploadService {
     if (this.useLocalFallback) return;
     try {
       await cloudinary.uploader.destroy(publicId);
-    } catch (error: any) {
-      this.logger.error(`Failed to delete file ${publicId}:`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to delete file ${publicId}:`, error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -233,7 +233,7 @@ export class UploadService {
   /** Helper: stream buffer to Cloudinary */
   private uploadToCloudinary(
     fileBuffer: Buffer,
-    options: any,
+    options: UploadApiOptions,
   ): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(

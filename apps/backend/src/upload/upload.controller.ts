@@ -19,6 +19,26 @@ import {
 } from "@nestjs/swagger";
 import { UserPayload } from "../common/interfaces/user-payload.interface";
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+]);
+
+function validateImageFile(file: Express.Multer.File): void {
+  if (file.size > MAX_IMAGE_SIZE) {
+    throw new BadRequestException("File size must not exceed 10 MB");
+  }
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
+    throw new BadRequestException(
+      "Invalid file type. Allowed types: JPEG, PNG, WebP, GIF, SVG",
+    );
+  }
+}
+
 @ApiTags("upload")
 @ApiBearerAuth()
 @Controller("upload")
@@ -37,12 +57,13 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException("No file uploaded");
     }
+    validateImageFile(file);
 
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    const url = await this.uploadService.uploadStudioLogo(user.studioId!, file);
+    const url = await this.uploadService.uploadStudioLogo(user.studioId, file);
     return { url };
   }
 
@@ -57,13 +78,14 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException("No file uploaded");
     }
+    validateImageFile(file);
 
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
     const url = await this.uploadService.uploadPortfolioImage(
-      user.studioId!,
+      user.studioId,
       file,
     );
     return { url };
@@ -80,13 +102,14 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException("No file uploaded");
     }
+    validateImageFile(file);
 
-    if (!user.studioId && !user.isAdmin) {
+    if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }
 
     const url = await this.uploadService.uploadServiceCover(
-      user.studioId!,
+      user.studioId,
       file,
     );
     return { url };

@@ -16,9 +16,9 @@ import {
   UpdateBookingStatusDto,
   CreateInternalBookingDto,
   SendQuoteDto,
-  AcceptQuoteDto,
 } from "./dto/booking.dto";
 import { BookingStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { PdfService } from "../pdf/pdf.service";
 import { UploadService } from "../upload/upload.service";
@@ -42,6 +42,10 @@ export class BookingService {
 
     if (!studio) {
       throw new NotFoundException("Studio not found");
+    }
+
+    if (studio.status !== "ACTIVE" && studio.status !== "TRIAL") {
+      throw new BadRequestException("Studio is not accepting bookings");
     }
 
     // Find service
@@ -70,10 +74,13 @@ export class BookingService {
 
     // Check for schedule conflicts
     const scheduledAt = new Date(dto.scheduledDate);
+    if (isNaN(scheduledAt.getTime())) {
+      throw new BadRequestException("Invalid scheduled date");
+    }
     await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
 
     // Create booking
-    const booking = await this.prisma.$transaction(async (tx) => {
+    const booking = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newBooking = await tx.booking.create({
         data: {
           studioId: studio.id,
@@ -140,27 +147,35 @@ export class BookingService {
     const scheduledAt = new Date(dto.scheduledDate);
     await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
 
-    // Find or create customer
-    let customer = await this.prisma.customer.findFirst({
-      where: {
-        email: dto.customerEmail,
-        studioId: studio.id,
-      },
-    });
-
-    if (!customer) {
-      customer = await this.prisma.customer.create({
-        data: {
-          name: dto.customerName,
-          email: dto.customerEmail,
-          phone: dto.customerPhone,
-          studioId: studio.id,
-        },
+    // Find or create customer AND create booking atomically inside one transaction.
+    // Both operations share the same DB transaction so the unique constraint on
+    // (studioId, phone) enforces correctness even under concurrent requests —
+    // the second concurrent INSERT will block until the first commits, then
+    // either succeed (if the first rolled back) or hit a unique-key error which
+    // Prisma surfaces as PrismaClientKnownRequestError P2002.
+    const booking = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      let customer = await tx.customer.findFirst({
+        where: { phone: dto.customerPhone, studioId: studio.id },
       });
-    }
+
+      if (!customer) {
+        customer = await tx.customer.create({
+          data: {
+            name: dto.customerName,
+            email: dto.customerEmail,
+            phone: dto.customerPhone,
+            studioId: studio.id,
+          },
+        });
+      } else {
+        // Keep the record up-to-date with the latest name/email they provided
+        customer = await tx.customer.update({
+          where: { id: customer.id },
+          data: { name: dto.customerName, email: dto.customerEmail },
+        });
+      }
 
     // Create booking with status log in transaction
-    const booking = await this.prisma.$transaction(async (tx) => {
       const newBooking = await tx.booking.create({
         data: {
           studioId: studio.id,
@@ -200,11 +215,11 @@ export class BookingService {
     await this.cacheService.del(`studio:${studio.id}:bookings`);
 
     // Send confirmation email to customer
-    if (customer.email) {
+    if (booking.customer.email) {
       try {
         await this.notificationService.sendBookingConfirmation({
-          to: customer.email,
-          customerName: customer.name,
+          to: booking.customer.email,
+          customerName: booking.customer.name,
           studioName: studio.name,
           serviceName: service.name,
           scheduledDate: scheduledAt,
@@ -212,11 +227,11 @@ export class BookingService {
           studioPhone: studio.phone,
           bookingId: booking.id,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Log error but don't fail the booking creation
         this.logger.error(
           "Failed to send booking confirmation email:",
-          error.stack,
+          error instanceof Error ? error.stack : String(error),
         );
       }
     }
@@ -229,12 +244,20 @@ export class BookingService {
     page: number = 1,
     limit: number = 10,
     status?: BookingStatus,
+    search?: string,
   ) {
     const skip = (page - 1) * limit;
 
-    const where: any = { studioId };
+    const where: Prisma.BookingWhereInput = { studioId };
     if (status) {
       where.status = status;
+    }
+    if (search) {
+      where.OR = [
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { customer: { email: { contains: search, mode: 'insensitive' } } },
+        { service: { name: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
     const [bookings, total] = await Promise.all([
@@ -270,10 +293,7 @@ export class BookingService {
   }
 
   async findOne(id: string, studioId?: string) {
-    const where: any = { id };
-    if (studioId) {
-      where.studioId = studioId;
-    }
+    const where: Prisma.BookingWhereInput = studioId ? { id, studioId } : { id };
 
     const booking = await this.prisma.booking.findFirst({
       where,
@@ -314,10 +334,7 @@ export class BookingService {
   }
 
   async update(id: string, dto: UpdateBookingDto, studioId?: string) {
-    const where: any = { id };
-    if (studioId) {
-      where.studioId = studioId;
-    }
+    const where: Prisma.BookingWhereInput = studioId ? { id, studioId } : { id };
 
     const booking = await this.prisma.booking.findFirst({ where });
 
@@ -328,6 +345,9 @@ export class BookingService {
     // If changing scheduled date, check for conflicts
     if (dto.scheduledDate) {
       const newDate = new Date(dto.scheduledDate);
+      if (isNaN(newDate.getTime())) {
+        throw new BadRequestException("Invalid scheduled date");
+      }
       const serviceId = dto.serviceId || booking.serviceId;
       const service = await this.prisma.service.findUnique({
         where: { id: serviceId },
@@ -341,10 +361,10 @@ export class BookingService {
     }
 
     // Map DTO fields to correct Prisma fields
-    const updateData: any = {};
+    const updateData: Prisma.BookingUpdateInput = {};
     if (dto.status) updateData.status = dto.status;
     if (dto.scheduledDate) updateData.scheduledAt = new Date(dto.scheduledDate);
-    if (dto.assignedTo) updateData.assignedToUserId = dto.assignedTo;
+    if (dto.assignedTo) updateData.assignedTo = { connect: { id: dto.assignedTo } };
     if (dto.notes) updateData.internalNotes = dto.notes;
 
     const updated = await this.prisma.booking.update({
@@ -368,15 +388,12 @@ export class BookingService {
     return updated;
   }
 
-  async updateStatus(
+   async updateStatus(
     id: string,
     dto: UpdateBookingStatusDto,
     studioId?: string,
   ) {
-    const where: any = { id };
-    if (studioId) {
-      where.studioId = studioId;
-    }
+    const where: Prisma.BookingWhereInput = studioId ? { id, studioId } : { id };
 
     const booking = await this.prisma.booking.findFirst({ where });
 
@@ -384,7 +401,23 @@ export class BookingService {
       throw new NotFoundException("Booking not found");
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    // Validate status transitions
+    const validTransitions: Record<string, BookingStatus[]> = {
+      INQUIRY: ["QUOTED", "CONFIRMED", "CANCELLED"],
+      QUOTED: ["CONFIRMED", "CANCELLED"],
+      CONFIRMED: ["IN_PROGRESS", "CANCELLED"],
+      IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+      COMPLETED: [],
+      CANCELLED: [],
+    };
+    const allowed = validTransitions[booking.status] ?? [];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException(
+        `Cannot transition from ${booking.status} to ${dto.status}`,
+      );
+    }
+
+    const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updatedBooking = await tx.booking.update({
         where: { id },
         data: { status: dto.status },
@@ -411,7 +444,14 @@ export class BookingService {
   }
 
   private async processStatusChangeSideEffects(
-    booking: any,
+    booking: {
+      id: string;
+      studioId: string;
+      scheduledAt: Date;
+      customer: { email: string | null; name: string };
+      service: { name: string };
+      studio: { name: string; email: string; phone: string | null };
+    },
     status: BookingStatus,
     notes?: string,
   ) {
@@ -453,8 +493,8 @@ export class BookingService {
         this.logger.log(
           `Contract generated and uploaded for booking ${booking.id}`,
         );
-      } catch (error: any) {
-        this.logger.error("Failed to generate/upload contract:", error.stack);
+      } catch (error: unknown) {
+        this.logger.error("Failed to generate/upload contract:", error instanceof Error ? error.stack : String(error));
       }
     }
 
@@ -470,8 +510,8 @@ export class BookingService {
           newStatus: status,
           notes: notes,
         });
-      } catch (error: any) {
-        this.logger.error("Failed to send status update email:", error.stack);
+      } catch (error: unknown) {
+        this.logger.error("Failed to send status update email:", error instanceof Error ? error.stack : String(error));
       }
     }
 
@@ -491,19 +531,16 @@ export class BookingService {
           `[Queue] Scheduled follow-up email for booking ${booking.id}`,
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(
         "[Queue] Failed to schedule automated email:",
-        error.stack,
+        error instanceof Error ? error.stack : String(error),
       );
     }
   }
 
   async cancel(id: string, notes?: string, studioId?: string) {
-    const where: any = { id };
-    if (studioId) {
-      where.studioId = studioId;
-    }
+    const where: Prisma.BookingWhereInput = studioId ? { id, studioId } : { id };
 
     const booking = await this.prisma.booking.findFirst({ where });
 
@@ -517,7 +554,7 @@ export class BookingService {
       );
     }
 
-    const cancelled = await this.prisma.$transaction(async (tx) => {
+    const cancelled = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updated = await tx.booking.update({
         where: { id },
         data: { status: "CANCELLED" },
@@ -576,23 +613,24 @@ export class BookingService {
 
     if (!booking) throw new NotFoundException("Booking not found");
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const b = await tx.booking.update({
         where: { id },
         data: {
           status: "QUOTED",
-          quoteAmount: dto.amount,
+          quoteAmount: dto.amount as unknown as Prisma.Decimal,
           quoteNotes: dto.notes,
           quotedAt: new Date(),
         },
         include: { customer: true, studio: true, service: true },
       });
 
+      const studioRecord = b;
       await tx.bookingStatusLog.create({
         data: {
           bookingId: id,
           status: "QUOTED",
-          notes: `Quote sent: $${dto.amount}. ${dto.notes || ""}`,
+          notes: `Quote sent: ${studioRecord.studio?.currency ?? ''}${dto.amount}. ${dto.notes || ""}`,
         },
       });
 
@@ -600,14 +638,46 @@ export class BookingService {
     });
 
     await this.cacheService.del(`studio:${studioId}:bookings`);
+
+    // Notify the customer that a quote has been sent — only if they have an email
+    if (updated.customer.email) {
+      try {
+        await this.notificationService.sendBookingStatusUpdate({
+          to: updated.customer.email,
+          customerName: updated.customer.name,
+          studioName: updated.studio.name,
+          serviceName: updated.service?.name ?? 'Service',
+          scheduledDate: updated.scheduledAt,
+          newStatus: 'QUOTED',
+          notes: dto.notes,
+        });
+      } catch (err: unknown) {
+        this.logger.error(`sendQuote notification failed for booking ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
     return updated;
   }
 
   async acceptQuote(id: string, userId: string) {
-    // Find customer linked to this user
-    const customer = await this.prisma.customer.findFirst({
+    // Find customer linked to this user — try globalUserId first, then fall back to
+    // matching the GlobalUser's email in case the customer was created before linking.
+    let customer = await this.prisma.customer.findFirst({
       where: { globalUserId: userId },
     });
+
+    if (!customer) {
+      const globalUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      if (globalUser?.email) {
+        customer = await this.prisma.customer.findFirst({
+          where: { email: globalUser.email },
+        });
+      }
+    }
+
     if (!customer)
       throw new ForbiddenException("No customer record found for this user");
 
@@ -619,7 +689,7 @@ export class BookingService {
     if (booking.status !== "QUOTED")
       throw new BadRequestException("Only quoted bookings can be accepted");
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const b = await tx.booking.update({
         where: { id },
         data: {
@@ -649,9 +719,22 @@ export class BookingService {
   }
 
   async rejectQuote(id: string, userId: string, notes?: string) {
-    const customer = await this.prisma.customer.findFirst({
+    let customer = await this.prisma.customer.findFirst({
       where: { globalUserId: userId },
     });
+
+    if (!customer) {
+      const globalUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      if (globalUser?.email) {
+        customer = await this.prisma.customer.findFirst({
+          where: { email: globalUser.email },
+        });
+      }
+    }
+
     if (!customer)
       throw new ForbiddenException("No customer record found for this user");
 
@@ -661,7 +744,7 @@ export class BookingService {
 
     if (!booking) throw new NotFoundException("Booking not found");
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const b = await tx.booking.update({
         where: { id },
         data: { status: "CANCELLED" },
@@ -695,41 +778,28 @@ export class BookingService {
   ) {
     const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
 
-    const conflictingBooking = await this.prisma.booking.findFirst({
+    // Fetch all active bookings for the studio that could potentially overlap.
+    // We join service to get durationMinutes so we can compute each booking's endAt.
+    const candidates = await this.prisma.booking.findMany({
       where: {
         studioId,
-        status: {
-          in: ["INQUIRY", "QUOTED", "CONFIRMED"],
-        },
+        status: { in: ["INQUIRY", "QUOTED", "CONFIRMED"] },
         id: excludeBookingId ? { not: excludeBookingId } : undefined,
-        OR: [
-          {
-            scheduledAt: {
-              gte: scheduledAt,
-              lt: endAt,
-            },
-          },
-          {
-            // Simple check for potential overlaps
-            scheduledAt: {
-              lt: scheduledAt,
-            },
-          },
-        ],
+        // Optimisation: a booking starting on or after our endAt can never overlap
+        scheduledAt: { lt: endAt },
       },
-      include: {
-        service: true,
-      },
+      include: { service: true },
     });
 
-    if (conflictingBooking) {
-      const conflictDuration = conflictingBooking.service.durationMinutes;
-      const conflictEnd = new Date(
-        conflictingBooking.scheduledAt.getTime() + conflictDuration * 60000,
+    for (const candidate of candidates) {
+      const candidateEnd = new Date(
+        candidate.scheduledAt.getTime() +
+          candidate.service.durationMinutes * 60000,
       );
 
+      // True overlap: new booking starts before candidate ends AND ends after candidate starts
       const overlaps =
-        scheduledAt < conflictEnd && endAt > conflictingBooking.scheduledAt;
+        scheduledAt < candidateEnd && endAt > candidate.scheduledAt;
 
       if (overlaps) {
         throw new ConflictException(

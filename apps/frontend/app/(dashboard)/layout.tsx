@@ -8,6 +8,7 @@ import { MobileHeader } from '@/components/layout/mobile-header';
 import { BgMeshEngine } from '@/components/ui/bg-mesh-engine';
 import { useAuthStore } from '@/lib/auth-store';
 import { LoadingPage } from '@/components/ui/loading';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 export default function DashboardLayout({
   children,
@@ -59,8 +60,12 @@ export default function DashboardLayout({
 
           {/* Scrollable Content */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8 animate-luxury-in">
-              {children}
+            {/* animate-luxury-in is keyed by pathname so it re-runs on route changes,
+                but NOT on the outer shell which would flicker the sidebar */}
+            <div key={pathname} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8 animate-luxury-in">
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </div>
           </main>
         </div>
