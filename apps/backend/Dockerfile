@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y \
 
 # Fresh npm install of all deps (prisma generate needs prisma cli)
 COPY apps/backend/package.json ./package.json
-RUN npm install --legacy-peer-deps
+RUN npm install --include=dev --legacy-peer-deps
 
 # Copy built dist and prisma schema
 COPY --from=builder /app/apps/backend/dist ./dist
