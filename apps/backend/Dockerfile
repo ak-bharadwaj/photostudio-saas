@@ -44,9 +44,7 @@ RUN node_modules/.bin/prisma generate
 # Build NestJS
 RUN node_modules/.bin/nest build
 
-# Now set production and prune dev deps
 ENV NODE_ENV=production
-RUN npm prune --omit=dev
 
 RUN mkdir -p public/uploads
 
