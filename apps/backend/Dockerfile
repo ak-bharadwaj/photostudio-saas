@@ -1,30 +1,7 @@
-# ── Stage 1: builder ──────────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:20-slim
 WORKDIR /app
 
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
-RUN npm install -g pnpm@9
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/backend/package.json ./apps/backend/
-
-RUN pnpm install --frozen-lockfile --filter backend
-
-COPY apps/backend ./apps/backend
-
-RUN cd apps/backend && node_modules/.bin/prisma generate || ../node_modules/.bin/prisma generate
-
-RUN cd apps/backend && node_modules/.bin/nest build || ../node_modules/.bin/nest build
-
-# ── Stage 2: runner ───────────────────────────────────────────────────────────
-FROM node:20-slim AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
+# Install system deps: openssl for Prisma, chromium for Puppeteer
 RUN apt-get update && apt-get install -y \
     openssl \
     chromium \
@@ -47,18 +24,27 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Fresh npm install of all deps (prisma generate needs prisma cli)
+ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Copy package.json and install ALL deps (dev needed for prisma + nest build)
 COPY apps/backend/package.json ./package.json
-RUN npm install --include=dev --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
-# Copy built dist and prisma schema
-COPY --from=builder /app/apps/backend/dist ./dist
-COPY --from=builder /app/apps/backend/prisma ./prisma
+# Copy source and prisma schema
+COPY apps/backend/prisma ./prisma
+COPY apps/backend/src ./src
+COPY apps/backend/tsconfig.json ./tsconfig.json
+COPY apps/backend/tsconfig.build.json ./tsconfig.build.json
 
-# Generate prisma client in runner
-RUN node_modules/.bin/prisma generate --schema=prisma/schema.prisma
+# Generate Prisma client
+RUN node_modules/.bin/prisma generate
 
-# Remove dev deps after prisma generate
+# Build NestJS
+RUN node_modules/.bin/nest build
+
+# Prune dev deps
 RUN npm prune --omit=dev
 
 RUN mkdir -p public/uploads
