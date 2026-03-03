@@ -2,14 +2,11 @@
 FROM node:20-slim AS deps
 WORKDIR /app
 
-# Install pnpm
 RUN npm install -g pnpm@9
 
-# Copy workspace manifests first for better layer caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
 
-# Install all deps (including devDeps needed for build + prisma CLI)
 RUN pnpm install --frozen-lockfile --filter backend
 
 # ── Stage 2: builder ──────────────────────────────────────────────────────────
@@ -18,27 +15,26 @@ WORKDIR /app
 
 RUN npm install -g pnpm@9
 
-# Copy installed node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
 
-# Copy source
 COPY apps/backend ./apps/backend
 COPY package.json pnpm-workspace.yaml ./
 
-WORKDIR /app/apps/backend
+# Stay at /app and run commands with --filter so WORKDIR stays /app
+# Prisma generate
+RUN node_modules/.bin/prisma generate --schema=apps/backend/prisma/schema.prisma
 
-# Generate Prisma client
-RUN pnpm exec prisma generate
-
-# Build NestJS
-RUN pnpm build
+# Build — output goes to apps/backend/dist
+RUN cd apps/backend && node_modules/.bin/nest build
 
 # ── Stage 3: runner ───────────────────────────────────────────────────────────
 FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Install Chromium for Puppeteer (PDF generation)
 RUN apt-get update && apt-get install -y \
@@ -62,19 +58,13 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Tell Puppeteer to use system Chromium, skip bundled download
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
-# Copy built artifacts
+# Copy everything into a flat structure at /app
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/prisma ./prisma
 
-# Create uploads directory (local fallback for files when Cloudinary not set)
 RUN mkdir -p public/uploads
 
 EXPOSE 3001
 
-CMD ["node", "dist/main"]
-
+CMD ["node", "dist/src/main"]
