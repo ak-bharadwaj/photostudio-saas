@@ -30,7 +30,7 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Copy package.json and install ALL deps including devDeps (needed for prisma + nest build)
 # NOTE: do NOT set NODE_ENV=production before this or npm will skip devDependencies
 COPY apps/backend/package.json ./package.json
-RUN npm install --legacy-peer-deps
+RUN npm install --include=dev --legacy-peer-deps
 
 # Copy source and prisma schema
 COPY apps/backend/prisma ./prisma
