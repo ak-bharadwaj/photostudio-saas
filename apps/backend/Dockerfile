@@ -9,7 +9,7 @@ RUN npm install -g pnpm@9
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
 
-# Install only backend production deps + devDeps needed for build
+# Install all deps (including devDeps needed for build + prisma CLI)
 RUN pnpm install --frozen-lockfile --filter backend
 
 # ── Stage 2: builder ──────────────────────────────────────────────────────────
@@ -66,14 +66,13 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-RUN npm install -g pnpm@9
+# Install prisma CLI globally so migrate deploy works at startup
+RUN npm install -g prisma
 
 # Copy built artifacts
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/prisma ./prisma
-# Copy root node_modules so hoisted bins (prisma CLI) are available
-COPY --from=builder /app/node_modules ./root_node_modules
 
 # Create uploads directory (local fallback for files when Cloudinary not set)
 RUN mkdir -p public/uploads
@@ -81,5 +80,5 @@ RUN mkdir -p public/uploads
 EXPOSE 3001
 
 # Run Prisma migrations then start the app
-# Use root_node_modules for the prisma CLI binary (hoisted by pnpm)
-CMD ["sh", "-c", "root_node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main"]
+CMD ["sh", "-c", "prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main"]
+
