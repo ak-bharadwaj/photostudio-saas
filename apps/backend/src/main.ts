@@ -51,12 +51,22 @@ async function bootstrap() {
   );
 
   // CORS configuration
-  const allowedOrigins = [frontendUrl];
-  if (process.env.NODE_ENV !== "production") {
-    allowedOrigins.push("http://localhost:3000");
-  }
+  // ALLOWED_ORIGINS env var accepts a comma-separated list for multi-origin support
+  // e.g. "https://photostudio.vercel.app,https://www.yourdomain.com"
+  const extraOrigins = (configService.get<string>("ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const allowedOrigins = Array.from(
+    new Set([frontendUrl, ...extraOrigins, "http://localhost:3000"]),
+  );
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
