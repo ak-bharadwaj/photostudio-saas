@@ -509,7 +509,22 @@ function PublicBookingPage() {
     };
   }, [studio]);
 
-  // All Google Fonts are pre-loaded in globals.css — no dynamic injection needed.
+  // Inject studio font into <head> so it overrides body/Tailwind resets reliably
+  useEffect(() => {
+    const id = 'studio-font-override';
+    let el = document.getElementById(id) as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement('style');
+      el.id = id;
+      document.head.appendChild(el);
+    }
+    el.textContent = `body.studio-font-active, body.studio-font-active * { font-family: "${brand.fontFamily}", DM Sans, sans-serif !important; }`;
+    document.body.classList.add('studio-font-active');
+    return () => {
+      document.body.classList.remove('studio-font-active');
+      el?.remove();
+    };
+  }, [brand.fontFamily]);
 
   // Group services by occasion
   const occasionGroups = useMemo(() => {
@@ -864,14 +879,10 @@ function PublicBookingPage() {
     <div
       className="studio-portal min-h-screen bg-[var(--background-secondary)]"
       style={{
-        fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
         '--studio-primary': brand.primaryColor,
         '--studio-accent': brand.accentColor,
-        '--studio-font': `"${brand.fontFamily}", DM Sans, sans-serif`,
       } as React.CSSProperties}
     >
-      {/* Force font on all children — overrides Tailwind/body CSS resets */}
-      <style dangerouslySetInnerHTML={{ __html: `.studio-portal,.studio-portal *{font-family:"${brand.fontFamily}",DM Sans,sans-serif!important}` }} />
       {/* ------------------------------------------------------------------ */}
       {/*  Hero Header                                                        */}
 {/*  */}
