@@ -53,6 +53,36 @@ const STEPS = [
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 /* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Appends a 2-digit hex alpha suffix ONLY when the color is a 3- or 6-digit
+ * hex string (#rgb or #rrggbb).  For any other format (rgb(), hsl(), etc.)
+ * the alpha is silently dropped so CSS never gets an invalid value.
+ */
+function hexAlpha(color: string, alpha: string): string {
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) {
+    return color + alpha;
+  }
+  return color;
+}
+
+/** Google Fonts families available in the branding picker */
+const GOOGLE_FONT_FAMILIES = [
+  'DM Sans',
+  'Inter',
+  'Playfair Display',
+  'Montserrat',
+  'Lora',
+  'Raleway',
+  'Poppins',
+  'Cormorant Garamond',
+  'Nunito',
+  'Josefin Sans',
+] as const;
+
+/* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -192,7 +222,7 @@ function StepIndicator({
                       : isCompleted
                         ? 'var(--success)'
                         : undefined,
-                    boxShadow: isActive ? `0 8px 20px ${brand.primaryColor}55` : undefined,
+                    boxShadow: isActive ? `0 8px 20px ${hexAlpha(brand.primaryColor,'55')}` : undefined,
                     borderRadius:
                       brand.buttonShape === 'pill'
                         ? '9999px'
@@ -276,7 +306,7 @@ function OccasionCard({
       )}
       style={{
         borderColor: isSelected ? primaryColor : undefined,
-        boxShadow: isSelected ? `0 0 0 2px ${primaryColor}, 0 8px 32px ${primaryColor}30` : undefined,
+        boxShadow: isSelected ? `0 0 0 2px ${primaryColor}, 0 8px 32px ${hexAlpha(primaryColor,'30')}` : undefined,
       }}
     >
       {/* Cover / Gradient */}
@@ -303,7 +333,7 @@ function OccasionCard({
           <div
             className="w-full h-44 flex items-center justify-center relative overflow-hidden"
             style={{
-              background: `linear-gradient(135deg, ${primaryColor}18, ${accentColor}25)`,
+              background: `linear-gradient(135deg, ${hexAlpha(primaryColor,'18')}, ${hexAlpha(accentColor,'25')})`,
             }}
           >
             {/* Decorative blobs */}
@@ -324,7 +354,7 @@ function OccasionCard({
         {/* Price badge */}
         <div
           className="absolute top-3 right-3 px-3 py-1 rounded-full text-white text-sm font-black shadow-lg backdrop-blur-md"
-          style={{ backgroundColor: primaryColor + 'e8' }}
+          style={{ backgroundColor: hexAlpha(primaryColor, 'e8') }}
         >
           {formatCurrency(service.price)}
         </div>
@@ -473,6 +503,21 @@ function PublicBookingPage() {
       buttonShape: bc.buttonShape || 'rounded',
     };
   }, [studio]);
+
+  // Dynamically load the studio's Google Font
+  useEffect(() => {
+    const font = brand.fontFamily;
+    // Only inject if it's one of our known Google Fonts (skip system fonts / already-loaded DM Sans default)
+    if (!GOOGLE_FONT_FAMILIES.includes(font as (typeof GOOGLE_FONT_FAMILIES)[number])) return;
+    const id = `gfont-${font.replace(/\s+/g, '-')}`;
+    if (document.getElementById(id)) return; // already injected
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    const encoded = font.replace(/ /g, '+');
+    link.href = `https://fonts.googleapis.com/css2?family=${encoded}:wght@400;500;600;700;800;900&display=swap`;
+    document.head.appendChild(link);
+  }, [brand.fontFamily]);
 
   // Group services by occasion
   const occasionGroups = useMemo(() => {
@@ -844,9 +889,9 @@ function PublicBookingPage() {
           backgroundColor: brand.heroStyle === 'solid' ? brand.primaryColor : undefined,
           background:
             brand.heroStyle === 'mesh'
-              ? `radial-gradient(ellipse at 0% 0%, ${brand.primaryColor}cc 0%, transparent 55%),
-                 radial-gradient(ellipse at 100% 0%, ${brand.accentColor}99 0%, transparent 55%),
-                 radial-gradient(ellipse at 50% 100%, ${brand.primaryColor}66 0%, transparent 60%),
+              ? `radial-gradient(ellipse at 0% 0%, ${hexAlpha(brand.primaryColor,'cc')} 0%, transparent 55%),
+                 radial-gradient(ellipse at 100% 0%, ${hexAlpha(brand.accentColor,'99')} 0%, transparent 55%),
+                 radial-gradient(ellipse at 50% 100%, ${hexAlpha(brand.primaryColor,'66')} 0%, transparent 60%),
                  linear-gradient(160deg, #0c0c1a 0%, #1a0a2e 50%, #0c0c1a 100%)`
               : brand.heroStyle === 'glass'
                 ? `linear-gradient(135deg, ${brand.primaryColor}, ${brand.accentColor})`
@@ -1066,7 +1111,7 @@ function PublicBookingPage() {
                           <div className="flex items-center gap-2 mb-6">
                             <div
                               className="h-8 w-8 rounded-xl flex items-center justify-center"
-                              style={{ backgroundColor: brand.primaryColor + '18' }}
+                              style={{ backgroundColor: hexAlpha(brand.primaryColor, '18') }}
                             >
                               <OccIcon className="h-4 w-4" style={{ color: brand.primaryColor }} />
                             </div>
@@ -1187,8 +1232,8 @@ function PublicBookingPage() {
                 <div
                   className="flex items-center gap-4 p-4 rounded-2xl mb-6 border"
                   style={{
-                    backgroundColor: brand.primaryColor + '0c',
-                    borderColor: brand.primaryColor + '25',
+                    backgroundColor: hexAlpha(brand.primaryColor, '0c'),
+                    borderColor: hexAlpha(brand.primaryColor, '25'),
                   }}
                 >
                   {(() => {
@@ -1196,7 +1241,7 @@ function PublicBookingPage() {
                     return (
                       <div
                         className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: brand.primaryColor + '20' }}
+                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '20') }}
                       >
                         <SvcIcon className="h-5 w-5" style={{ color: brand.primaryColor }} />
                       </div>
@@ -1274,7 +1319,7 @@ function PublicBookingPage() {
                                   isSelected
                                     ? {
                                         backgroundColor: brand.primaryColor,
-                                        boxShadow: `0 4px 14px ${brand.primaryColor}50`,
+                                        boxShadow: `0 4px 14px ${hexAlpha(brand.primaryColor,'50')}`,
                                       }
                                     : slot.available
                                       ? ({ '--hover-color': brand.primaryColor } as React.CSSProperties)
@@ -1336,8 +1381,8 @@ function PublicBookingPage() {
                   <div
                     className="p-5 mb-6 rounded-3xl border-2 border-dashed flex flex-col sm:flex-row items-center gap-5"
                     style={{
-                      borderColor: brand.primaryColor + '35',
-                      backgroundColor: brand.primaryColor + '06',
+                      borderColor: hexAlpha(brand.primaryColor, '35'),
+                      backgroundColor: hexAlpha(brand.primaryColor, '06'),
                     }}
                   >
                     <div className="h-14 w-14 rounded-2xl bg-white shadow-lg flex items-center justify-center shrink-0">
@@ -1557,7 +1602,7 @@ function PublicBookingPage() {
                     <div className="flex items-start gap-3">
                       <div
                         className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: brand.primaryColor + '15' }}
+                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
                       >
                         <Camera className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
                       </div>
@@ -1577,7 +1622,7 @@ function PublicBookingPage() {
                     <div className="flex items-start gap-3">
                       <div
                         className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: brand.primaryColor + '15' }}
+                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
                       >
                         <Calendar className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
                       </div>
@@ -1601,7 +1646,7 @@ function PublicBookingPage() {
                     <div className="flex items-start gap-3">
                       <div
                         className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: brand.primaryColor + '15' }}
+                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
                       >
                         <Phone className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
                       </div>
@@ -1622,7 +1667,7 @@ function PublicBookingPage() {
                     <div className="flex items-start gap-3">
                       <div
                         className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: brand.primaryColor + '15' }}
+                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
                       >
                         <MapPin className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
                       </div>
@@ -1641,8 +1686,8 @@ function PublicBookingPage() {
                 <div
                   className="rounded-2xl p-5 mb-8 flex items-start gap-4"
                   style={{
-                    backgroundColor: brand.primaryColor + '0d',
-                    border: `1px solid ${brand.primaryColor}25`,
+                    backgroundColor: hexAlpha(brand.primaryColor, '0d'),
+                    border: `1px solid ${hexAlpha(brand.primaryColor,'25')}`,
                   }}
                 >
                   <PartyPopper
@@ -1690,7 +1735,7 @@ function PublicBookingPage() {
               <div className="text-center py-24">
                 <div
                   className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg"
-                  style={{ background: `linear-gradient(135deg, ${brand.primaryColor}20, ${brand.accentColor}20)` }}
+                  style={{ background: `linear-gradient(135deg, ${hexAlpha(brand.primaryColor,'20')}, ${hexAlpha(brand.accentColor,'20')})` }}
                 >
                   <History className="h-10 w-10" style={{ color: brand.primaryColor }} />
                 </div>
@@ -1735,7 +1780,7 @@ function PublicBookingPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className="h-9 w-9 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: brand.primaryColor + '18' }}
+                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '18') }}
                       >
                         <BookOpen className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
                       </div>
@@ -1789,8 +1834,8 @@ function PublicBookingPage() {
                           style={
                             b.status === 'QUOTED'
                               ? {
-                                  backgroundColor: brand.primaryColor + '05',
-                                  boxShadow: `0 0 0 1px ${brand.primaryColor}60`,
+                                  backgroundColor: hexAlpha(brand.primaryColor, '05'),
+                                  boxShadow: `0 0 0 1px ${hexAlpha(brand.primaryColor,'60')}`,
                                 }
                               : {}
                           }
@@ -1799,7 +1844,7 @@ function PublicBookingPage() {
                             <div className="flex items-start gap-3 min-w-0">
                               <div
                                 className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: brand.primaryColor + '15' }}
+                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
                               >
                                 <Camera className="h-5 w-5" style={{ color: brand.primaryColor }} />
                               </div>
@@ -1841,8 +1886,8 @@ function PublicBookingPage() {
                               <div
                                 className="p-4 rounded-2xl border mb-4"
                                 style={{
-                                  backgroundColor: brand.primaryColor + '08',
-                                  borderColor: brand.primaryColor + '20',
+                                  backgroundColor: hexAlpha(brand.primaryColor, '08'),
+                                  borderColor: hexAlpha(brand.primaryColor, '20'),
                                 }}
                               >
                                 <div
@@ -1853,7 +1898,7 @@ function PublicBookingPage() {
                                   Studio has sent you a quote
                                 </div>
                                 {b.quoteNotes && (
-                                  <p className="text-sm text-[var(--foreground-secondary)] italic border-l-2 pl-3 mb-3" style={{ borderColor: brand.primaryColor + '50' }}>
+                                  <p className="text-sm text-[var(--foreground-secondary)] italic border-l-2 pl-3 mb-3" style={{ borderColor: hexAlpha(brand.primaryColor, '50') }}>
                                     &quot;{b.quoteNotes}&quot;
                                   </p>
                                 )}
@@ -1953,7 +1998,7 @@ function PublicBookingPage() {
                   <div className="flex items-center gap-3 mb-6">
                     <div
                       className="h-9 w-9 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: brand.primaryColor + '18' }}
+                      style={{ backgroundColor: hexAlpha(brand.primaryColor, '18') }}
                     >
                       <Receipt className="h-4.5 w-4.5" style={{ color: brand.primaryColor }} />
                     </div>
@@ -1983,7 +2028,7 @@ function PublicBookingPage() {
                             <div className="flex items-center gap-3 min-w-0">
                               <div
                                 className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: brand.primaryColor + '15' }}
+                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
                               >
                                 <Receipt
                                   className="h-[18px] w-[18px]"
@@ -2033,7 +2078,7 @@ function PublicBookingPage() {
                 <div
                   className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg"
                   style={{
-                    background: `linear-gradient(135deg, ${brand.primaryColor}20, ${brand.accentColor}20)`,
+                    background: `linear-gradient(135deg, ${hexAlpha(brand.primaryColor,'20')}, ${hexAlpha(brand.accentColor,'20')})`,
                   }}
                 >
                   <User className="h-10 w-10" style={{ color: brand.primaryColor }} />

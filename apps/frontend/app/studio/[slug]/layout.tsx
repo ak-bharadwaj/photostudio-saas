@@ -7,11 +7,11 @@ interface StudioData {
   email?: string | null;
   phone?: string | null;
   logoUrl?: string | null;
+  city?: string | null;
+  state?: string | null;
   brandingConfig?: {
     tagline?: string;
     description?: string;
-    city?: string;
-    state?: string;
   } | null;
   services?: { id: string; name: string }[];
   portfolioItems?: { id: string; imageUrl: string }[];
@@ -54,8 +54,8 @@ export async function generateMetadata({
     studio.brandingConfig?.description ??
     `Book a session with ${studio.name}. ${tagline}`;
   const location =
-    studio.brandingConfig?.city && studio.brandingConfig?.state
-      ? ` · ${studio.brandingConfig.city}, ${studio.brandingConfig.state}`
+    studio.city && studio.state
+      ? ` · ${studio.city}, ${studio.state}`
       : "";
   const serviceCount = studio.services?.length ?? 0;
   const ogTitle = `${studio.name}${location}`;
