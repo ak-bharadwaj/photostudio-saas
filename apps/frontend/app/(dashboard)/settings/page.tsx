@@ -210,6 +210,8 @@ export default function SettingsPage() {
     try {
       setIsSavingProfile(true);
 
+      const slugDidChange = profileForm.slug !== studio.slug;
+
       await studiosApi.update(studio.id, {
         name: profileForm.name,
         email: profileForm.email,
@@ -223,13 +225,11 @@ export default function SettingsPage() {
         slug: profileForm.slug,
       });
 
-      addToast('success', 'Studio profile saved successfully');
-
-      if (profileForm.slug !== studio.slug) {
-        addToast('warning', 'Studio URL has changed. Old links are now invalid.');
-      }
-
       await loadStudio();
+      addToast('success', 'Studio profile saved successfully');
+      if (slugDidChange) {
+        addToast('warning', 'Booking URL changed — old links and QR codes are now invalid.');
+      }
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
       addToast('error', error.response?.data?.message || 'Failed to save studio profile');
@@ -395,7 +395,7 @@ export default function SettingsPage() {
               />
 
               <div className="space-y-2">
-                <label htmlFor="slug" className="block text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
+                <label htmlFor="slug" className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
                   <Globe className="h-4 w-4 text-[var(--primary)]" />
                   Public Booking URL
                 </label>
@@ -420,7 +420,7 @@ export default function SettingsPage() {
                     autoComplete="off"
                   />
                   {/* Character counter */}
-                  <span className={`flex items-center pr-3 text-xs font-mono tabular-nums ${profileForm.slug.length > 45 ? 'text-[var(--warning)]' : 'text-[var(--foreground-tertiary)]'}`}>
+                  <span className={`flex items-center pr-3 text-xs font-mono tabular-nums shrink-0 ${profileForm.slug.length > 45 ? 'text-amber-500' : 'text-[var(--foreground-tertiary)]'}`}>
                     {profileForm.slug.length}/50
                   </span>
                 </div>
@@ -432,36 +432,46 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--foreground-tertiary)] mb-0.5">Your public booking link</p>
-                    <p className="text-sm font-mono text-[var(--foreground)] truncate">
-                      <span className="text-[var(--foreground-tertiary)]">{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}</span>
-                      <span className="text-[var(--primary)] font-bold">/studio/{profileForm.slug || <span className="opacity-40">your-slug</span>}</span>
+                    <p className="text-xs font-mono text-[var(--foreground)] truncate">
+                      <span className="text-[var(--foreground-tertiary)]">{typeof window !== 'undefined' ? window.location.origin : ''}</span>
+                      <span className="text-[var(--primary)] font-bold">/studio/{profileForm.slug || '…'}</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       title="Copy link"
+                      disabled={!profileForm.slug}
                       onClick={() => {
                         const url = `${window.location.origin}/studio/${profileForm.slug}`;
                         navigator.clipboard.writeText(url);
                         setSlugCopied(true);
                         setTimeout(() => setSlugCopied(false), 2000);
                       }}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--foreground)]"
+                      className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--foreground)] disabled:opacity-40"
                     >
                       {slugCopied ? <CheckCircle2 className="h-4 w-4 text-[var(--success)]" /> : <Copy className="h-4 w-4" />}
                     </button>
                     <a
-                      href={`/studio/${profileForm.slug}`}
+                      href={profileForm.slug ? `/studio/${profileForm.slug}` : '#'}
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Open public page"
+                      onClick={(e) => { if (!profileForm.slug) e.preventDefault(); }}
                       className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--primary)]"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </div>
                 </div>
+
+                {/* Validation hint */}
+                {profileForm.slug.length > 0 && profileForm.slug.length < 3 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2">
+                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                    <p className="text-xs text-red-500 font-medium">Minimum 3 characters required</p>
+                  </div>
+                )}
 
                 {/* Status strip */}
                 {slugChanged ? (
