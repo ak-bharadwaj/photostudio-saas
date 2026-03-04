@@ -24,6 +24,12 @@ model Studio {
   email                 String           @unique
   phone                 String
   logoUrl               String?          @map("logo_url")
+  address               String?
+  city                  String?
+  state                 String?
+  zipCode               String?          @map("zip_code")
+  website               String?
+  description           String?
   brandingConfig        Json?            @map("branding_config")
   subscriptionTier      SubscriptionTier @default(STARTER) @map("subscription_tier")
   subscriptionExpiresAt DateTime?        @map("subscription_expires_at")

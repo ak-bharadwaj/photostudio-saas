@@ -22,7 +22,7 @@ interface Studio {
   zipCode?: string;
   website?: string;
   description?: string;
-  logo?: string;
+  logoUrl?: string;
   status: string;
   subscriptionTier: string;
   subscriptionExpiresAt?: string;
@@ -47,6 +47,7 @@ interface BrandingForm {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
+  fontFamily: string;
   heroStyle: string;
   cardTheme: string;
   buttonShape: string;
@@ -82,6 +83,7 @@ export default function SettingsPage() {
     primaryColor: '#1a73e8',
     secondaryColor: '#5f6368',
     accentColor: '#7c3aed',
+    fontFamily: 'Inter',
     heroStyle: 'solid',
     cardTheme: 'modern',
     buttonShape: 'rounded',
@@ -91,16 +93,16 @@ export default function SettingsPage() {
 
   // ─── 10 Preset Themes ──────────────────────────────────────────────────────
   const PRESET_THEMES = [
-    { name: 'Royal Violet',   primaryColor: '#7c3aed', accentColor: '#db2777', heroStyle: 'mesh',  cardTheme: 'elevated', buttonShape: 'pill' },
-    { name: 'Midnight Ink',   primaryColor: '#1e1b4b', accentColor: '#6366f1', heroStyle: 'solid', cardTheme: 'modern',   buttonShape: 'rounded' },
-    { name: 'Rose Gold',      primaryColor: '#be185d', accentColor: '#f59e0b', heroStyle: 'mesh',  cardTheme: 'classic',  buttonShape: 'pill' },
-    { name: 'Forest Luxury',  primaryColor: '#065f46', accentColor: '#10b981', heroStyle: 'solid', cardTheme: 'elevated', buttonShape: 'rounded' },
-    { name: 'Ocean Deep',     primaryColor: '#0c4a6e', accentColor: '#0ea5e9', heroStyle: 'glass', cardTheme: 'modern',   buttonShape: 'pill' },
-    { name: 'Burnt Ember',    primaryColor: '#92400e', accentColor: '#f97316', heroStyle: 'mesh',  cardTheme: 'classic',  buttonShape: 'luxury-sharp' },
-    { name: 'Blush Studio',   primaryColor: '#9d174d', accentColor: '#f9a8d4', heroStyle: 'glass', cardTheme: 'elevated', buttonShape: 'pill' },
-    { name: 'Slate & Lime',   primaryColor: '#1e293b', accentColor: '#84cc16', heroStyle: 'solid', cardTheme: 'modern',   buttonShape: 'luxury-sharp' },
-    { name: 'Cobalt & Gold',  primaryColor: '#1d4ed8', accentColor: '#eab308', heroStyle: 'mesh',  cardTheme: 'elevated', buttonShape: 'rounded' },
-    { name: 'Noir Minimal',   primaryColor: '#18181b', accentColor: '#e4e4e7', heroStyle: 'solid', cardTheme: 'classic',  buttonShape: 'luxury-sharp' },
+    { name: 'Royal Violet',   primaryColor: '#7c3aed', accentColor: '#db2777', heroStyle: 'mesh',  cardTheme: 'elevated', buttonShape: 'pill',          fontFamily: 'Plus Jakarta Sans' },
+    { name: 'Midnight Ink',   primaryColor: '#1e1b4b', accentColor: '#6366f1', heroStyle: 'solid', cardTheme: 'modern',   buttonShape: 'rounded',       fontFamily: 'Outfit' },
+    { name: 'Rose Gold',      primaryColor: '#be185d', accentColor: '#f59e0b', heroStyle: 'mesh',  cardTheme: 'classic',  buttonShape: 'pill',          fontFamily: 'Playfair Display' },
+    { name: 'Forest Luxury',  primaryColor: '#065f46', accentColor: '#10b981', heroStyle: 'solid', cardTheme: 'elevated', buttonShape: 'rounded',       fontFamily: 'Raleway' },
+    { name: 'Ocean Deep',     primaryColor: '#0c4a6e', accentColor: '#0ea5e9', heroStyle: 'glass', cardTheme: 'modern',   buttonShape: 'pill',          fontFamily: 'Montserrat' },
+    { name: 'Burnt Ember',    primaryColor: '#92400e', accentColor: '#f97316', heroStyle: 'mesh',  cardTheme: 'classic',  buttonShape: 'luxury-sharp',  fontFamily: 'Lora' },
+    { name: 'Blush Studio',   primaryColor: '#9d174d', accentColor: '#f9a8d4', heroStyle: 'glass', cardTheme: 'elevated', buttonShape: 'pill',          fontFamily: 'Poppins' },
+    { name: 'Slate & Lime',   primaryColor: '#1e293b', accentColor: '#84cc16', heroStyle: 'solid', cardTheme: 'modern',   buttonShape: 'luxury-sharp',  fontFamily: 'Inter' },
+    { name: 'Cobalt & Gold',  primaryColor: '#1d4ed8', accentColor: '#eab308', heroStyle: 'mesh',  cardTheme: 'elevated', buttonShape: 'rounded',       fontFamily: 'Outfit' },
+    { name: 'Noir Minimal',   primaryColor: '#18181b', accentColor: '#e4e4e7', heroStyle: 'solid', cardTheme: 'classic',  buttonShape: 'luxury-sharp',  fontFamily: 'Plus Jakarta Sans' },
   ] as const;
 
   const applyPreset = (theme: typeof PRESET_THEMES[number]) => {
@@ -111,6 +113,7 @@ export default function SettingsPage() {
       heroStyle:    theme.heroStyle,
       cardTheme:    theme.cardTheme,
       buttonShape:  theme.buttonShape,
+      fontFamily:   theme.fontFamily,
     }));
   };
 
@@ -146,6 +149,7 @@ export default function SettingsPage() {
           primaryColor: studioData.brandingConfig?.primaryColor || '#1a73e8',
           secondaryColor: studioData.brandingConfig?.secondaryColor || '#5f6368',
           accentColor: studioData.brandingConfig?.accentColor || '#7c3aed',
+          fontFamily: studioData.brandingConfig?.fontFamily || 'Inter',
           heroStyle: studioData.brandingConfig?.heroStyle || 'solid',
           cardTheme: studioData.brandingConfig?.cardTheme || 'modern',
           buttonShape: studioData.brandingConfig?.buttonShape || 'rounded',
@@ -238,6 +242,7 @@ export default function SettingsPage() {
           primaryColor: brandingForm.primaryColor,
           secondaryColor: brandingForm.secondaryColor,
           accentColor: brandingForm.accentColor,
+          fontFamily: brandingForm.fontFamily,
           heroStyle: brandingForm.heroStyle,
           cardTheme: brandingForm.cardTheme,
           buttonShape: brandingForm.buttonShape,
@@ -596,6 +601,24 @@ export default function SettingsPage() {
                     { value: 'rounded', label: 'Standard Rounded' },
                     { value: 'pill', label: 'Luxury Pill' },
                     { value: 'luxury-sharp', label: 'Artistic Sharp' },
+                  ]}
+                />
+                <Select
+                  label="Typography / Font"
+                  name="fontFamily"
+                  value={brandingForm.fontFamily}
+                  onChange={(e) => setBrandingForm(prev => ({ ...prev, fontFamily: e.target.value }))}
+                  options={[
+                    { value: 'Plus Jakarta Sans', label: 'Plus Jakarta Sans' },
+                    { value: 'Outfit', label: 'Outfit' },
+                    { value: 'Inter', label: 'Inter' },
+                    { value: 'Playfair Display', label: 'Playfair Display' },
+                    { value: 'Poppins', label: 'Poppins' },
+                    { value: 'Montserrat', label: 'Montserrat' },
+                    { value: 'Lora', label: 'Lora' },
+                    { value: 'Raleway', label: 'Raleway' },
+                    { value: 'Roboto', label: 'Roboto' },
+                    { value: 'Open Sans', label: 'Open Sans' },
                   ]}
                 />
               </div>

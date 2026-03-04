@@ -30,10 +30,6 @@ export class BrandingConfigDto {
   @IsOptional()
   fontFamily?: string;
 
-  @IsUrl()
-  @IsOptional()
-  logoUrl?: string;
-
   // Extended branding fields used by the portal & settings page
   @IsString()
   @IsOptional()

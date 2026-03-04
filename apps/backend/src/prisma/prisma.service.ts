@@ -29,6 +29,12 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
+      // Neon free tier: max 10 connections per compute unit.
+      // Reserve 2 for admin/migrations — keep 8 for the app.
+      max: 8,
+      min: 1,
+      idleTimeoutMillis: 20000,   // release idle connections after 20 s
+      connectionTimeoutMillis: 5000, // fail fast if pool is exhausted
     });
     const adapter = new PrismaPg(pool);
     this._baseClient = new PrismaClient({ adapter });
