@@ -264,12 +264,14 @@ export class AdminService {
       data: updateData,
     });
 
-    // Invalidate old slug cache
+    // Invalidate old slug cache (studio service + public portal)
     await this.cacheService.del(`studio:slug:${studio.slug}`);
+    await this.cacheService.del(`public:studio:${studio.slug}`);
 
     // If slug changed, also bust any stale cache for the new slug
     if (updateStudioDto.slug && updateStudioDto.slug !== studio.slug) {
       await this.cacheService.del(`studio:slug:${updateStudioDto.slug}`);
+      await this.cacheService.del(`public:studio:${updateStudioDto.slug}`);
     }
 
     return updated;

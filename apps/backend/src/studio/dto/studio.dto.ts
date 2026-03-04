@@ -80,7 +80,7 @@ export class CreateStudioDto {
   @Transform(({ value }) => value?.trim())
   phone: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   logoUrl?: string;
 
@@ -174,7 +174,7 @@ export class UpdateStudioDto {
   @IsUrl({}, { message: "website must be a valid URL" })
   website?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   logoUrl?: string;
 

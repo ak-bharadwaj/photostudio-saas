@@ -254,7 +254,16 @@ function LogoUploader({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Live Preview Component                                                    */
+/*  hexAlpha helper — mirrors the one in studio/[slug]/page.tsx              */
+/* -------------------------------------------------------------------------- */
+
+function hexAlpha(color: string, alpha: string): string {
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) return color + alpha;
+  return color;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Live Preview Component — pixel-accurate replica of the real portal        */
 /* -------------------------------------------------------------------------- */
 
 function BrandPreview({
@@ -269,13 +278,27 @@ function BrandPreview({
   const heroStyle = branding.heroStyle || 'solid';
   const cardTheme = branding.cardTheme || 'modern';
   const buttonShape = branding.buttonShape || 'rounded';
+  const primaryColor = branding.primaryColor || '#7c3aed';
+  const accentColor = branding.accentColor || '#db2777';
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  const btnRadius = buttonShape === 'pill' ? '9999px' : buttonShape === 'luxury-sharp' ? '6px' : '0.875rem';
 
   const getFullUrl = (url: string) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
     return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
+
+  // Hero background — exact same logic as portal page.tsx
+  const heroBg = heroStyle === 'solid'
+    ? primaryColor
+    : heroStyle === 'mesh'
+      ? `radial-gradient(ellipse at 0% 0%, ${hexAlpha(primaryColor, 'cc')} 0%, transparent 55%),
+         radial-gradient(ellipse at 100% 0%, ${hexAlpha(accentColor, '99')} 0%, transparent 55%),
+         radial-gradient(ellipse at 50% 100%, ${hexAlpha(primaryColor, '66')} 0%, transparent 60%),
+         linear-gradient(160deg, #0c0c1a 0%, #1a0a2e 50%, #0c0c1a 100%)`
+      : `linear-gradient(135deg, ${primaryColor}, ${accentColor})`;
 
   return (
     <div className="space-y-4">
@@ -291,121 +314,109 @@ function BrandPreview({
       </div>
 
       <div
-        className="rounded-3xl border border-[var(--border)] overflow-hidden shadow-2xl bg-white"
-        style={{ fontFamily: branding.fontFamily + ', sans-serif' }}
+        className="rounded-3xl border border-[var(--border)] overflow-hidden shadow-2xl"
+        style={{
+          fontFamily: (branding.fontFamily || 'Inter') + ', sans-serif',
+          background: 'var(--background-secondary)',
+        }}
       >
-        {/* Header Preview */}
+        {/* ── Hero Header — mirrors portal exactly ── */}
         <div
           className={cn(
-            "px-8 py-10 relative overflow-hidden flex items-center gap-6 transition-all duration-700",
-            heroStyle === 'mesh' ? "min-h-[160px]" : "py-10"
+            'relative overflow-hidden',
+            heroStyle === 'mesh' ? 'min-h-[140px] flex items-center py-8' : 'py-8',
           )}
-          style={{
-            background: heroStyle === 'solid'
-              ? branding.primaryColor
-              : heroStyle === 'mesh'
-                ? `radial-gradient(at 0% 0%, ${branding.primaryColor} 0px, transparent 50%),
-                   radial-gradient(at 100% 0%, ${branding.accentColor} 0px, transparent 50%),
-                   radial-gradient(at 0% 100%, ${branding.accentColor} 0px, transparent 50%),
-                   radial-gradient(at 100% 100%, ${branding.primaryColor} 0px, transparent 50%)`
-                : heroStyle === 'glass'
-                  ? `linear-gradient(135deg, ${branding.primaryColor}, ${branding.accentColor})`
-                  : undefined
-          }}
+          style={{ background: heroBg }}
         >
+          {/* Floating orbs for mesh */}
           {heroStyle === 'mesh' && (
-            <div className="absolute inset-0 opacity-20 mix-blend-overlay bg-white/10" />
+            <>
+              <div className="absolute top-0 left-1/4 w-32 h-32 rounded-full opacity-30 blur-2xl pointer-events-none" style={{ backgroundColor: primaryColor }} />
+              <div className="absolute bottom-0 right-1/4 w-28 h-28 rounded-full opacity-20 blur-2xl pointer-events-none" style={{ backgroundColor: accentColor }} />
+            </>
           )}
+          {/* Dot pattern overlay */}
+          <div className="absolute inset-0 opacity-[0.07] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
-          <div className={cn(
-            "relative flex items-center gap-5 w-full",
-            heroStyle === 'glass' && "bg-white/10 backdrop-blur-xl p-6 rounded-3xl border border-white/20 shadow-2xl"
-          )}>
-            {logoUrl ? (
-              <div className={cn(
-                "relative h-16 w-16 shadow-2xl overflow-hidden",
-                heroStyle === 'glass' ? "rounded-2xl bg-white/20 p-2" : "rounded-xl bg-white/20 p-1.5"
-              )}>
-                <NextImage
-                  src={getFullUrl(logoUrl)}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                  sizes="64px"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              <div className={cn(
-                "h-16 w-16 flex items-center justify-center shadow-xl",
-                heroStyle === 'glass' ? "rounded-2xl bg-white/20" : "rounded-xl bg-white/20"
-              )}>
-                <Camera className="h-8 w-8 text-white" />
-              </div>
-            )}
-            <div>
-              <h3 className="text-white font-black text-2xl tracking-tighter italic leading-none">
-                {(branding.headerText || studioName).toUpperCase()}
-              </h3>
-              {branding.tagline && (
-                <p className="text-white/90 text-[10px] sm:text-xs mt-2 font-bold uppercase tracking-widest bg-black/10 inline-block px-2 py-0.5 rounded-full backdrop-blur-sm">
-                  {branding.tagline}
-                </p>
+          <div className="relative px-6 w-full">
+            <div className={cn(
+              'flex items-center gap-4',
+              heroStyle === 'glass' && 'bg-white/10 backdrop-blur-2xl p-4 rounded-2xl border border-white/20 shadow-xl',
+            )}>
+              {/* Logo */}
+              {logoUrl ? (
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/15 backdrop-blur-sm shadow-lg border border-white/20">
+                  <NextImage src={getFullUrl(logoUrl)} alt="Logo" fill className="object-contain p-1" sizes="48px" unoptimized />
+                </div>
+              ) : (
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/20">
+                  <Camera className="h-6 w-6 text-white" />
+                </div>
               )}
+              {/* Text */}
+              <div>
+                <h3 className="text-lg font-black text-white tracking-tight leading-tight">
+                  {branding.headerText || studioName}
+                </h3>
+                {branding.tagline && (
+                  <p className="text-white/75 text-[10px] mt-0.5 font-medium">{branding.tagline}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Body Preview */}
-        <div className="bg-[var(--surface-0)] p-6 space-y-4">
-          <div className="space-y-1">
-            <h4
-              className="text-base font-bold"
-              style={{ color: branding.primaryColor }}
-            >
-              Services
-            </h4>
-            <div className="h-1 w-8 rounded-full" style={{ backgroundColor: branding.primaryColor }} />
+        {/* ── Tab bar stub ── */}
+        <div className="bg-[var(--background)]/85 border-b border-[var(--border)] px-6 py-2 flex gap-4">
+          <span className="text-xs font-semibold border-b-2 pb-1" style={{ borderColor: primaryColor, color: primaryColor }}>Book</span>
+          <span className="text-xs font-semibold text-[var(--foreground-tertiary)]">My History</span>
+          <span className="text-xs font-semibold text-[var(--foreground-tertiary)]">Account</span>
+        </div>
+
+        {/* ── Services section ── */}
+        <div className="p-5 space-y-4" style={{ background: 'var(--background-secondary)' }}>
+          {/* Occasion header */}
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: hexAlpha(primaryColor, '18') }}>
+              <Camera className="h-3 w-3" style={{ color: primaryColor }} />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: primaryColor }}>Services</span>
+            <div className="h-px flex-1 bg-[var(--border)]" />
           </div>
 
-          {/* Mock cards */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Mock service cards — exact card theme logic */}
+          <div className="grid grid-cols-3 gap-2">
             {['Wedding', 'Portrait', 'Event'].map((name) => (
               <div
                 key={name}
                 className={cn(
-                  "transition-all duration-300 p-4 text-center group/card",
-                  cardTheme === 'modern' && "rounded-2xl border border-[var(--border)] bg-white shadow-sm hover:border-[var(--primary-light)] hover:shadow-md",
-                  cardTheme === 'classic' && "rounded-xl border-2 border-[var(--border)] bg-white hover:-translate-y-1",
-                  cardTheme === 'elevated' && "rounded-[1.5rem] shadow-xl bg-white border-transparent hover:shadow-2xl"
+                  'relative overflow-hidden text-left transition-all duration-300',
+                  cardTheme === 'modern' && 'rounded-2xl border border-[var(--border)] bg-[var(--surface-0)]',
+                  cardTheme === 'classic' && 'rounded-xl border-2 border-[var(--border)] bg-[var(--surface-0)]',
+                  cardTheme === 'elevated' && 'rounded-[1.5rem] p-1 shadow-md bg-[var(--surface-0)]',
                 )}
               >
                 <div
-                  className="h-10 w-10 rounded-xl mx-auto mb-3 flex items-center justify-center transition-transform group-hover/card:scale-110"
-                  style={{ backgroundColor: branding.primaryColor + '15' }}
+                  className={cn('w-full h-16 flex items-center justify-center', cardTheme === 'elevated' ? 'rounded-[1.2rem]' : 'rounded-t-2xl')}
+                  style={{ background: `linear-gradient(135deg, ${hexAlpha(primaryColor, '18')}, ${hexAlpha(accentColor, '25')})` }}
                 >
-                  <Camera
-                    className="h-5 w-5"
-                    style={{ color: branding.primaryColor }}
-                  />
+                  <Camera className="h-6 w-6" style={{ color: primaryColor }} />
                 </div>
-                <p
-                  className="text-[9px] font-black text-[var(--foreground)] uppercase tracking-widest"
-                  style={{ color: branding.primaryColor }}
-                >
-                  {name}
-                </p>
+                <div className="p-2">
+                  <p className="text-[9px] font-bold text-[var(--foreground)] uppercase tracking-widest">{name}</p>
+                  <p className="text-[9px] font-black mt-0.5" style={{ color: primaryColor }}>₹2,999</p>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Mock button */}
+          {/* CTA button — exact same radius logic */}
           <button
-            className="w-full py-3 text-white text-sm font-bold transition-all shadow-lg active:scale-95"
+            className="w-full py-2.5 text-white text-xs font-bold"
             style={{
-              backgroundColor: branding.primaryColor,
-              borderRadius: buttonShape === 'pill' ? '9999px' : buttonShape === 'luxury-sharp' ? '4px' : 'var(--radius-md)',
-              boxShadow: `0 4px 14px 0 ${branding.primaryColor}40`
+              backgroundColor: primaryColor,
+              borderRadius: btnRadius,
+              boxShadow: `0 4px 14px 0 ${hexAlpha(primaryColor, '50')}`,
             }}
           >
             Book Session
@@ -510,8 +521,12 @@ export default function BrandingPage() {
       });
       setHasChanges(false);
       addToast('success', 'Branding saved successfully');
-    } catch {
-      addToast('error', 'Failed to save branding');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = axiosErr?.response?.data?.message;
+      const detail = Array.isArray(msg) ? msg.join(', ') : msg;
+      console.error('Branding save failed:', err);
+      addToast('error', detail || 'Failed to save branding');
     } finally {
       setSaving(false);
     }

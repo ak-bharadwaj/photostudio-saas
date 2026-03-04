@@ -248,12 +248,14 @@ export class StudioService {
       },
     });
 
-    // Invalidate old slug cache
+    // Invalidate old slug cache (studio service + public portal)
     await this.cacheService.del(`studio:slug:${studio.slug}`);
+    await this.cacheService.del(`public:studio:${studio.slug}`);
 
     // If slug changed, also bust any stale cache for the new slug
     if (dto.slug && dto.slug !== studio.slug) {
       await this.cacheService.del(`studio:slug:${dto.slug}`);
+      await this.cacheService.del(`public:studio:${dto.slug}`);
     }
 
     return updated;
@@ -274,6 +276,7 @@ export class StudioService {
 
     // Invalidate cache
     await this.cacheService.del(`studio:slug:${studio.slug}`);
+    await this.cacheService.del(`public:studio:${studio.slug}`);
 
     return { message: "Studio deleted successfully" };
   }
@@ -302,6 +305,7 @@ export class StudioService {
 
     // Invalidate cache
     await this.cacheService.del(`studio:slug:${studio.slug}`);
+    await this.cacheService.del(`public:studio:${studio.slug}`);
 
     return updated;
   }
