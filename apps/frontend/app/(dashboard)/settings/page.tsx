@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { studiosApi, authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { Save, Building2, User, Sparkles, Lock } from 'lucide-react';
+import { Save, Building2, User, Sparkles, Lock, Wand2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 
 interface Studio {
@@ -88,6 +88,31 @@ export default function SettingsPage() {
     headerText: '',
     tagline: '',
   });
+
+  // ─── 10 Preset Themes ──────────────────────────────────────────────────────
+  const PRESET_THEMES = [
+    { name: 'Royal Violet',   primaryColor: '#7c3aed', accentColor: '#db2777', heroStyle: 'mesh',  cardTheme: 'elevated', buttonShape: 'pill' },
+    { name: 'Midnight Ink',   primaryColor: '#1e1b4b', accentColor: '#6366f1', heroStyle: 'solid', cardTheme: 'modern',   buttonShape: 'rounded' },
+    { name: 'Rose Gold',      primaryColor: '#be185d', accentColor: '#f59e0b', heroStyle: 'mesh',  cardTheme: 'classic',  buttonShape: 'pill' },
+    { name: 'Forest Luxury',  primaryColor: '#065f46', accentColor: '#10b981', heroStyle: 'solid', cardTheme: 'elevated', buttonShape: 'rounded' },
+    { name: 'Ocean Deep',     primaryColor: '#0c4a6e', accentColor: '#0ea5e9', heroStyle: 'glass', cardTheme: 'modern',   buttonShape: 'pill' },
+    { name: 'Burnt Ember',    primaryColor: '#92400e', accentColor: '#f97316', heroStyle: 'mesh',  cardTheme: 'classic',  buttonShape: 'luxury-sharp' },
+    { name: 'Blush Studio',   primaryColor: '#9d174d', accentColor: '#f9a8d4', heroStyle: 'glass', cardTheme: 'elevated', buttonShape: 'pill' },
+    { name: 'Slate & Lime',   primaryColor: '#1e293b', accentColor: '#84cc16', heroStyle: 'solid', cardTheme: 'modern',   buttonShape: 'luxury-sharp' },
+    { name: 'Cobalt & Gold',  primaryColor: '#1d4ed8', accentColor: '#eab308', heroStyle: 'mesh',  cardTheme: 'elevated', buttonShape: 'rounded' },
+    { name: 'Noir Minimal',   primaryColor: '#18181b', accentColor: '#e4e4e7', heroStyle: 'solid', cardTheme: 'classic',  buttonShape: 'luxury-sharp' },
+  ] as const;
+
+  const applyPreset = (theme: typeof PRESET_THEMES[number]) => {
+    setBrandingForm(prev => ({
+      ...prev,
+      primaryColor: theme.primaryColor,
+      accentColor:  theme.accentColor,
+      heroStyle:    theme.heroStyle,
+      cardTheme:    theme.cardTheme,
+      buttonShape:  theme.buttonShape,
+    }));
+  };
 
   const loadStudio = useCallback(async () => {
     abortRef.current?.abort();
@@ -501,6 +526,35 @@ export default function SettingsPage() {
             <p className="text-sm text-[var(--foreground-secondary)] font-medium mt-1">Configure your public-facing booking portal to match your elite brand.</p>
           </CardHeader>
           <CardContent className="space-y-8">
+            {/* ── Preset Theme Picker ────────────────────────────────────── */}
+            <div className="p-5 rounded-2xl bg-[var(--surface-0)] border border-[var(--border)]">
+              <div className="flex items-center gap-2 mb-4">
+                <Wand2 className="h-4 w-4 text-[var(--primary)]" />
+                <h4 className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Instant Theme Presets</h4>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {PRESET_THEMES.map((theme) => (
+                  <button
+                    key={theme.name}
+                    type="button"
+                    onClick={() => applyPreset(theme)}
+                    className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-1)] hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 transition-all duration-150 cursor-pointer"
+                  >
+                    {/* Color swatch */}
+                    <div className="flex gap-1">
+                      <span className="h-5 w-5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: theme.primaryColor }} />
+                      <span className="h-5 w-5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: theme.accentColor }} />
+                    </div>
+                    <span className="text-[10px] font-bold text-[var(--foreground-secondary)] group-hover:text-[var(--primary)] text-center leading-tight">{theme.name}</span>
+                    {/* Active indicator */}
+                    {brandingForm.primaryColor === theme.primaryColor && brandingForm.accentColor === theme.accentColor && (
+                      <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--primary)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Visual Styles */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="space-y-4 p-5 rounded-2xl bg-[var(--surface-0)] border border-[var(--border)] shadow-sm">

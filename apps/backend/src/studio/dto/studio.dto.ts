@@ -33,6 +33,27 @@ export class BrandingConfigDto {
   @IsUrl()
   @IsOptional()
   logoUrl?: string;
+
+  // Extended branding fields used by the portal & settings page
+  @IsString()
+  @IsOptional()
+  heroStyle?: string;
+
+  @IsString()
+  @IsOptional()
+  cardTheme?: string;
+
+  @IsString()
+  @IsOptional()
+  buttonShape?: string;
+
+  @IsString()
+  @IsOptional()
+  headerText?: string;
+
+  @IsString()
+  @IsOptional()
+  tagline?: string;
 }
 
 export class CreateStudioDto {
@@ -124,6 +145,38 @@ export class UpdateStudioDto {
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  city?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  state?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  zipCode?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  @MaxLength(500)
+  description?: string;
+
+  // Allow empty string or valid URL
+  @IsOptional()
+  @Transform(({ value }) => (value === "" ? undefined : value?.trim()))
+  @IsUrl({}, { message: "website must be a valid URL" })
+  website?: string;
 
   @IsUrl()
   @IsOptional()

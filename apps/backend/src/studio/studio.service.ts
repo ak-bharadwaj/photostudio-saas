@@ -222,12 +222,28 @@ export class StudioService {
       }
     }
 
+    // Deep-merge brandingConfig so partial updates don't wipe existing fields
+    let mergedBrandingConfig: Prisma.InputJsonValue | undefined = undefined;
+    if (dto.brandingConfig !== undefined) {
+      const existing =
+        studio.brandingConfig && typeof studio.brandingConfig === "object"
+          ? (studio.brandingConfig as Record<string, unknown>)
+          : {};
+      mergedBrandingConfig = {
+        ...existing,
+        ...(dto.brandingConfig as Record<string, unknown>),
+      } as Prisma.InputJsonValue;
+    }
+
+    // Exclude brandingConfig from the spread to avoid overwriting with unmerged value
+    const { brandingConfig: _bc, ...restDto } = dto;
+
     const updated = await this.prisma.studio.update({
       where: { id },
       data: {
-        ...dto,
-        ...(dto.brandingConfig !== undefined && {
-          brandingConfig: dto.brandingConfig as Prisma.InputJsonValue,
+        ...restDto,
+        ...(mergedBrandingConfig !== undefined && {
+          brandingConfig: mergedBrandingConfig,
         }),
       },
     });
