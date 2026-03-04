@@ -50,6 +50,10 @@ export class BrandingConfigDto {
   @IsString()
   @IsOptional()
   tagline?: string;
+
+  @IsString()
+  @IsOptional()
+  logoPosition?: string;
 }
 
 export class CreateStudioDto {

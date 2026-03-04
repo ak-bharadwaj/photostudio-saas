@@ -39,6 +39,8 @@ interface BrandingConfig {
   heroStyle?: 'solid' | 'mesh' | 'glass';
   cardTheme?: 'modern' | 'classic' | 'elevated';
   buttonShape?: 'rounded' | 'pill' | 'luxury-sharp';
+  logoPosition?: string;
+  [key: string]: unknown; // allow future fields from DB without breaking
 }
 
 interface StudioData {
@@ -516,8 +518,21 @@ export default function BrandingPage() {
     if (!studio) return;
     try {
       setSaving(true);
+      // Explicitly whitelist branding fields so unknown DB fields never cause a 400
+      const brandingPayload = {
+        primaryColor: branding.primaryColor,
+        secondaryColor: branding.secondaryColor,
+        accentColor: branding.accentColor,
+        fontFamily: branding.fontFamily,
+        headerText: branding.headerText,
+        tagline: branding.tagline,
+        heroStyle: branding.heroStyle,
+        cardTheme: branding.cardTheme,
+        buttonShape: branding.buttonShape,
+        logoPosition: branding.logoPosition,
+      };
       await studiosApi.update(studio.id, {
-        brandingConfig: branding,
+        brandingConfig: brandingPayload,
         logoUrl: logoUrl || undefined,
         defaultTerms: defaultTerms || undefined,
       });
