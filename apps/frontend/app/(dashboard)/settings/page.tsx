@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { studiosApi, authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { Save, Building2, User, Sparkles, Lock, Wand2 } from 'lucide-react';
+import { Save, Building2, User, Sparkles, Lock, Wand2, Copy, ExternalLink, CheckCircle2, AlertCircle, Globe } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 
 interface Studio {
@@ -61,6 +61,8 @@ export default function SettingsPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingBranding, setIsSavingBranding] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [slugCopied, setSlugCopied] = useState(false);
+  const [slugChanged, setSlugChanged] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const { addToast } = useToast();
   const { user } = useAuthStore();
@@ -144,6 +146,7 @@ export default function SettingsPage() {
           description: studioData.description || '',
           slug: studioData.slug || '',
         });
+        setSlugChanged(false);
 
         setBrandingForm({
           primaryColor: studioData.brandingConfig?.primaryColor || '#1a73e8',
@@ -391,36 +394,90 @@ export default function SettingsPage() {
                 placeholder="The Lens & Light Studio"
               />
 
-              <div className="space-y-1.5">
-                <label htmlFor="slug" className="block text-sm font-medium text-[var(--foreground)]">
-                  Studio Slug (URL Identity)
+              <div className="space-y-2">
+                <label htmlFor="slug" className="block text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-[var(--primary)]" />
+                  Public Booking URL
                 </label>
-                <div className="flex items-center">
-                  <span className="inline-flex items-center px-4 py-2 rounded-l-xl border border-r-0 border-[var(--border)] bg-[var(--surface-1)] text-[var(--foreground-tertiary)] text-sm font-medium">
+
+                {/* URL builder row */}
+                <div className="flex items-stretch rounded-2xl overflow-hidden border border-[var(--border)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 transition-all bg-[var(--surface-0)]">
+                  <span className="flex items-center px-4 bg-[var(--surface-1)] border-r border-[var(--border)] text-[var(--foreground-tertiary)] text-sm font-mono whitespace-nowrap select-none">
                     /studio/
                   </span>
-                  <Input
+                  <input
                     id="slug"
-                    name="slug"
                     type="text"
                     value={profileForm.slug}
                     onChange={(e) => {
                       const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 50);
                       setProfileForm(prev => ({ ...prev, slug: value }));
+                      setSlugChanged(value !== (studio?.slug || ''));
                     }}
-                    className="rounded-l-none"
+                    className="flex-1 bg-transparent px-4 py-3 text-sm font-mono text-[var(--foreground)] outline-none placeholder:text-[var(--foreground-tertiary)]"
                     placeholder="my-awesome-studio"
+                    spellCheck={false}
+                    autoComplete="off"
                   />
+                  {/* Character counter */}
+                  <span className={`flex items-center pr-3 text-xs font-mono tabular-nums ${profileForm.slug.length > 45 ? 'text-[var(--warning)]' : 'text-[var(--foreground-tertiary)]'}`}>
+                    {profileForm.slug.length}/50
+                  </span>
                 </div>
-                <div className="bg-[var(--warning-light)]/30 border border-[var(--warning)]/20 p-3 rounded-lg mt-2">
-                  <p className="text-xs text-[var(--warning)] font-bold flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    RELIABILITY WARNING
-                  </p>
-                  <p className="text-[10px] text-[var(--warning)] opacity-80 mt-0.5">
-                    Changing this slug will invalidate all existing shared links and QR codes instantly.
-                  </p>
+
+                {/* Live URL preview card */}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-0)] p-3 flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center shrink-0">
+                    <Globe className="h-4 w-4 text-[var(--primary)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--foreground-tertiary)] mb-0.5">Your public booking link</p>
+                    <p className="text-sm font-mono text-[var(--foreground)] truncate">
+                      <span className="text-[var(--foreground-tertiary)]">{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}</span>
+                      <span className="text-[var(--primary)] font-bold">/studio/{profileForm.slug || <span className="opacity-40">your-slug</span>}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      title="Copy link"
+                      onClick={() => {
+                        const url = `${window.location.origin}/studio/${profileForm.slug}`;
+                        navigator.clipboard.writeText(url);
+                        setSlugCopied(true);
+                        setTimeout(() => setSlugCopied(false), 2000);
+                      }}
+                      className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--foreground)]"
+                    >
+                      {slugCopied ? <CheckCircle2 className="h-4 w-4 text-[var(--success)]" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                    <a
+                      href={`/studio/${profileForm.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open public page"
+                      className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--primary)]"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </div>
                 </div>
+
+                {/* Status strip */}
+                {slugChanged ? (
+                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-500">URL will change on save</p>
+                      <p className="text-[10px] text-amber-500/80 mt-0.5">All existing shared links, QR codes, and bookmarks will stop working.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-xl bg-[var(--success)]/10 border border-[var(--success)]/20 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--success)] shrink-0" />
+                    <p className="text-xs text-[var(--success)] font-medium">Active — this URL is live</p>
+                  </div>
+                )}
               </div>
             </div>
 
