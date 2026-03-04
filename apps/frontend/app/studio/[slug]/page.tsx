@@ -56,11 +56,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Appends a 2-digit hex alpha suffix ONLY when the color is a 3- or 6-digit
- * hex string (#rgb or #rrggbb).  For any other format (rgb(), hsl(), etc.)
- * the alpha is silently dropped so CSS never gets an invalid value.
- */
 function hexAlpha(color: string, alpha: string): string {
   if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) {
     return color + alpha;
@@ -68,8 +63,6 @@ function hexAlpha(color: string, alpha: string): string {
   return color;
 }
 
-/** Google Fonts families available in the branding picker.
- *  Must match FONT_OPTIONS in branding/page.tsx and settings/page.tsx exactly. */
 const GOOGLE_FONT_FAMILIES = [
   'Plus Jakarta Sans',
   'Outfit',
@@ -188,7 +181,7 @@ function getOccasionIcon(occasion?: string) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Step Indicator                                                             */
+/*  Step Indicator — minimal typographic style                                */
 /* -------------------------------------------------------------------------- */
 
 function StepIndicator({
@@ -202,96 +195,62 @@ function StepIndicator({
   };
 }) {
   return (
-    <div className="sticky top-0 z-40 w-full px-4 -mt-6 mb-10">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-[var(--background)]/85 backdrop-blur-2xl px-6 py-4 rounded-3xl shadow-2xl border border-[var(--border-light)] flex items-center justify-between">
-          {STEPS.map((s) => {
-            const Icon = s.icon;
-            const isActive = step === s.id;
-            const isCompleted = step > s.id;
-
-            return (
-              <div key={s.id} className="flex flex-col items-center gap-1.5 flex-1 relative group">
-                <div
-                  className={cn(
-                    'h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-500',
-                    isActive
-                      ? 'text-white shadow-xl scale-110 -translate-y-1'
-                      : isCompleted
-                        ? 'text-white'
-                        : 'bg-[var(--surface-2)] text-[var(--foreground-tertiary)] group-hover:bg-[var(--surface-3)]',
-                  )}
-                  style={{
-                    backgroundColor: isActive
-                      ? brand.primaryColor
-                      : isCompleted
-                        ? 'var(--success)'
-                        : undefined,
-                    boxShadow: isActive ? `0 8px 20px ${hexAlpha(brand.primaryColor,'55')}` : undefined,
-                    borderRadius:
-                      brand.buttonShape === 'pill'
-                        ? '9999px'
-                        : brand.buttonShape === 'luxury-sharp'
-                          ? '6px'
-                          : '0.875rem',
-                  }}
-                >
-                  {isCompleted ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <Icon className={cn('h-5 w-5', isActive && 'animate-pulse')} />
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    'text-[10px] font-bold uppercase tracking-widest hidden sm:block transition-colors',
-                    isActive
-                      ? 'text-[var(--foreground)]'
-                      : 'text-[var(--foreground-tertiary)]',
-                  )}
-                >
-                  {s.title}
-                </span>
-                {/* Connector */}
-                {s.id < 4 && (
-                  <div className="absolute top-[22px] left-[calc(50%+22px)] right-0 w-[calc(100%-44px)] h-[2px] bg-[var(--surface-2)] -z-10 hidden sm:block">
-                    <div
-                      className="h-full transition-all duration-700"
-                      style={{
-                        width: isCompleted ? '100%' : '0%',
-                        backgroundColor: 'var(--success)',
-                      }}
-                    />
-                  </div>
-                )}
+    <div className="flex items-center justify-center gap-0 mb-12">
+      {STEPS.map((s, idx) => {
+        const isActive = step === s.id;
+        const isCompleted = step > s.id;
+        return (
+          <React.Fragment key={s.id}>
+            <div className="flex flex-col items-center gap-1.5">
+              <div
+                className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-300"
+                style={{
+                  backgroundColor: isActive
+                    ? brand.primaryColor
+                    : isCompleted
+                    ? '#22c55e'
+                    : 'transparent',
+                  border: `2px solid ${isActive ? brand.primaryColor : isCompleted ? '#22c55e' : '#d1d5db'}`,
+                  color: isActive || isCompleted ? '#fff' : '#9ca3af',
+                }}
+              >
+                {isCompleted ? <Check className="h-3.5 w-3.5" /> : s.id}
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <span
+                className="text-[10px] font-bold uppercase tracking-widest hidden sm:block"
+                style={{ color: isActive ? brand.primaryColor : '#9ca3af' }}
+              >
+                {s.title}
+              </span>
+            </div>
+            {idx < STEPS.length - 1 && (
+              <div
+                className="h-[2px] w-10 sm:w-16 mx-1 mb-4 transition-all duration-500"
+                style={{ backgroundColor: step > s.id ? '#22c55e' : '#e5e7eb' }}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Occasion Card                                                              */
+/*  Service Card — editorial large format                                      */
 /* -------------------------------------------------------------------------- */
 
-function OccasionCard({
+function ServiceCard({
   service,
   primaryColor,
   accentColor,
   onClick,
-  cardTheme,
-  buttonShape,
   isSelected,
 }: {
   service: Service;
   primaryColor: string;
   accentColor: string;
   onClick: () => void;
-  cardTheme: 'modern' | 'classic' | 'elevated';
-  buttonShape: 'rounded' | 'pill' | 'luxury-sharp';
   isSelected: boolean;
 }) {
   const Icon = getOccasionIcon(service.occasion);
@@ -299,111 +258,93 @@ function OccasionCard({
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'group relative overflow-hidden text-left transition-all duration-300 focus:outline-none',
-        cardTheme === 'modern' &&
-          'rounded-2xl border border-[var(--border)] bg-[var(--surface-0)] hover:shadow-xl hover:-translate-y-1.5',
-        cardTheme === 'classic' &&
-          'rounded-xl border-2 border-[var(--border)] bg-[var(--surface-0)] hover:shadow-lg hover:-translate-y-1',
-        cardTheme === 'elevated' &&
-          'rounded-[1.5rem] p-1.5 shadow-md hover:shadow-2xl hover:-translate-y-1.5 bg-[var(--surface-0)]',
-        isSelected && 'scale-[1.02]',
-      )}
+      className="group relative w-full text-left overflow-hidden transition-all duration-300 focus:outline-none"
       style={{
-        borderColor: isSelected ? primaryColor : undefined,
-        boxShadow: isSelected ? `0 0 0 2px ${primaryColor}, 0 8px 32px ${hexAlpha(primaryColor,'30')}` : undefined,
+        borderRadius: '0px',
+        outline: isSelected ? `3px solid ${primaryColor}` : '3px solid transparent',
+        outlineOffset: '0px',
       }}
     >
-      {/* Cover / Gradient */}
-      <div
-        className={cn(
-          'relative overflow-hidden',
-          cardTheme === 'elevated' ? 'rounded-[1.2rem]' : 'rounded-t-2xl',
-        )}
-      >
+      {/* Image / gradient area — tall aspect ratio for editorial feel */}
+      <div className="relative overflow-hidden" style={{ aspectRatio: '3/4' }}>
         {service.coverImage ? (
-          <div className="relative w-full h-44">
+          <>
             <NextImage
               src={service.coverImage}
               alt={service.name}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-700"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, 33vw"
               unoptimized
             />
-            {/* Gradient overlay on hover */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+          </>
         ) : (
+          <>
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(160deg, ${hexAlpha(primaryColor, 'dd')} 0%, #0a0a0a 100%)`,
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Icon
+                className="h-20 w-20 opacity-20"
+                style={{ color: '#fff' }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Selected indicator */}
+        {isSelected && (
           <div
-            className="w-full h-44 flex items-center justify-center relative overflow-hidden"
-            style={{
-              background: `linear-gradient(135deg, ${hexAlpha(primaryColor,'18')}, ${hexAlpha(accentColor,'25')})`,
-            }}
+            className="absolute top-4 right-4 h-8 w-8 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: primaryColor }}
           >
-            {/* Decorative blobs */}
-            <div
-              className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20 blur-2xl"
-              style={{ backgroundColor: primaryColor }}
-            />
-            <div
-              className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full opacity-20 blur-2xl"
-              style={{ backgroundColor: accentColor }}
-            />
-            <Icon
-              className="h-16 w-16 transition-transform group-hover:scale-110 duration-500 relative z-10"
-              style={{ color: primaryColor }}
-            />
+            <Check className="h-4 w-4 text-white" />
           </div>
         )}
-        {/* Price badge */}
-        <div
-          className="absolute top-3 right-3 px-3 py-1 rounded-full text-white text-sm font-black shadow-lg backdrop-blur-md"
-          style={{ backgroundColor: hexAlpha(primaryColor, 'e8') }}
-        >
-          {formatCurrency(service.price)}
-        </div>
-        {/* Duration badge */}
-        <div className="absolute bottom-3 left-3 px-2.5 py-0.5 rounded-full text-white text-xs font-semibold bg-black/40 backdrop-blur-sm flex items-center gap-1">
+
+        {/* Duration chip */}
+        <div className="absolute top-4 left-4 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-semibold rounded-full flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {service.durationMinutes} min
+          {service.durationMinutes}m
+        </div>
+
+        {/* Bottom text overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-5">
+          <div className="text-white/60 text-xs font-bold uppercase tracking-[0.2em] mb-1">
+            {service.occasion || 'Photography'}
+          </div>
+          <h3 className="text-white text-xl font-black leading-tight tracking-tight mb-3">
+            {service.name}
+          </h3>
+          {service.description && (
+            <p className="text-white/70 text-sm leading-relaxed line-clamp-2 mb-4">
+              {service.description}
+            </p>
+          )}
+          <div className="flex items-center justify-between">
+            <div className="text-white text-2xl font-black">
+              {formatCurrency(service.price)}
+            </div>
+            <div
+              className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 transition-all duration-200 group-hover:gap-2"
+              style={{ color: isSelected ? primaryColor : 'rgba(255,255,255,0.8)' }}
+            >
+              Book Now
+              <ChevronRight className="h-3.5 w-3.5" />
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="font-bold text-[var(--foreground)] text-base mb-1 tracking-tight">
-          {service.name}
-        </h3>
-        {service.description && (
-          <p className="text-[var(--foreground-tertiary)] text-sm line-clamp-2 mb-3 leading-relaxed">
-            {service.description}
-          </p>
-        )}
-        <div
-          className="flex items-center gap-1 text-sm font-bold transition-all duration-300"
-          style={{ color: primaryColor }}
-        >
-          Select Service
-          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </div>
-      </div>
-
-      {/* Selected check overlay */}
-      {isSelected && (
-        <div
-          className="absolute top-3 left-3 h-7 w-7 rounded-full flex items-center justify-center shadow-lg"
-          style={{ backgroundColor: primaryColor }}
-        >
-          <Check className="h-4 w-4 text-white" />
-        </div>
-      )}
     </button>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Status Badge Helper                                                        */
+/*  Status Badge                                                               */
 /* -------------------------------------------------------------------------- */
 
 function StatusBadge({ status }: { status: string }) {
@@ -428,29 +369,24 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Main Page                                                                 */
+/*  Main Page Wrapper                                                          */
 /* -------------------------------------------------------------------------- */
 
 export default function PublicBookingPageWrapper() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[var(--background-secondary)]">
-        <div className="skeleton h-[280px] w-full" />
-        <div className="skeleton h-14 w-full" />
-        <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-          <div className="skeleton h-10 w-64 rounded-full mx-auto" />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="skeleton h-64 rounded-2xl" />
-            ))}
-          </div>
-        </div>
+      <div className="min-h-screen bg-black">
+        <div className="skeleton h-screen w-full opacity-20" />
       </div>
     }>
       <PublicBookingPage />
     </Suspense>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Main Page                                                                  */
+/* -------------------------------------------------------------------------- */
 
 function PublicBookingPage() {
   const params = useParams();
@@ -488,7 +424,6 @@ function PublicBookingPage() {
   const [sendingCounter, setSendingCounter] = useState(false);
   const [highlightedOccasion, setHighlightedOccasion] = useState<string | null>(null);
 
-  // Abort controllers to cancel in-flight requests on unmount / re-fetch
   const studioAbortRef = useRef<AbortController | null>(null);
   const historyAbortRef = useRef<AbortController | null>(null);
   const slotsAbortRef = useRef<AbortController | null>(null);
@@ -498,7 +433,7 @@ function PublicBookingPage() {
     const bc = studio?.brandingConfig || {};
     return {
       primaryColor: bc.primaryColor || '#7c3aed',
-      secondaryColor: bc.secondaryColor || '#5f6368',
+      secondaryColor: bc.secondaryColor || '#0d2644',
       accentColor: bc.accentColor || '#db2777',
       fontFamily: bc.fontFamily || 'Inter',
       headerText: bc.headerText || studio?.name || '',
@@ -508,23 +443,6 @@ function PublicBookingPage() {
       buttonShape: bc.buttonShape || 'rounded',
     };
   }, [studio]);
-
-  // Inject studio font into <head> so it overrides body/Tailwind resets reliably
-  useEffect(() => {
-    const id = 'studio-font-override';
-    let el = document.getElementById(id) as HTMLStyleElement | null;
-    if (!el) {
-      el = document.createElement('style');
-      el.id = id;
-      document.head.appendChild(el);
-    }
-    el.textContent = `body.studio-font-active, body.studio-font-active * { font-family: "${brand.fontFamily}", DM Sans, sans-serif !important; }`;
-    document.body.classList.add('studio-font-active');
-    return () => {
-      document.body.classList.remove('studio-font-active');
-      el?.remove();
-    };
-  }, [brand.fontFamily]);
 
   // Group services by occasion
   const occasionGroups = useMemo(() => {
@@ -564,7 +482,7 @@ function PublicBookingPage() {
         localStorage.removeItem('customer_token');
       }
     },
-    [], // intentionally empty — only uses stable setters and API_URL constant
+    [],
   );
 
   const fetchStudioHistory = useCallback(async () => {
@@ -660,7 +578,6 @@ function PublicBookingPage() {
       if (storedToken) fetchMe(storedToken);
     }
     loadStudio();
-    // Cleanup: abort all in-flight requests on unmount
     return () => {
       studioAbortRef.current?.abort();
       historyAbortRef.current?.abort();
@@ -737,7 +654,6 @@ function PublicBookingPage() {
     }
     setSendingCounter(true);
     try {
-      // Reject the current quote with a counter-offer note
       await portalApi.rejectQuote(counterOfferId, `Counter-offer: ${formatCurrency(amount)}${counterOfferNote ? ' — ' + counterOfferNote : ''}`);
       addToast('success', `Counter-offer of ${formatCurrency(amount)} sent! The studio will review and respond.`);
       setCounterOfferId(null);
@@ -833,33 +749,23 @@ function PublicBookingPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  /* ------------------------------------------------------------------ */
+  /*  Loading / Error states                                             */
+  /* ------------------------------------------------------------------ */
+
   if (loading) return (
-    <div className="min-h-screen bg-[var(--background-secondary)]">
-      {/* Hero skeleton */}
-      <div className="skeleton h-[280px] w-full" />
-      {/* Tab bar skeleton */}
-      <div className="skeleton h-14 w-full" />
-      {/* Content skeleton */}
-      <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        <div className="skeleton h-10 w-64 rounded-full mx-auto" />
-        <div className="skeleton h-6 w-48 rounded-lg mx-auto" />
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton h-64 rounded-2xl" />
-          ))}
-        </div>
-      </div>
+    <div className="min-h-screen bg-black flex flex-col">
+      <div className="h-screen skeleton opacity-10" />
     </div>
   );
+
   if (!studio)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background-secondary)]">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center p-8 max-w-sm">
-          <div className="w-20 h-20 rounded-3xl bg-[var(--surface-2)] flex items-center justify-center mx-auto mb-6">
-            <Camera className="h-10 w-10 text-[var(--foreground-tertiary)]" />
-          </div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)] mb-2">Studio Not Found</h1>
-          <p className="text-[var(--foreground-secondary)]">
+          <Camera className="h-12 w-12 text-white/20 mx-auto mb-4" />
+          <h1 className="text-2xl font-black text-white mb-2">Studio Not Found</h1>
+          <p className="text-white/40">
             {errorStatus || "The studio you're looking for doesn't exist or is not accepting bookings."}
           </p>
         </div>
@@ -868,187 +774,116 @@ function PublicBookingPage() {
 
   const minDate = new Date().toISOString().split('T')[0];
   const maxDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const btnRadius =
+    brand.buttonShape === 'pill' ? '9999px' : brand.buttonShape === 'luxury-sharp' ? '4px' : '12px';
 
   /* ------------------------------------------------------------------ */
-  /*  Button radius helper                                               */
+  /*  Root wrapper — font override via CSS variable + direct font-family */
   /* ------------------------------------------------------------------ */
-  const btnRadius =
-    brand.buttonShape === 'pill' ? '9999px' : brand.buttonShape === 'luxury-sharp' ? '6px' : '0.875rem';
 
   return (
     <div
-      className="studio-portal min-h-screen bg-[var(--background-secondary)]"
+      className="studio-portal min-h-screen"
       style={{
+        '--font-sans': `"${brand.fontFamily}", DM Sans, sans-serif`,
         '--studio-primary': brand.primaryColor,
         '--studio-accent': brand.accentColor,
+        fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+        backgroundColor: '#f5f5f0',
       } as React.CSSProperties}
     >
-      {/* ------------------------------------------------------------------ */}
-      {/*  Hero Header                                                        */}
-{/*  */}
-      <header
-        className={cn(
-          'relative overflow-hidden',
-          brand.heroStyle === 'mesh' ? 'min-h-[280px] flex items-center py-10' : 'py-10 sm:py-14',
-        )}
-        style={{
-          backgroundColor: brand.heroStyle === 'solid' ? brand.primaryColor : undefined,
-          background:
-            brand.heroStyle === 'mesh'
-              ? `radial-gradient(ellipse at 0% 0%, ${hexAlpha(brand.primaryColor,'cc')} 0%, transparent 55%),
-                 radial-gradient(ellipse at 100% 0%, ${hexAlpha(brand.accentColor,'99')} 0%, transparent 55%),
-                 radial-gradient(ellipse at 50% 100%, ${hexAlpha(brand.primaryColor,'66')} 0%, transparent 60%),
-                 linear-gradient(160deg, #0c0c1a 0%, #1a0a2e 50%, #0c0c1a 100%)`
-              : brand.heroStyle === 'glass'
-                ? `linear-gradient(135deg, ${brand.primaryColor}, ${brand.accentColor})`
-                : undefined,
-        }}
-      >
-        {/* Animated noise/grain overlay */}
-        {(brand.heroStyle === 'mesh' || brand.heroStyle === 'solid') && (
-          <div
-            className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
-            }}
-          />
-        )}
 
-        {/* Floating ambient orbs for mesh style */}
+      {/* ================================================================ */}
+      {/*  HERO — full-bleed, dramatic, editorial                          */}
+      {/* ================================================================ */}
+      <header
+        className="relative overflow-hidden"
+        style={{ minHeight: '92vh', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+      >
+        {/* Background */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              brand.heroStyle === 'mesh'
+                ? `radial-gradient(ellipse at 20% 80%, ${hexAlpha(brand.primaryColor, 'cc')} 0%, transparent 50%),
+                   radial-gradient(ellipse at 80% 20%, ${hexAlpha(brand.accentColor, '99')} 0%, transparent 45%),
+                   linear-gradient(175deg, #080810 0%, #12101e 100%)`
+                : brand.heroStyle === 'solid'
+                ? brand.primaryColor
+                : `linear-gradient(145deg, ${brand.primaryColor} 0%, ${brand.accentColor} 100%)`,
+          }}
+        />
+
+        {/* Grain texture */}
+        <div
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+          }}
+        />
+
+        {/* Large ambient orbs */}
         {brand.heroStyle === 'mesh' && (
           <>
             <div
-              className="absolute top-0 left-1/4 w-72 h-72 rounded-full opacity-30 blur-3xl pointer-events-none"
-              style={{ backgroundColor: brand.primaryColor }}
+              className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-20 pointer-events-none"
+              style={{ backgroundColor: brand.primaryColor, top: '-100px', left: '-150px' }}
             />
             <div
-              className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full opacity-20 blur-3xl pointer-events-none"
-              style={{ backgroundColor: brand.accentColor }}
+              className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-15 pointer-events-none"
+              style={{ backgroundColor: brand.accentColor, bottom: '0px', right: '-100px' }}
             />
           </>
         )}
 
-        {/* Pattern dots */}
-        <div
-          className="absolute inset-0 opacity-[0.07] pointer-events-none"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle, white 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
-          }}
-        />
-
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 w-full">
-          <div
-            className={cn(
-              'flex items-center gap-5 sm:gap-8',
-              brand.heroStyle === 'glass' &&
-                'bg-white/10 backdrop-blur-2xl p-6 sm:p-8 rounded-3xl border border-white/20 shadow-2xl',
-            )}
-          >
-            {/* Logo */}
-            {studio?.logoUrl ? (
-              <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-2xl bg-white/15 backdrop-blur-sm shadow-xl border border-white/20">
+        {/* Top bar: logo + nav */}
+        <div className="absolute top-0 left-0 right-0 z-20 px-6 sm:px-12 pt-8 flex items-center justify-between">
+          {/* Logo / Studio mark */}
+          <div className="flex items-center gap-3">
+            {studio.logoUrl ? (
+              <div className="relative h-10 w-10 overflow-hidden rounded-lg bg-white/10 border border-white/20">
                 <NextImage
                   src={
                     studio.logoUrl.startsWith('http')
                       ? studio.logoUrl
                       : `${API_URL}${studio.logoUrl.startsWith('/') ? '' : '/'}${studio.logoUrl}`
                   }
-                  alt={studio.name || 'Studio'}
+                  alt={studio.name}
                   fill
                   className="object-contain p-1"
-                  sizes="80px"
+                  sizes="40px"
                   unoptimized
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                  }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
               </div>
             ) : (
-              <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-xl border border-white/20">
-                <Camera className="h-8 w-8 text-white" />
+              <div className="h-10 w-10 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center">
+                <Camera className="h-5 w-5 text-white" />
               </div>
             )}
-
-            {/* Text */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
-                {brand.headerText}
-              </h1>
-              {brand.tagline && (
-                <p className="text-white/75 text-sm sm:text-lg mt-1.5 font-medium">
-                  {brand.tagline}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-3 mt-4">
-                <a
-                  href={`mailto:${studio.email}`}
-                  className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 transition-all duration-200"
-                >
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate max-w-[160px]">{studio.email}</span>
-                </a>
-                <a
-                  href={`tel:${studio.phone}`}
-                  className="flex items-center gap-1.5 text-white/80 hover:text-white text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 transition-all duration-200"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  {studio.phone}
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ------------------------------------------------------------------ */}
-      {/*  Tab Navigation                                                     */}
-{/*  */}
-      <div className="sticky top-0 z-50 bg-[var(--background)]/85 backdrop-blur-xl border-b border-[var(--border)] shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
-          <div className="flex h-full">
-            {(
-              [
-                { id: 'book' as const, label: 'Book', icon: BookOpen },
-                { id: 'history' as const, label: 'My History', icon: History },
-                { id: 'account' as const, label: 'Account', icon: User },
-              ] as const
-            ).map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={cn(
-                  'flex items-center gap-2 px-4 sm:px-5 h-full text-sm font-semibold border-b-2 transition-all duration-200',
-                  activeTab === id
-                    ? 'border-current'
-                    : 'border-transparent text-[var(--foreground-tertiary)] hover:text-[var(--foreground-secondary)] hover:border-[var(--border-strong)]',
-                )}
-                style={activeTab === id ? { borderColor: brand.primaryColor, color: brand.primaryColor } : {}}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="hidden sm:block">{label}</span>
-                <span className="sm:hidden">{label.split(' ')[0]}</span>
-              </button>
-            ))}
+            <span className="text-white/80 text-sm font-semibold tracking-wide hidden sm:block">
+              {studio.name}
+            </span>
           </div>
 
+          {/* Auth / Sign in */}
           {authUser ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--surface-2)]">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15">
                 <div
                   className="h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-black"
                   style={{ backgroundColor: brand.primaryColor }}
                 >
                   {(authUser.name || '?').charAt(0).toUpperCase()}
                 </div>
-                <span className="text-sm font-medium text-[var(--foreground-secondary)] hidden sm:block max-w-[120px] truncate">
+                <span className="text-sm font-medium text-white/80 hidden sm:block max-w-[100px] truncate">
                   {authUser.name}
                 </span>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 text-sm text-[var(--foreground-tertiary)] hover:text-[var(--danger)] transition-colors px-2.5 py-1.5 rounded-lg hover:bg-[var(--danger)]/5"
+                className="p-2 rounded-full bg-white/10 border border-white/15 text-white/60 hover:text-white/90 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -1059,48 +894,167 @@ function PublicBookingPage() {
                 const returnUrl = encodeURIComponent(window.location.pathname);
                 window.location.href = `${API_URL}/auth/google?state=${returnUrl}`;
               }}
-              className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full text-white transition-all hover:opacity-90 hover:shadow-md"
-              style={{ backgroundColor: brand.primaryColor }}
+              className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full text-white/90 bg-white/10 hover:bg-white/20 border border-white/20 transition-all"
             >
               <Chrome className="h-4 w-4" />
               <span className="hidden sm:block">Sign In</span>
             </button>
           )}
         </div>
+
+        {/* Hero content — bottom aligned, magazine style */}
+        <div className="relative z-10 px-6 sm:px-12 lg:px-16 pb-14 sm:pb-20">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-[1px] w-10" style={{ backgroundColor: hexAlpha(brand.accentColor, 'cc') }} />
+            <span
+              className="text-xs font-bold uppercase tracking-[0.25em]"
+              style={{ color: hexAlpha(brand.accentColor, 'ee') }}
+            >
+              Photography Studio
+            </span>
+          </div>
+
+          {/* Studio name — oversized editorial */}
+          <h1
+            className="text-white leading-[0.9] tracking-[-0.03em] mb-6"
+            style={{
+              fontSize: 'clamp(3.5rem, 10vw, 9rem)',
+              fontWeight: 900,
+              fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+            }}
+          >
+            {brand.headerText}
+          </h1>
+
+          {/* Tagline */}
+          {brand.tagline && (
+            <p
+              className="text-white/60 mb-8 max-w-xl"
+              style={{ fontSize: 'clamp(1rem, 2vw, 1.35rem)', lineHeight: 1.5, fontWeight: 400 }}
+            >
+              {brand.tagline}
+            </p>
+          )}
+
+          {/* CTA row */}
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              onClick={() => {
+                const el = document.getElementById('portal-content');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="flex items-center gap-2 px-7 py-3.5 text-white font-bold text-sm tracking-wide transition-all hover:opacity-90 hover:-translate-y-0.5"
+              style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
+            >
+              Book a Session
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-4 text-sm">
+              <a
+                href={`mailto:${studio.email}`}
+                className="flex items-center gap-1.5 text-white/55 hover:text-white/90 transition-colors font-medium"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span className="hidden sm:block">{studio.email}</span>
+                <span className="sm:hidden">Email</span>
+              </a>
+              <span className="text-white/20">·</span>
+              <a
+                href={`tel:${studio.phone}`}
+                className="flex items-center gap-1.5 text-white/55 hover:text-white/90 transition-colors font-medium"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                {studio.phone}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom edge — fade to content bg */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, transparent, #f5f5f0)' }}
+        />
+      </header>
+
+      {/* ================================================================ */}
+      {/*  TAB NAV                                                          */}
+      {/* ================================================================ */}
+      <div
+        className="sticky top-0 z-50 border-b"
+        style={{ backgroundColor: '#f5f5f0', borderColor: '#e0e0d8' }}
+      >
+        <div className="max-w-7xl mx-auto px-6 sm:px-12 flex items-center justify-between h-14">
+          <div className="flex h-full gap-0">
+            {(
+              [
+                { id: 'book' as const, label: 'Book', icon: BookOpen },
+                { id: 'history' as const, label: 'My Bookings', icon: History },
+                { id: 'account' as const, label: 'Account', icon: User },
+              ] as const
+            ).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={cn(
+                  'flex items-center gap-2 px-4 sm:px-6 h-full text-xs font-bold uppercase tracking-[0.15em] border-b-2 transition-all duration-200',
+                  activeTab === id
+                    ? 'border-current'
+                    : 'border-transparent text-black/30 hover:text-black/60',
+                )}
+                style={activeTab === id ? { borderColor: brand.primaryColor, color: brand.primaryColor } : {}}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:block">{label}</span>
+                <span className="sm:hidden">{label.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Service count badge */}
+          <div className="text-[11px] font-bold uppercase tracking-widest text-black/30">
+            {studio.services?.length || 0} Services
+          </div>
+        </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/*  Main Content                                                       */}
-{/*  */}
-      <div className="max-w-6xl mx-auto px-4 py-10">
+      {/* ================================================================ */}
+      {/*  MAIN CONTENT                                                     */}
+      {/* ================================================================ */}
+      <main id="portal-content" className="max-w-7xl mx-auto px-6 sm:px-12 py-14">
 
         {/* ============================================================== */}
         {/*  BOOK TAB                                                       */}
-        {/* /* ============================================================== */}
+        {/* ============================================================== */}
         {activeTab === 'book' && (
           <>
-            <StepIndicator step={step} brand={brand} />
-
-            {/* ---------------------------------------------------------- */}
-            {/*  Step 1: Choose Service                                     */}
-{/*  */}
+            {/* Step 1: Services */}
             {step === 1 && (
               <div className="animate-fade-in">
-                <div className="text-center mb-12">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-sm font-semibold mb-4">
-                    <Sparkles className="h-4 w-4" />
-                    {studio.services?.length || 0} services available
+                {/* Section header */}
+                <div className="mb-12">
+                  <div
+                    className="text-xs font-bold uppercase tracking-[0.25em] mb-3"
+                    style={{ color: brand.primaryColor }}
+                  >
+                    Choose Your Session
                   </div>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-[var(--foreground)] tracking-tight mb-3">
-                    What&apos;s the Occasion?
+                  <h2
+                    className="text-black leading-tight tracking-tight"
+                    style={{
+                      fontSize: 'clamp(2rem, 4vw, 3.5rem)',
+                      fontWeight: 900,
+                      fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                    }}
+                  >
+                    What&apos;s the{' '}
+                    <span style={{ color: brand.primaryColor }}>Occasion?</span>
                   </h2>
-                  <p className="text-[var(--foreground-tertiary)] text-lg max-w-xl mx-auto">
-                    Browse our photography packages and select the one that fits your vision.
-                  </p>
                 </div>
 
                 {hasOccasions ? (
-                  <div className="space-y-12">
+                  <div className="space-y-16">
                     {Object.entries(occasionGroups).map(([occasion, services]) => {
                       const OccIcon = getOccasionIcon(occasion);
                       return (
@@ -1108,34 +1062,35 @@ function PublicBookingPage() {
                           key={occasion}
                           id={`occasion-${occasion.toLowerCase()}`}
                           className={cn(
-                            'transition-all duration-700 rounded-3xl',
-                            highlightedOccasion === occasion.toLowerCase() &&
-                              'ring-2 ring-offset-4 p-4',
+                            'transition-all duration-700',
+                            highlightedOccasion === occasion.toLowerCase() && 'ring-2 ring-offset-8 rounded-sm',
                           )}
                           style={{}}
                         >
-                          <div className="flex items-center gap-2 mb-6">
-                            <div
-                              className="h-8 w-8 rounded-xl flex items-center justify-center"
-                              style={{ backgroundColor: hexAlpha(brand.primaryColor, '18') }}
+                          {/* Occasion label */}
+                          <div className="flex items-center gap-4 mb-6">
+                            <OccIcon className="h-5 w-5" style={{ color: brand.primaryColor }} />
+                            <span
+                              className="text-xs font-black uppercase tracking-[0.25em]"
+                              style={{ color: brand.primaryColor }}
                             >
-                              <OccIcon className="h-4 w-4" style={{ color: brand.primaryColor }} />
-                            </div>
-                            <h3 className="text-base font-bold uppercase tracking-widest" style={{ color: brand.primaryColor }}>
                               {occasion.charAt(0).toUpperCase() + occasion.slice(1)}
-                            </h3>
-                            <div className="h-px flex-1 bg-[var(--border)]" />
+                            </span>
+                            <div className="h-px flex-1" style={{ backgroundColor: '#e0e0d8' }} />
+                            <span className="text-xs font-semibold text-black/30">
+                              {services.length} package{services.length !== 1 ? 's' : ''}
+                            </span>
                           </div>
-                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+                          {/* Cards — 3-col on lg, 2-col on md, 1 on sm */}
+                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1">
                             {services.map((service) => (
-                              <OccasionCard
+                              <ServiceCard
                                 key={service.id}
                                 service={service}
                                 primaryColor={brand.primaryColor}
                                 accentColor={brand.accentColor}
                                 onClick={() => handleServiceSelect(service)}
-                                cardTheme={brand.cardTheme}
-                                buttonShape={brand.buttonShape}
                                 isSelected={selectedService?.id === service.id}
                               />
                             ))}
@@ -1145,61 +1100,66 @@ function PublicBookingPage() {
                     })}
                   </div>
                 ) : (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1">
                     {(studio.services || []).map((service) => (
-                      <OccasionCard
+                      <ServiceCard
                         key={service.id}
                         service={service}
                         primaryColor={brand.primaryColor}
                         accentColor={brand.accentColor}
                         onClick={() => handleServiceSelect(service)}
-                        cardTheme={brand.cardTheme}
-                        buttonShape={brand.buttonShape}
                         isSelected={selectedService?.id === service.id}
                       />
                     ))}
                   </div>
                 )}
 
-                {/* Portfolio */}
+                {/* Portfolio section */}
                 {(studio.portfolioItems?.length ?? 0) > 0 && (
-                  <div className="mt-20">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div>
-                        <h2 className="text-2xl font-extrabold text-[var(--foreground)] tracking-tight">
-                          Our Work
-                        </h2>
-                        <p className="text-[var(--foreground-tertiary)] text-sm mt-1">
-                          A glimpse into what we create together
-                        </p>
+                  <div className="mt-24">
+                    <div className="mb-10">
+                      <div
+                        className="text-xs font-bold uppercase tracking-[0.25em] mb-3"
+                        style={{ color: brand.primaryColor }}
+                      >
+                        Portfolio
                       </div>
-                      <div className="h-px flex-1 bg-[var(--border)]" />
+                      <h2
+                        className="text-black leading-tight tracking-tight"
+                        style={{
+                          fontSize: 'clamp(2rem, 3.5vw, 3rem)',
+                          fontWeight: 900,
+                          fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                        }}
+                      >
+                        Our Work
+                      </h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+
+                    {/* Masonry-feel grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
                       {studio.portfolioItems.map((item, i) => (
                         <div
                           key={item.id}
                           className={cn(
-                            'group relative overflow-hidden rounded-2xl bg-[var(--surface-2)]',
-                            // Make every 5th item double wide on larger grids for masonry feel
-                            i % 5 === 0 ? 'sm:col-span-2 aspect-video' : 'aspect-square',
+                            'group relative overflow-hidden bg-black/5',
+                            i % 7 === 0 ? 'sm:col-span-2 sm:row-span-2' : '',
                           )}
+                          style={{ aspectRatio: i % 7 === 0 ? 'auto' : '1/1' }}
                         >
                           <NextImage
                             src={item.imageUrl}
                             alt={item.title}
                             fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-700"
+                            className="object-cover transition-transform duration-700 group-hover:scale-105"
                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             unoptimized
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400">
-                            <div className="absolute bottom-0 left-0 right-0 p-4">
-                              <div className="text-white font-semibold text-sm leading-tight">
-                                {item.title}
-                              </div>
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-300 flex items-end p-4 opacity-0 group-hover:opacity-100">
+                            <div>
+                              <div className="text-white font-bold text-sm">{item.title}</div>
                               {item.category && (
-                                <div className="text-white/65 text-xs mt-0.5 font-medium uppercase tracking-wide">
+                                <div className="text-white/60 text-xs mt-0.5 uppercase tracking-wider">
                                   {item.category}
                                 </div>
                               )}
@@ -1215,48 +1175,47 @@ function PublicBookingPage() {
 
             {/* ---------------------------------------------------------- */}
             {/*  Step 2: Date & Time                                        */}
-{/*  */}
+            {/* ---------------------------------------------------------- */}
             {step === 2 && selectedService && (
-              <div className="animate-fade-in max-w-2xl mx-auto">
+              <div className="animate-fade-in max-w-2xl">
                 <button
                   onClick={() => setStep(1)}
-                  className="flex items-center gap-1.5 text-sm font-semibold mb-8 transition-all hover:gap-2.5"
+                  className="flex items-center gap-2 text-sm font-bold mb-10 transition-colors"
                   style={{ color: brand.primaryColor }}
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Change Service
+                  All Services
                 </button>
 
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] tracking-tight mb-2">
-                  Pick a Date &amp; Time
+                <StepIndicator step={step} brand={brand} />
+
+                <h2
+                  className="text-black leading-tight tracking-tight mb-1"
+                  style={{
+                    fontSize: 'clamp(1.8rem, 3vw, 2.8rem)',
+                    fontWeight: 900,
+                    fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                  }}
+                >
+                  Pick a Date & Time
                 </h2>
-                <p className="text-[var(--foreground-tertiary)] mb-8">
-                  Select your preferred session date and time slot.
+                <p className="text-black/40 mb-8 text-sm">
+                  Select your preferred session date and available time slot.
                 </p>
 
-                {/* Selected service summary */}
+                {/* Service summary bar */}
                 <div
-                  className="flex items-center gap-4 p-4 rounded-2xl mb-6 border"
-                  style={{
-                    backgroundColor: hexAlpha(brand.primaryColor, '0c'),
-                    borderColor: hexAlpha(brand.primaryColor, '25'),
-                  }}
+                  className="flex items-center gap-4 p-4 mb-8 border"
+                  style={{ borderColor: hexAlpha(brand.primaryColor, '30'), borderRadius: '4px', backgroundColor: hexAlpha(brand.primaryColor, '06') }}
                 >
                   {(() => {
                     const SvcIcon = getOccasionIcon(selectedService.occasion);
-                    return (
-                      <div
-                        className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '20') }}
-                      >
-                        <SvcIcon className="h-5 w-5" style={{ color: brand.primaryColor }} />
-                      </div>
-                    );
+                    return <SvcIcon className="h-5 w-5 shrink-0" style={{ color: brand.primaryColor }} />;
                   })()}
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-[var(--foreground)]">{selectedService.name}</div>
-                    <div className="text-sm text-[var(--foreground-tertiary)] flex items-center gap-2 mt-0.5">
-                      <Clock className="h-3.5 w-3.5" />
+                    <div className="font-black text-black text-sm">{selectedService.name}</div>
+                    <div className="text-xs text-black/40 mt-0.5 flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
                       {selectedService.durationMinutes} min session
                     </div>
                   </div>
@@ -1265,43 +1224,35 @@ function PublicBookingPage() {
                   </div>
                 </div>
 
-                <Card className="p-6 border-[var(--border)] shadow-sm bg-[var(--surface-0)]">
-                  <div className="mb-6">
-                    <Input
-                      label="Select Date"
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => handleDateChange(e.target.value)}
-                      min={minDate}
-                      max={maxDate}
-                    />
-                  </div>
+                <div className="space-y-6">
+                  <Input
+                    label="Select Date"
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
+                  />
 
                   {selectedDate && (
                     <div>
-                      <label className="block text-sm font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
-                        <Clock className="h-4 w-4" style={{ color: brand.primaryColor }} />
+                      <label className="block text-xs font-bold uppercase tracking-[0.15em] text-black/50 mb-4 flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5" style={{ color: brand.primaryColor }} />
                         Available Times
                       </label>
                       {loadingSlots ? (
-                        <div className="text-center py-10">
+                        <div className="text-center py-12">
                           <div
-                            className="h-9 w-9 border-[3px] border-t-transparent rounded-full animate-spin mx-auto mb-3"
+                            className="h-8 w-8 border-[2px] border-t-transparent rounded-full animate-spin mx-auto mb-3"
                             style={{ borderColor: brand.primaryColor, borderTopColor: 'transparent' }}
                           />
-                          <p className="text-sm text-[var(--foreground-tertiary)]">
-                            Finding available slots...
-                          </p>
+                          <p className="text-xs text-black/40 font-medium">Finding available slots...</p>
                         </div>
                       ) : timeSlots.length === 0 ? (
-                        <div className="text-center py-10 bg-[var(--surface-1)] rounded-2xl border border-dashed border-[var(--border-strong)]">
-                          <Calendar className="h-8 w-8 text-[var(--foreground-tertiary)] mx-auto mb-2" />
-                          <p className="text-sm text-[var(--foreground-tertiary)] font-medium">
-                            No slots available for this date
-                          </p>
-                          <p className="text-xs text-[var(--foreground-tertiary)] mt-1">
-                            Try selecting a different day
-                          </p>
+                        <div className="text-center py-10 border border-dashed border-black/15 rounded">
+                          <Calendar className="h-7 w-7 text-black/20 mx-auto mb-2" />
+                          <p className="text-sm text-black/40 font-medium">No slots available</p>
+                          <p className="text-xs text-black/30 mt-1">Try selecting a different day</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -1313,24 +1264,20 @@ function PublicBookingPage() {
                                 onClick={() => setSelectedTime(slot.time)}
                                 disabled={!slot.available}
                                 className={cn(
-                                  'px-2 py-2.5 rounded-xl border font-semibold text-sm transition-all duration-200',
-                                  !slot.available &&
-                                    'bg-[var(--surface-1)] text-[var(--foreground-tertiary)] border-[var(--border)] cursor-not-allowed opacity-50',
-                                  slot.available &&
-                                    !isSelected &&
-                                    'bg-[var(--surface-0)] text-[var(--foreground-secondary)] border-[var(--border)] hover:border-current hover:text-current hover:bg-[var(--surface-1)] hover:-translate-y-0.5',
-                                  isSelected && 'text-white border-transparent shadow-lg scale-105',
+                                  'px-2 py-3 border font-bold text-xs tracking-wider uppercase transition-all duration-200',
+                                  !slot.available && 'opacity-30 cursor-not-allowed',
+                                  slot.available && !isSelected && 'border-black/15 text-black/50 hover:border-current hover:-translate-y-0.5',
+                                  isSelected && 'text-white border-transparent',
                                 )}
-                                style={
-                                  isSelected
-                                    ? {
-                                        backgroundColor: brand.primaryColor,
-                                        boxShadow: `0 4px 14px ${hexAlpha(brand.primaryColor,'50')}`,
-                                      }
-                                    : slot.available
-                                      ? ({ '--hover-color': brand.primaryColor } as React.CSSProperties)
-                                      : undefined
-                                }
+                                style={{
+                                  borderRadius: btnRadius,
+                                  ...(isSelected
+                                    ? { backgroundColor: brand.primaryColor }
+                                    : {}),
+                                  ...(slot.available && !isSelected
+                                    ? { '--hover-color': brand.primaryColor } as React.CSSProperties
+                                    : {}),
+                                }}
                               >
                                 {new Date(slot.time).toLocaleTimeString('en-US', {
                                   hour: '2-digit',
@@ -1346,53 +1293,56 @@ function PublicBookingPage() {
 
                   {selectedTime && (
                     <button
-                      onClick={() => {
-                        setStep(3);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="w-full mt-6 py-4 text-white font-bold transition-all hover:opacity-90 hover:shadow-xl flex items-center justify-center gap-2 shadow-lg"
+                      onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="w-full py-4 text-white font-black text-sm tracking-wider uppercase transition-all hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                     >
-                      Continue to Details
-                      <ArrowRight className="h-5 w-5" />
+                      Continue
+                      <ArrowRight className="h-4 w-4" />
                     </button>
                   )}
-                </Card>
+                </div>
               </div>
             )}
 
             {/* ---------------------------------------------------------- */}
-            {/*  Step 3: Customer Details + Terms                           */}
-{/*  */}
+            {/*  Step 3: Details form                                       */}
+            {/* ---------------------------------------------------------- */}
             {step === 3 && (
-              <div className="animate-fade-in max-w-2xl mx-auto">
+              <div className="animate-fade-in max-w-2xl">
                 <button
                   onClick={() => setStep(2)}
-                  className="flex items-center gap-1.5 text-sm font-semibold mb-8 transition-all hover:gap-2.5"
+                  className="flex items-center gap-2 text-sm font-bold mb-10 transition-colors"
                   style={{ color: brand.primaryColor }}
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Change Date &amp; Time
+                  Back to Schedule
                 </button>
 
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] tracking-tight mb-2">
+                <StepIndicator step={step} brand={brand} />
+
+                <h2
+                  className="text-black leading-tight tracking-tight mb-1"
+                  style={{
+                    fontSize: 'clamp(1.8rem, 3vw, 2.8rem)',
+                    fontWeight: 900,
+                    fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                  }}
+                >
                   Your Details
                 </h2>
-                <p className="text-[var(--foreground-tertiary)] mb-8">
-                  Just a few more details to complete your booking request.
+                <p className="text-black/40 mb-8 text-sm">
+                  A few more details to complete your booking request.
                 </p>
 
                 {/* Google sign-in CTA */}
                 {!customerData.email && (
                   <div
-                    className="p-5 mb-6 rounded-3xl border-2 border-dashed flex flex-col sm:flex-row items-center gap-5"
-                    style={{
-                      borderColor: hexAlpha(brand.primaryColor, '35'),
-                      backgroundColor: hexAlpha(brand.primaryColor, '06'),
-                    }}
+                    className="p-5 mb-6 border flex flex-col sm:flex-row items-center gap-4"
+                    style={{ borderColor: hexAlpha(brand.primaryColor, '30'), borderRadius: '4px', backgroundColor: hexAlpha(brand.primaryColor, '05') }}
                   >
-                    <div className="h-14 w-14 rounded-2xl bg-white shadow-lg flex items-center justify-center shrink-0">
-                      <svg viewBox="0 0 24 24" className="h-7 w-7">
+                    <div className="h-12 w-12 rounded bg-white shadow flex items-center justify-center shrink-0">
+                      <svg viewBox="0 0 24 24" className="h-6 w-6">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -1400,20 +1350,16 @@ function PublicBookingPage() {
                       </svg>
                     </div>
                     <div className="flex-1 text-center sm:text-left">
-                      <h3 className="font-bold text-[var(--foreground)]">
-                        Save this booking to your account?
-                      </h3>
-                      <p className="text-sm text-[var(--foreground-tertiary)] mt-0.5">
-                        Sign in to auto-fill your details and track bookings across studios.
+                      <h3 className="font-black text-black text-sm">Save to your account?</h3>
+                      <p className="text-xs text-black/40 mt-0.5">
+                        Sign in to auto-fill your details and track all bookings.
                       </p>
                     </div>
                     <Button
                       variant="outline"
-                      className="w-full sm:w-auto font-bold shrink-0"
+                      className="w-full sm:w-auto font-bold text-sm shrink-0"
                       onClick={() => {
-                        const returnUrl = encodeURIComponent(
-                          window.location.pathname + window.location.search,
-                        );
+                        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
                         window.location.href = `${API_URL}/auth/google?state=${returnUrl}`;
                       }}
                     >
@@ -1422,15 +1368,18 @@ function PublicBookingPage() {
                   </div>
                 )}
 
-                {/* Summary card */}
-                <Card className="p-5 mb-6 border-[var(--border)] bg-[var(--surface-0)]">
-                  <h3 className="font-semibold text-[var(--foreground)] mb-4 text-sm uppercase tracking-widest">
+                {/* Booking summary */}
+                <div
+                  className="p-5 mb-6 border"
+                  style={{ borderColor: '#e0e0d8', borderRadius: '4px', backgroundColor: '#fff' }}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mb-4">
                     Booking Summary
-                  </h3>
+                  </div>
                   <div className="space-y-2.5 text-sm">
                     {[
                       { label: 'Service', value: selectedService?.name },
-                       {
+                      {
                         label: 'Date',
                         value: selectedDate
                           ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
@@ -1444,32 +1393,30 @@ function PublicBookingPage() {
                       {
                         label: 'Time',
                         value: selectedTime
-                          ? new Date(selectedTime).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
+                          ? new Date(selectedTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
                           : '',
                       },
                       { label: 'Duration', value: `${selectedService?.durationMinutes} minutes` },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between items-center">
-                        <span className="text-[var(--foreground-tertiary)]">{label}</span>
-                        <span className="font-semibold text-[var(--foreground)]">{value}</span>
+                        <span className="text-black/40 text-xs">{label}</span>
+                        <span className="font-semibold text-black text-xs">{value}</span>
                       </div>
                     ))}
-                    <div
-                      className="flex justify-between items-center text-base font-black pt-3 border-t border-[var(--border)]"
-                    >
-                      <span className="text-[var(--foreground)]">Total</span>
-                      <span style={{ color: brand.primaryColor }}>
+                    <div className="flex justify-between items-center pt-3 border-t border-black/8">
+                      <span className="text-black font-black text-sm">Total</span>
+                      <span className="text-lg font-black" style={{ color: brand.primaryColor }}>
                         {formatCurrency(selectedService?.price)}
                       </span>
                     </div>
                   </div>
-                </Card>
+                </div>
 
-                {/* Customer form */}
-                <Card className="p-6 border-[var(--border)] shadow-md bg-[var(--surface-0)]">
+                {/* Form */}
+                <div
+                  className="p-6 border"
+                  style={{ borderColor: '#e0e0d8', borderRadius: '4px', backgroundColor: '#fff' }}
+                >
                   <form onSubmit={handleSubmitBooking} className="space-y-5">
                     <Input
                       label="Full Name"
@@ -1492,35 +1439,35 @@ function PublicBookingPage() {
                       required
                       value={customerData.phone}
                       onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
-                      placeholder="e.g. +1 234 567 8900"
+                      placeholder="e.g. +91 98765 43210"
                     />
                     <Textarea
                       label="Additional Notes (Optional)"
                       value={customerData.notes}
                       onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
                       rows={3}
-                      placeholder="Any special requests, vision, or details about your session..."
+                      placeholder="Special requests, vision, or details about your session..."
                     />
 
                     {/* Terms */}
                     {studio.defaultTerms && (
-                      <div className="border border-[var(--border)] rounded-2xl p-4 space-y-3 bg-[var(--surface-1)]">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-                          <FileText className="h-4 w-4" style={{ color: brand.primaryColor }} />
-                          Terms &amp; Conditions
+                      <div className="border border-black/10 rounded p-4 space-y-3 bg-black/[0.02]">
+                        <div className="flex items-center gap-2 text-xs font-bold text-black/60 uppercase tracking-wider">
+                          <FileText className="h-3.5 w-3.5" style={{ color: brand.primaryColor }} />
+                          Terms & Conditions
                         </div>
-                        <div className="max-h-36 overflow-y-auto text-xs text-[var(--foreground-tertiary)] bg-[var(--surface-2)] rounded-xl p-3 whitespace-pre-wrap leading-relaxed">
+                        <div className="max-h-32 overflow-y-auto text-xs text-black/40 bg-white rounded p-3 whitespace-pre-wrap leading-relaxed border border-black/8">
                           {studio.defaultTerms}
                         </div>
-                        <label className="flex items-start gap-2.5 cursor-pointer group">
+                        <label className="flex items-start gap-2.5 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={acceptedTerms}
                             onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 rounded border-[var(--border-strong)] cursor-pointer"
+                            className="mt-0.5 h-4 w-4 cursor-pointer"
                             style={{ accentColor: brand.primaryColor }}
                           />
-                          <span className="text-sm text-[var(--foreground-secondary)] group-hover:text-[var(--foreground)] transition-colors">
+                          <span className="text-xs text-black/50">
                             I have read and agree to the terms and conditions.
                           </span>
                         </label>
@@ -1531,16 +1478,16 @@ function PublicBookingPage() {
                       type="submit"
                       disabled={submitting || (!!studio.defaultTerms && !acceptedTerms)}
                       className={cn(
-                        'w-full py-4 text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl',
+                        'w-full py-4 text-white font-black text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2',
                         submitting || (!!studio.defaultTerms && !acceptedTerms)
-                          ? 'opacity-50 cursor-not-allowed'
+                          ? 'opacity-40 cursor-not-allowed'
                           : 'hover:opacity-90',
                       )}
                       style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                     >
                       {submitting ? (
                         <>
-                          <div className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           Submitting...
                         </>
                       ) : (
@@ -1551,180 +1498,103 @@ function PublicBookingPage() {
                       )}
                     </button>
                   </form>
-                </Card>
+                </div>
               </div>
             )}
 
             {/* ---------------------------------------------------------- */}
             {/*  Step 4: Confirmation                                       */}
-{/*  */}
+            {/* ---------------------------------------------------------- */}
             {step === 4 && (
-              <div className="animate-fade-in max-w-2xl mx-auto">
-                {/* Celebration header */}
-                <div className="text-center mb-10">
-                  <div className="relative inline-flex">
-                    <div
-                      className="w-24 h-24 rounded-full flex items-center justify-center shadow-2xl"
-                      style={{
-                        background: `linear-gradient(135deg, var(--success), ${brand.primaryColor})`,
-                      }}
-                    >
-                      <Check className="h-12 w-12 text-white" strokeWidth={3} />
-                    </div>
-                    {/* Confetti dots */}
-                    {[...Array(6)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="absolute w-3 h-3 rounded-full opacity-80"
-                        style={{
-                          backgroundColor: i % 2 === 0 ? brand.primaryColor : brand.accentColor,
-                          top: `${Math.sin((i * Math.PI) / 3) * 44 + 50}%`,
-                          left: `${Math.cos((i * Math.PI) / 3) * 44 + 50}%`,
-                          transform: 'translate(-50%, -50%)',
-                          width: i % 3 === 0 ? '10px' : '6px',
-                          height: i % 3 === 0 ? '10px' : '6px',
-                        }}
-                      />
-                    ))}
+              <div className="animate-fade-in max-w-2xl">
+                {/* Big confirmation mark */}
+                <div className="mb-12">
+                  <div
+                    className="inline-flex h-20 w-20 items-center justify-center rounded-full mb-6"
+                    style={{ backgroundColor: brand.primaryColor }}
+                  >
+                    <Check className="h-10 w-10 text-white" strokeWidth={3} />
                   </div>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-[var(--foreground)] tracking-tight mt-6 mb-2">
-                    You&apos;re All Set!
+                  <h2
+                    className="text-black leading-tight tracking-tight mb-2"
+                    style={{
+                      fontSize: 'clamp(2rem, 4vw, 3.5rem)',
+                      fontWeight: 900,
+                      fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                    }}
+                  >
+                    You&apos;re All Set.
                   </h2>
-                  <p className="text-[var(--foreground-secondary)] text-lg">
-                    Your booking request has been submitted to{' '}
-                    <span className="font-semibold text-[var(--foreground)]">{studio.name}</span>.
+                  <p className="text-black/40 text-sm">
+                    Booking submitted to <strong className="text-black">{studio.name}</strong> — they&apos;ll be in touch shortly.
                   </p>
-                  <div className="inline-flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-[var(--surface-2)] text-[var(--foreground-tertiary)] text-sm font-mono">
-                    Booking ID: <span className="font-bold text-[var(--foreground-secondary)]">{bookingId.slice(-8).toUpperCase()}</span>
+                  <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-black/5 text-xs font-mono text-black/40 rounded">
+                    Ref: <span className="font-bold text-black/60">{bookingId.slice(-8).toUpperCase()}</span>
                   </div>
                 </div>
 
-                {/* Details card */}
-                <Card className="p-6 mb-6 border-[var(--border)] shadow-md">
-                  <h3 className="font-bold text-[var(--foreground)] mb-5 text-sm uppercase tracking-widest">
-                    Booking Details
-                  </h3>
+                {/* Details */}
+                <div
+                  className="p-6 border mb-6"
+                  style={{ borderColor: '#e0e0d8', borderRadius: '4px', backgroundColor: '#fff' }}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mb-5">Booking Details</div>
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
-                      >
-                        <Camera className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-[var(--foreground-tertiary)] font-medium uppercase tracking-wider mb-0.5">
-                          Service
+                    {[
+                      { Icon: Camera, label: 'Service', value: `${selectedService?.name} · ${selectedService?.durationMinutes}min · ${formatCurrency(selectedService?.price)}` },
+                      {
+                        Icon: Calendar,
+                        label: 'Date & Time',
+                        value: new Date(selectedTime).toLocaleString('en-US', {
+                          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        }),
+                      },
+                      { Icon: Phone, label: 'Contact', value: `${customerData.name} · ${customerData.phone}${customerData.email ? ' · ' + customerData.email : ''}` },
+                      { Icon: MapPin, label: 'Studio', value: `${studio.name} · ${studio.email}` },
+                    ].map(({ Icon, label, value }) => (
+                      <div key={label} className="flex items-start gap-3">
+                        <div
+                          className="h-8 w-8 rounded flex items-center justify-center shrink-0 mt-0.5"
+                          style={{ backgroundColor: hexAlpha(brand.primaryColor, '12') }}
+                        >
+                          <Icon className="h-4 w-4" style={{ color: brand.primaryColor }} />
                         </div>
-                        <div className="font-semibold text-[var(--foreground)]">
-                          {selectedService?.name}
-                        </div>
-                        <div className="text-sm text-[var(--foreground-tertiary)]">
-                          {selectedService?.durationMinutes} minutes · {formatCurrency(selectedService?.price)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
-                      >
-                        <Calendar className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-[var(--foreground-tertiary)] font-medium uppercase tracking-wider mb-0.5">
-                          Date &amp; Time
-                        </div>
-                        <div className="font-semibold text-[var(--foreground)]">
-                          {new Date(selectedTime).toLocaleString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-wider text-black/30 mb-0.5">{label}</div>
+                          <div className="text-sm font-semibold text-black">{value}</div>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
-                      >
-                        <Phone className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-[var(--foreground-tertiary)] font-medium uppercase tracking-wider mb-0.5">
-                          Contact
-                        </div>
-                        <div className="font-semibold text-[var(--foreground)]">
-                          {customerData.name}
-                        </div>
-                        <div className="text-sm text-[var(--foreground-tertiary)]">
-                          {customerData.phone}
-                          {customerData.email && ` · ${customerData.email}`}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
-                      >
-                        <MapPin className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-[var(--foreground-tertiary)] font-medium uppercase tracking-wider mb-0.5">
-                          Studio
-                        </div>
-                        <div className="font-semibold text-[var(--foreground)]">{studio.name}</div>
-                        <div className="text-sm text-[var(--foreground-tertiary)]">{studio.email}</div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                </Card>
+                </div>
 
                 {/* What's next */}
                 <div
-                  className="rounded-2xl p-5 mb-8 flex items-start gap-4"
-                  style={{
-                    backgroundColor: hexAlpha(brand.primaryColor, '0d'),
-                    border: `1px solid ${hexAlpha(brand.primaryColor,'25')}`,
-                  }}
+                  className="p-4 border mb-8 flex items-start gap-3"
+                  style={{ borderColor: hexAlpha(brand.primaryColor, '25'), borderRadius: '4px', backgroundColor: hexAlpha(brand.primaryColor, '06') }}
                 >
-                  <PartyPopper
-                    className="h-5 w-5 shrink-0 mt-0.5"
-                    style={{ color: brand.primaryColor }}
-                  />
-                  <div>
-                    <div className="font-bold text-[var(--foreground)] mb-1">What happens next?</div>
-                    <p className="text-sm text-[var(--foreground-secondary)] leading-relaxed">
-                      The studio will review your booking and reach out to{' '}
-                      <strong>{customerData.phone}</strong> to confirm availability, share details, and
-                      prepare for your session.
-                    </p>
-                  </div>
+                  <PartyPopper className="h-4 w-4 shrink-0 mt-0.5" style={{ color: brand.primaryColor }} />
+                  <p className="text-sm text-black/60 leading-relaxed">
+                    The studio will reach out to <strong className="text-black">{customerData.phone}</strong> to confirm your session, finalize details, and prepare.
+                  </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex gap-3">
                   <button
                     onClick={resetBooking}
-                    className="flex-1 py-3.5 rounded-xl border border-[var(--border)] text-[var(--foreground-secondary)] font-bold hover:bg-[var(--surface-1)] hover:border-[var(--border-strong)] transition-all"
+                    className="flex-1 py-3.5 border border-black/15 text-black/50 font-bold text-sm hover:border-black/30 transition-all"
                     style={{ borderRadius: btnRadius }}
                   >
-                    Book Another Session
+                    Book Another
                   </button>
                   <button
                     onClick={() => setActiveTab('history')}
-                    className="flex-1 py-3.5 text-white font-bold transition-all hover:opacity-90 shadow-lg flex items-center justify-center gap-2"
+                    className="flex-1 py-3.5 text-white font-black text-sm tracking-wider uppercase transition-all hover:opacity-90 flex items-center justify-center gap-2"
                     style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                   >
                     <History className="h-4 w-4" />
-                    View My Bookings
+                    My Bookings
                   </button>
                 </div>
               </div>
@@ -1734,21 +1604,23 @@ function PublicBookingPage() {
 
         {/* ============================================================== */}
         {/*  HISTORY TAB                                                    */}
-        {/* /* ============================================================== */}
+        {/* ============================================================== */}
         {activeTab === 'history' && (
-          <div className="animate-fade-in max-w-3xl mx-auto">
+          <div className="animate-fade-in max-w-3xl">
             {!authUser ? (
-              <div className="text-center py-24">
-                <div
-                  className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg"
-                  style={{ background: `linear-gradient(135deg, ${hexAlpha(brand.primaryColor,'20')}, ${hexAlpha(brand.accentColor,'20')})` }}
+              <div className="py-24 text-center">
+                <History className="h-12 w-12 text-black/10 mx-auto mb-6" />
+                <h2
+                  className="text-black leading-tight tracking-tight mb-2"
+                  style={{
+                    fontSize: '2rem',
+                    fontWeight: 900,
+                    fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                  }}
                 >
-                  <History className="h-10 w-10" style={{ color: brand.primaryColor }} />
-                </div>
-                <h2 className="text-2xl font-extrabold text-[var(--foreground)] mb-2">
-                  Sign in to view your history
+                  Sign in to view history
                 </h2>
-                <p className="text-[var(--foreground-tertiary)] mb-8 max-w-sm mx-auto">
+                <p className="text-black/40 mb-8 text-sm max-w-sm mx-auto">
                   Track all your bookings with {studio.name} in one place.
                 </p>
                 <button
@@ -1756,53 +1628,43 @@ function PublicBookingPage() {
                     const returnUrl = encodeURIComponent(window.location.pathname);
                     window.location.href = `${API_URL}/auth/google?state=${returnUrl}`;
                   }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white shadow-lg hover:shadow-xl transition-all hover:opacity-90"
-                  style={{ backgroundColor: brand.primaryColor }}
+                  className="inline-flex items-center gap-2 px-6 py-3 font-black text-sm uppercase tracking-wider text-white transition-all hover:opacity-90"
+                  style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                 >
-                  <Chrome className="h-5 w-5" />
+                  <Chrome className="h-4 w-4" />
                   Sign in with Google
                 </button>
               </div>
             ) : loadingHistory ? (
-              <div className="space-y-10">
-                <div className="space-y-3">
-                  <div className="skeleton h-8 w-40 rounded-xl" />
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="skeleton h-24 w-full rounded-2xl" />
-                  ))}
-                </div>
-                <div className="space-y-3">
-                  <div className="skeleton h-8 w-32 rounded-xl" />
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="skeleton h-16 w-full rounded-2xl" />
-                  ))}
-                </div>
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="skeleton h-20 w-full rounded" />
+                ))}
               </div>
             ) : (
-              <div className="space-y-10">
+              <div className="space-y-12">
                 {/* Bookings */}
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="h-9 w-9 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: hexAlpha(brand.primaryColor, '18') }}
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-[0.2em] mb-1" style={{ color: brand.primaryColor }}>
+                        Sessions
+                      </div>
+                      <h2
+                        className="text-black leading-tight tracking-tight"
+                        style={{
+                          fontSize: '1.8rem',
+                          fontWeight: 900,
+                          fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                        }}
                       >
-                        <BookOpen className="h-[18px] w-[18px]" style={{ color: brand.primaryColor }} />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-extrabold text-[var(--foreground)]">
-                          My Bookings
-                        </h2>
-                        <p className="text-xs text-[var(--foreground-tertiary)]">
-                          at {studio.name}
-                        </p>
-                      </div>
+                        My Bookings
+                      </h2>
                     </div>
                     <button
                       onClick={() => setActiveTab('book')}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold text-white shadow-md hover:shadow-lg transition-all hover:opacity-90"
-                      style={{ backgroundColor: brand.primaryColor }}
+                      className="flex items-center gap-2 px-5 py-2.5 font-black text-xs uppercase tracking-wider text-white transition-all hover:opacity-90"
+                      style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                     >
                       <Camera className="h-3.5 w-3.5" />
                       New Session
@@ -1810,77 +1672,56 @@ function PublicBookingPage() {
                   </div>
 
                   {bookings.length === 0 ? (
-                    <div className="py-12 text-center rounded-2xl border-2 border-dashed border-[var(--border-strong)] bg-[var(--surface-0)]">
-                      <BookOpen className="h-10 w-10 text-[var(--foreground-tertiary)] mx-auto mb-3" />
-                      <p className="font-medium text-[var(--foreground-secondary)] mb-1">
-                        No bookings yet
-                      </p>
-                      <p className="text-sm text-[var(--foreground-tertiary)]">
-                        Your sessions with {studio.name} will appear here.
-                      </p>
+                    <div className="py-12 text-center border border-dashed border-black/10">
+                      <BookOpen className="h-8 w-8 text-black/15 mx-auto mb-3" />
+                      <p className="font-bold text-black/30 text-sm mb-1">No bookings yet</p>
+                      <p className="text-xs text-black/20">Your sessions with {studio.name} will appear here.</p>
                       <button
                         onClick={() => setActiveTab('book')}
-                        className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-md hover:shadow-lg transition-all hover:opacity-90"
-                        style={{ backgroundColor: brand.primaryColor }}
+                        className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 font-black text-xs uppercase tracking-wider text-white transition-all hover:opacity-90"
+                        style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                       >
-                        <Camera className="h-4 w-4" />
                         Book a Session
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {bookings.map((b) => (
-                        <Card
+                        <div
                           key={b.id}
-                          className={cn(
-                            'p-5 border-[var(--border)] transition-all duration-300 hover:shadow-md',
-                            b.status === 'QUOTED' &&
-                              'shadow-lg border-transparent ring-1 ring-offset-2',
-                          )}
-                          style={
-                            b.status === 'QUOTED'
-                              ? {
-                                  backgroundColor: hexAlpha(brand.primaryColor, '05'),
-                                  boxShadow: `0 0 0 1px ${hexAlpha(brand.primaryColor,'60')}`,
-                                }
-                              : {}
-                          }
+                          className="p-5 border transition-all duration-200 hover:border-black/20"
+                          style={{
+                            borderColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '40') : '#e0e0d8',
+                            borderRadius: '4px',
+                            backgroundColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '04') : '#fff',
+                          }}
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-3 min-w-0">
                               <div
-                                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
+                                className="h-10 w-10 flex items-center justify-center shrink-0 rounded"
+                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '12') }}
                               >
                                 <Camera className="h-5 w-5" style={{ color: brand.primaryColor }} />
                               </div>
                               <div className="min-w-0">
-                                <div className="font-bold text-[var(--foreground)] truncate">
-                                  {b.service.name}
-                                </div>
-                                <div className="text-sm text-[var(--foreground-tertiary)] mt-0.5 flex items-center gap-1.5">
-                                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                <div className="font-black text-black text-sm truncate">{b.service.name}</div>
+                                <div className="text-xs text-black/40 mt-0.5 flex items-center gap-1.5">
+                                  <Calendar className="h-3 w-3 shrink-0" />
                                   {new Date(b.scheduledAt).toLocaleString('en-US', {
-                                    weekday: 'short',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
+                                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                                    hour: '2-digit', minute: '2-digit',
                                   })}
                                 </div>
-                                <div className="text-sm text-[var(--foreground-tertiary)] flex items-center gap-1.5 mt-0.5">
-                                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                                <div className="text-xs text-black/30 flex items-center gap-1 mt-0.5">
+                                  <Clock className="h-3 w-3" />
                                   {b.service.durationMinutes} min
                                 </div>
                               </div>
                             </div>
                             <div className="text-right shrink-0 space-y-1.5">
                               <StatusBadge status={b.status} />
-                              <div
-                                className="text-sm font-black block"
-                                style={{ color: brand.primaryColor }}
-                              >
+                              <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
                                 {formatCurrency(b.quoteAmount || b.service.price)}
                               </div>
                             </div>
@@ -1888,47 +1729,40 @@ function PublicBookingPage() {
 
                           {/* Quote actions */}
                           {b.status === 'QUOTED' && (
-                            <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                            <div className="mt-4 pt-4 border-t border-black/8">
                               <div
-                                className="p-4 rounded-2xl border mb-4"
+                                className="p-4 border mb-4"
                                 style={{
-                                  backgroundColor: hexAlpha(brand.primaryColor, '08'),
-                                  borderColor: hexAlpha(brand.primaryColor, '20'),
+                                  borderColor: hexAlpha(brand.primaryColor, '25'),
+                                  borderRadius: '4px',
+                                  backgroundColor: hexAlpha(brand.primaryColor, '05'),
                                 }}
                               >
-                                <div
-                                  className="flex items-center gap-2 font-bold text-sm mb-2"
-                                  style={{ color: brand.primaryColor }}
-                                >
-                                  <Sparkles className="h-4 w-4" />
-                                  Studio has sent you a quote
+                                <div className="flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-2" style={{ color: brand.primaryColor }}>
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  Studio Quote
                                 </div>
                                 {b.quoteNotes && (
-                                  <p className="text-sm text-[var(--foreground-secondary)] italic border-l-2 pl-3 mb-3" style={{ borderColor: hexAlpha(brand.primaryColor, '50') }}>
+                                  <p className="text-sm text-black/50 italic border-l-2 pl-3 mb-3" style={{ borderColor: hexAlpha(brand.primaryColor, '40') }}>
                                     &quot;{b.quoteNotes}&quot;
                                   </p>
                                 )}
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-[var(--foreground-tertiary)] font-medium">
-                                    Quoted Amount
-                                  </span>
-                                  <span className="text-xl font-black text-[var(--foreground)]">
-                                    {formatCurrency(b.quoteAmount)}
-                                  </span>
+                                  <span className="text-xs text-black/30 font-semibold">Quoted Amount</span>
+                                  <span className="text-2xl font-black text-black">{formatCurrency(b.quoteAmount)}</span>
                                 </div>
                               </div>
 
-                              {/* Counter-offer form (inline toggle) */}
-                              {counterOfferId === b.id ? (
-                                <div className="space-y-3 mb-3 p-3 rounded-2xl bg-[var(--surface-1)] border border-[var(--border-light)]">
-                                  <p className="text-xs font-bold text-[var(--foreground-secondary)] uppercase tracking-wide">Your Counter-Offer</p>
-                                  <div className="flex items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-light)] rounded-xl px-3 py-2.5">
-                                    <span className="text-sm font-semibold text-[var(--foreground-tertiary)]">$</span>
+                              {counterOfferId === b.id && (
+                                <div className="space-y-3 mb-3 p-4 border border-black/10 rounded bg-black/[0.02]">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-black/40">Your Counter-Offer</p>
+                                  <div className="flex items-center gap-2 border border-black/15 rounded px-3 py-2.5 bg-white">
+                                    <span className="text-sm font-semibold text-black/30">₹</span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
-                                      className="flex-1 bg-transparent text-sm font-semibold text-[var(--foreground)] outline-none tabular-nums"
+                                      className="flex-1 bg-transparent text-sm font-black text-black outline-none"
                                       placeholder="Your proposed amount"
                                       value={counterOfferAmount}
                                       onChange={(e) => setCounterOfferAmount(e.target.value)}
@@ -1936,8 +1770,8 @@ function PublicBookingPage() {
                                   </div>
                                   <textarea
                                     rows={2}
-                                    className="w-full bg-[var(--surface-0)] border border-[var(--border-light)] rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] placeholder-[var(--foreground-tertiary)] outline-none resize-none"
-                                    placeholder="Optional note (e.g. &quot;Can we do a shorter session?&quot;)"
+                                    className="w-full border border-black/15 rounded px-3 py-2.5 text-sm text-black placeholder-black/30 outline-none resize-none bg-white"
+                                    placeholder="Optional note..."
                                     value={counterOfferNote}
                                     onChange={(e) => setCounterOfferNote(e.target.value)}
                                   />
@@ -1945,33 +1779,34 @@ function PublicBookingPage() {
                                     <button
                                       onClick={handleSendCounterOffer}
                                       disabled={sendingCounter || !counterOfferAmount || parseFloat(counterOfferAmount) <= 0}
-                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
-                                      style={{ backgroundColor: brand.primaryColor }}
+                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 font-black text-xs uppercase tracking-wider text-white transition-all hover:opacity-90 disabled:opacity-40"
+                                      style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                                     >
                                       {sendingCounter ? (
-                                        <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                        <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                                       ) : (
-                                        <ThumbsUp className="h-4 w-4" />
+                                        <ThumbsUp className="h-3.5 w-3.5" />
                                       )}
-                                      Send Counter-Offer
+                                      Send Counter
                                     </button>
                                     <button
                                       onClick={() => { setCounterOfferId(null); setCounterOfferAmount(''); setCounterOfferNote(''); }}
-                                      className="px-4 rounded-xl border border-[var(--border)] text-[var(--foreground-secondary)] font-semibold text-sm hover:bg-[var(--overlay-light)] transition-all"
+                                      className="px-4 border border-black/15 text-black/40 font-semibold text-sm hover:bg-black/5 transition-all"
+                                      style={{ borderRadius: btnRadius }}
                                     >
                                       Cancel
                                     </button>
                                   </div>
                                 </div>
-                              ) : null}
+                              )}
 
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleAcceptQuote(b.id)}
-                                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90 hover:shadow-lg"
-                                  style={{ backgroundColor: 'var(--success)' }}
+                                  className="flex-1 flex items-center justify-center gap-2 py-2.5 font-black text-xs uppercase tracking-wider text-white transition-all hover:opacity-90"
+                                  style={{ backgroundColor: '#16a34a', borderRadius: btnRadius }}
                                 >
-                                  <ThumbsUp className="h-4 w-4" />
+                                  <ThumbsUp className="h-3.5 w-3.5" />
                                   Accept
                                 </button>
                                 <button
@@ -1980,20 +1815,22 @@ function PublicBookingPage() {
                                     setCounterOfferAmount(b.quoteAmount && !isNaN(Number(b.quoteAmount)) ? (Number(b.quoteAmount) * 0.9).toFixed(0) : '');
                                     setCounterOfferNote('');
                                   }}
-                                  className="px-4 flex items-center justify-center gap-1.5 border border-[var(--border)] text-[var(--foreground-secondary)] py-2.5 rounded-xl font-bold hover:bg-[var(--overlay-light)] transition-all text-sm"
+                                  className="px-4 border border-black/15 text-black/50 py-2.5 font-bold text-xs hover:bg-black/5 transition-all"
+                                  style={{ borderRadius: btnRadius }}
                                 >
                                   Counter
                                 </button>
                                 <button
                                   onClick={() => handleRejectQuote(b.id)}
-                                  className="px-4 flex items-center justify-center gap-1.5 border border-[var(--danger)]/30 text-[var(--danger)] py-2.5 rounded-xl font-bold hover:bg-[var(--danger)]/8 transition-all"
+                                  className="px-4 border border-red-200 text-red-500 py-2.5 font-bold hover:bg-red-50 transition-all"
+                                  style={{ borderRadius: btnRadius }}
                                 >
-                                  <ThumbsDown className="h-4 w-4" />
+                                  <ThumbsDown className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </div>
                           )}
-                        </Card>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -2001,70 +1838,60 @@ function PublicBookingPage() {
 
                 {/* Invoices */}
                 <div>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div
-                      className="h-9 w-9 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: hexAlpha(brand.primaryColor, '18') }}
+                  <div className="mb-8">
+                    <div className="text-xs font-black uppercase tracking-[0.2em] mb-1" style={{ color: brand.primaryColor }}>
+                      Billing
+                    </div>
+                    <h2
+                      className="text-black leading-tight tracking-tight"
+                      style={{
+                        fontSize: '1.8rem',
+                        fontWeight: 900,
+                        fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
+                      }}
                     >
-                      <Receipt className="h-4.5 w-4.5" style={{ color: brand.primaryColor }} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-extrabold text-[var(--foreground)]">Invoices</h2>
-                      <p className="text-xs text-[var(--foreground-tertiary)]">
-                        Your billing history
-                      </p>
-                    </div>
+                      Invoices
+                    </h2>
                   </div>
 
                   {invoices.length === 0 ? (
-                    <div className="py-10 text-center rounded-2xl border-2 border-dashed border-[var(--border-strong)] bg-[var(--surface-0)]">
-                      <Receipt className="h-8 w-8 text-[var(--foreground-tertiary)] mx-auto mb-2" />
-                      <p className="text-sm font-medium text-[var(--foreground-secondary)]">
-                        No invoices yet
-                      </p>
+                    <div className="py-10 text-center border border-dashed border-black/10">
+                      <Receipt className="h-7 w-7 text-black/15 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-black/25">No invoices yet</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {invoices.map((inv) => (
-                        <Card
+                        <div
                           key={inv.id}
-                          className="p-4 border-[var(--border)] hover:shadow-md transition-shadow"
+                          className="p-4 border border-[#e0e0d8] bg-white hover:border-black/20 transition-all"
+                          style={{ borderRadius: '4px' }}
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3 min-w-0">
                               <div
-                                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '15') }}
+                                className="h-9 w-9 rounded flex items-center justify-center shrink-0"
+                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '12') }}
                               >
-                                <Receipt
-                                  className="h-[18px] w-[18px]"
-                                  style={{ color: brand.primaryColor }}
-                                />
+                                <Receipt className="h-4 w-4" style={{ color: brand.primaryColor }} />
                               </div>
                               <div className="min-w-0">
-                                <div className="font-bold text-[var(--foreground)] font-mono text-sm">
+                                <div className="font-black text-black text-xs font-mono">
                                   #{inv.id.slice(-8).toUpperCase()}
                                 </div>
-                                <div className="text-xs text-[var(--foreground-tertiary)] mt-0.5">
-                                  {new Date(inv.createdAt).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                  })}
+                                <div className="text-xs text-black/35 mt-0.5">
+                                  {new Date(inv.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </div>
                               </div>
                             </div>
                             <div className="text-right shrink-0 space-y-1">
                               <StatusBadge status={inv.status} />
-                              <div
-                                className="text-sm font-black block"
-                                style={{ color: brand.primaryColor }}
-                              >
+                              <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
                                 {formatCurrency(inv.totalAmount)}
                               </div>
                             </div>
                           </div>
-                        </Card>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -2076,23 +1903,23 @@ function PublicBookingPage() {
 
         {/* ============================================================== */}
         {/*  ACCOUNT TAB                                                    */}
-        {/* /* ============================================================== */}
+        {/* ============================================================== */}
         {activeTab === 'account' && (
-          <div className="animate-fade-in max-w-lg mx-auto">
+          <div className="animate-fade-in max-w-lg">
             {!authUser ? (
-              <div className="text-center py-24">
-                <div
-                  className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg"
+              <div className="py-24 text-center">
+                <User className="h-12 w-12 text-black/10 mx-auto mb-6" />
+                <h2
+                  className="text-black leading-tight tracking-tight mb-2"
                   style={{
-                    background: `linear-gradient(135deg, ${hexAlpha(brand.primaryColor,'20')}, ${hexAlpha(brand.accentColor,'20')})`,
+                    fontSize: '2rem',
+                    fontWeight: 900,
+                    fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
                   }}
                 >
-                  <User className="h-10 w-10" style={{ color: brand.primaryColor }} />
-                </div>
-                <h2 className="text-2xl font-extrabold text-[var(--foreground)] mb-2">
-                  Sign in to manage your account
+                  Sign in to manage account
                 </h2>
-                <p className="text-[var(--foreground-tertiary)] mb-8 max-w-xs mx-auto">
+                <p className="text-black/40 mb-8 text-sm max-w-xs mx-auto">
                   Update your profile, name, and preferences.
                 </p>
                 <button
@@ -2100,56 +1927,44 @@ function PublicBookingPage() {
                     const returnUrl = encodeURIComponent(window.location.pathname);
                     window.location.href = `${API_URL}/auth/google?state=${returnUrl}`;
                   }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white shadow-lg hover:shadow-xl transition-all hover:opacity-90"
-                  style={{ backgroundColor: brand.primaryColor }}
+                  className="inline-flex items-center gap-2 px-6 py-3 font-black text-sm uppercase tracking-wider text-white transition-all hover:opacity-90"
+                  style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                 >
-                  <Chrome className="h-5 w-5" />
+                  <Chrome className="h-4 w-4" />
                   Sign in with Google
                 </button>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {/* Profile card */}
-                <Card className="overflow-hidden border-[var(--border)] shadow-md">
-                  {/* Banner */}
+                <div
+                  className="overflow-hidden border border-[#e0e0d8] bg-white"
+                  style={{ borderRadius: '4px' }}
+                >
+                  {/* Header band */}
                   <div
-                    className="h-20 w-full relative"
-                    style={{
-                      background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.accentColor})`,
-                    }}
-                  >
-                    <div className="absolute inset-0 opacity-10"
-                      style={{
-                        backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-                        backgroundSize: '20px 20px',
-                      }}
-                    />
-                  </div>
+                    className="h-16 w-full"
+                    style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.accentColor})` }}
+                  />
                   <div className="px-6 pb-6 -mt-8">
                     <div
-                      className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-xl border-4 border-[var(--surface-0)] mb-4"
-                      style={{ backgroundColor: brand.primaryColor }}
+                      className="h-16 w-16 flex items-center justify-center text-white text-2xl font-black border-4 border-white mb-4"
+                      style={{ backgroundColor: brand.primaryColor, borderRadius: '4px' }}
                     >
                       {(authUser.name || '?').charAt(0).toUpperCase()}
                     </div>
-                    <div className="font-extrabold text-[var(--foreground)] text-xl">
-                      {authUser.name}
-                    </div>
-                    <div className="text-sm text-[var(--foreground-tertiary)] mt-0.5">
-                      {authUser.email}
-                    </div>
+                    <div className="font-black text-black text-xl">{authUser.name}</div>
+                    <div className="text-sm text-black/40 mt-0.5">{authUser.email}</div>
 
                     <div className="mt-6 space-y-4">
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--foreground-tertiary)] flex items-center gap-2">
-                        <Settings className="h-3.5 w-3.5" />
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 flex items-center gap-2">
+                        <Settings className="h-3 w-3" />
                         Edit Profile
-                      </h3>
+                      </div>
                       <Input
                         label="Full Name"
                         value={profileEdits.name}
-                        onChange={(e) =>
-                          setProfileEdits((p) => ({ ...p, name: e.target.value }))
-                        }
+                        onChange={(e) => setProfileEdits((p) => ({ ...p, name: e.target.value }))}
                       />
                       <Input
                         label="Email Address"
@@ -2161,59 +1976,69 @@ function PublicBookingPage() {
                         onClick={handleSaveProfile}
                         isLoading={savingProfile}
                         disabled={savingProfile}
-                        className="w-full h-11 shadow-lg font-bold"
+                        className="w-full h-11 font-black text-xs uppercase tracking-wider"
                         style={{ backgroundColor: brand.primaryColor }}
                       >
                         Save Changes
                       </Button>
                     </div>
                   </div>
-                </Card>
+                </div>
 
                 {/* Sign out */}
-                <Card className="p-5 border border-[var(--danger)]/20 bg-[var(--danger)]/3">
-                  <h3 className="font-bold text-[var(--danger)] mb-1">Sign Out</h3>
-                  <p className="text-sm text-[var(--foreground-secondary)] mb-4">
-                    You will be signed out from your account on this device.
+                <div
+                  className="p-5 border border-red-100 bg-red-50/50"
+                  style={{ borderRadius: '4px' }}
+                >
+                  <h3 className="font-black text-red-600 text-sm mb-1">Sign Out</h3>
+                  <p className="text-xs text-black/40 mb-4">
+                    You will be signed out from this device.
                   </p>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 px-5 py-2.5 border border-[var(--danger)]/30 text-[var(--danger)] font-semibold rounded-xl hover:bg-[var(--danger)]/8 transition-all"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition-all"
+                    style={{ borderRadius: btnRadius }}
                   >
                     <LogOut className="h-4 w-4" />
                     Sign Out
                   </button>
-                </Card>
+                </div>
               </div>
             )}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* ------------------------------------------------------------------ */}
-      {/*  Footer                                                             */}
-{/*  */}
-      <footer className="bg-[var(--surface-0)] border-t border-[var(--border)] mt-16 py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="text-[var(--foreground-tertiary)] text-sm">
-            &copy; {new Date().getFullYear()}{' '}
-            <span className="font-semibold text-[var(--foreground-secondary)]">{studio.name}</span>
-            . All rights reserved.
+      {/* ================================================================ */}
+      {/*  FOOTER                                                           */}
+      {/* ================================================================ */}
+      <footer
+        className="border-t mt-20 py-10"
+        style={{ borderColor: '#e0e0d8', backgroundColor: '#f0f0eb' }}
+      >
+        <div className="max-w-7xl mx-auto px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <div
+              className="font-black text-black text-sm tracking-tight"
+              style={{ fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif` }}
+            >
+              {studio.name}
+            </div>
+            <div className="text-xs text-black/30 mt-0.5">
+              &copy; {new Date().getFullYear()} · All rights reserved.
+            </div>
           </div>
-          <div className="flex items-center justify-center gap-4 mt-2 text-sm">
+          <div className="flex items-center gap-5 text-xs">
             <a
               href={`mailto:${studio.email}`}
-              className="flex items-center gap-1.5 transition-all hover:opacity-80 font-medium"
-              style={{ color: brand.primaryColor }}
+              className="flex items-center gap-1.5 text-black/40 hover:text-black/70 transition-colors font-medium"
             >
               <Mail className="h-3.5 w-3.5" />
               {studio.email}
             </a>
-            <span className="text-[var(--border-strong)]">·</span>
             <a
               href={`tel:${studio.phone}`}
-              className="flex items-center gap-1.5 transition-all hover:opacity-80 font-medium"
-              style={{ color: brand.primaryColor }}
+              className="flex items-center gap-1.5 text-black/40 hover:text-black/70 transition-colors font-medium"
             >
               <Phone className="h-3.5 w-3.5" />
               {studio.phone}
