@@ -497,8 +497,10 @@ export default function BrandingPage() {
       setLogoUrl(res.data.url);
       setHasChanges(true);
       addToast('success', 'Logo uploaded');
-    } catch {
-      addToast('error', 'Failed to upload logo');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const msg = axiosErr?.response?.data?.message || 'Failed to upload logo';
+      addToast('error', msg);
     } finally {
       setUploading(false);
     }

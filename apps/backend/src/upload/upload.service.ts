@@ -48,7 +48,10 @@ export class UploadService {
     file: Express.Multer.File,
   ): Promise<string> {
     if (this.useLocalFallback) {
-      return this.saveLocally(file, `logo`);
+      throw new InternalServerErrorException(
+        "Logo upload is not available: Cloudinary is not configured. " +
+          "Please set CLOUDINARY_URL in the server environment.",
+      );
     }
     try {
       const result = await this.uploadToCloudinary(file.buffer, {
