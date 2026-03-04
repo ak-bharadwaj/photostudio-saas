@@ -194,6 +194,16 @@ export default function SettingsPage() {
       return;
     }
 
+    if (profileForm.slug.length < 3) {
+      addToast('error', 'Studio slug must be at least 3 characters');
+      return;
+    }
+
+    if (profileForm.slug.length > 50) {
+      addToast('error', 'Studio slug must be 50 characters or fewer');
+      return;
+    }
+
     try {
       setIsSavingProfile(true);
 
@@ -395,7 +405,7 @@ export default function SettingsPage() {
                     type="text"
                     value={profileForm.slug}
                     onChange={(e) => {
-                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 50);
                       setProfileForm(prev => ({ ...prev, slug: value }));
                     }}
                     className="rounded-l-none"

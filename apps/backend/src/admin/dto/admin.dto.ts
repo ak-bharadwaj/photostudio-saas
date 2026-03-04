@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsObject,
 } from "class-validator";
+import { Transform } from "class-transformer";
 
 export enum AdminRole {
   SUPER_ADMIN = "SUPER_ADMIN",
@@ -44,6 +45,14 @@ export class UpdateStudioDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  @MaxLength(50)
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug can only contain lowercase letters, numbers, and hyphens' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
+  slug?: string;
 
   @IsString()
   @IsOptional()

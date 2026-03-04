@@ -14,12 +14,14 @@ import {
   UpdateStudioDto,
   CreateStudioWithOwnerDto,
 } from "./dto/admin.dto";
+import { CacheService } from "../cache/cache.service";
 
 @Injectable()
 export class AdminService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private cacheService: CacheService,
   ) {}
 
   // Admin Authentication
@@ -246,10 +248,31 @@ export class AdminService {
     if (updateStudioDto.taxRate !== undefined)
       updateData.taxRate = updateStudioDto.taxRate;
 
-    return this.prisma.studio.update({
+    // Handle slug change with uniqueness check
+    if (updateStudioDto.slug && updateStudioDto.slug !== studio.slug) {
+      const slugConflict = await this.prisma.studio.findUnique({
+        where: { slug: updateStudioDto.slug },
+      });
+      if (slugConflict) {
+        throw new ConflictException("Studio slug already exists");
+      }
+      updateData.slug = updateStudioDto.slug;
+    }
+
+    const updated = await this.prisma.studio.update({
       where: { id },
       data: updateData,
     });
+
+    // Invalidate old slug cache
+    await this.cacheService.del(`studio:slug:${studio.slug}`);
+
+    // If slug changed, also bust any stale cache for the new slug
+    if (updateStudioDto.slug && updateStudioDto.slug !== studio.slug) {
+      await this.cacheService.del(`studio:slug:${updateStudioDto.slug}`);
+    }
+
+    return updated;
   }
 
   async suspendStudio(id: string, reason?: string) {

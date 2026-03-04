@@ -248,8 +248,13 @@ export class StudioService {
       },
     });
 
-    // Invalidate cache
+    // Invalidate old slug cache
     await this.cacheService.del(`studio:slug:${studio.slug}`);
+
+    // If slug changed, also bust any stale cache for the new slug
+    if (dto.slug && dto.slug !== studio.slug) {
+      await this.cacheService.del(`studio:slug:${dto.slug}`);
+    }
 
     return updated;
   }

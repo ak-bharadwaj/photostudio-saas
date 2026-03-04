@@ -372,8 +372,15 @@ export const adminApi = {
 
   updateStudio: (id: string, data: {
     name?: string;
+    slug?: string;
     email?: string;
     phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    website?: string;
+    description?: string;
     status?: string;
     subscriptionTier?: string;
     defaultTerms?: string;
