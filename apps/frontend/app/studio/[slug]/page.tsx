@@ -68,15 +68,20 @@ function hexAlpha(color: string, alpha: string): string {
   return color;
 }
 
-/** Google Fonts families available in the branding picker */
+/** Google Fonts families available in the branding picker.
+ *  Must match FONT_OPTIONS in branding/page.tsx and settings/page.tsx exactly. */
 const GOOGLE_FONT_FAMILIES = [
-  'DM Sans',
+  'Plus Jakarta Sans',
+  'Outfit',
   'Inter',
   'Playfair Display',
+  'Poppins',
   'Montserrat',
   'Lora',
   'Raleway',
-  'Poppins',
+  'Roboto',
+  'Open Sans',
+  'DM Sans',
   'Cormorant Garamond',
   'Nunito',
   'Josefin Sans',
@@ -495,7 +500,7 @@ function PublicBookingPage() {
       primaryColor: bc.primaryColor || '#7c3aed',
       secondaryColor: bc.secondaryColor || '#5f6368',
       accentColor: bc.accentColor || '#db2777',
-      fontFamily: bc.fontFamily || 'DM Sans',
+      fontFamily: bc.fontFamily || 'Inter',
       headerText: bc.headerText || studio?.name || '',
       tagline: bc.tagline || '',
       heroStyle: bc.heroStyle || 'mesh',

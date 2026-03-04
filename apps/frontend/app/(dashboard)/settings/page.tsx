@@ -618,15 +618,19 @@ export default function SettingsPage() {
                   name="fontFamily"
                   value={brandingForm.fontFamily}
                   onChange={(e) => setBrandingForm(prev => ({ ...prev, fontFamily: e.target.value }))}
-                  options={[
+                 options={[
                     { value: 'Plus Jakarta Sans', label: 'Plus Jakarta Sans' },
                     { value: 'Outfit', label: 'Outfit' },
                     { value: 'Inter', label: 'Inter' },
+                    { value: 'DM Sans', label: 'DM Sans' },
                     { value: 'Playfair Display', label: 'Playfair Display' },
+                    { value: 'Cormorant Garamond', label: 'Cormorant Garamond' },
                     { value: 'Poppins', label: 'Poppins' },
                     { value: 'Montserrat', label: 'Montserrat' },
                     { value: 'Lora', label: 'Lora' },
                     { value: 'Raleway', label: 'Raleway' },
+                    { value: 'Nunito', label: 'Nunito' },
+                    { value: 'Josefin Sans', label: 'Josefin Sans' },
                     { value: 'Roboto', label: 'Roboto' },
                     { value: 'Open Sans', label: 'Open Sans' },
                   ]}
