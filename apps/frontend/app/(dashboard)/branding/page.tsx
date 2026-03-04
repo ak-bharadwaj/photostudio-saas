@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NextImage from 'next/image';
 import { useAuthStore } from '@/lib/auth-store';
-import { studiosApi, uploadApi, api } from '@/lib/api';
+import { studiosApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea, Select } from '@/components/ui/input';
@@ -487,21 +487,32 @@ export default function BrandingPage() {
     setHasChanges(true);
   };
 
-  // Logo upload
+  // Logo upload — direct to Cloudinary unsigned (no backend required)
   const handleLogoUpload = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      addToast('error', 'Logo must be under 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('error', 'Logo must be under 5MB');
       return;
     }
     try {
       setUploading(true);
-      const res = await uploadApi.uploadLogo(file);
-      setLogoUrl(res.data.url);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'photostudio_logos');
+      formData.append('folder', `studios/${studio?.id}/logo`);
+      const res = await fetch('https://api.cloudinary.com/v1_1/djscnn7hc/image/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error?.message || 'Cloudinary upload failed');
+      }
+      const data = await res.json();
+      setLogoUrl(data.secure_url);
       setHasChanges(true);
-      addToast('success', 'Logo uploaded');
+      addToast('success', 'Logo uploaded successfully');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      const msg = axiosErr?.response?.data?.message || 'Failed to upload logo';
+      const msg = err instanceof Error ? err.message : 'Failed to upload logo';
       addToast('error', msg);
     } finally {
       setUploading(false);

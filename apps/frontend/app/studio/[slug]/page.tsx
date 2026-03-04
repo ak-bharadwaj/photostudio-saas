@@ -509,20 +509,7 @@ function PublicBookingPage() {
     };
   }, [studio]);
 
-  // Dynamically load the studio's Google Font
-  useEffect(() => {
-    const font = brand.fontFamily;
-    // Only inject if it's one of our known Google Fonts (skip system fonts / already-loaded DM Sans default)
-    if (!GOOGLE_FONT_FAMILIES.includes(font as (typeof GOOGLE_FONT_FAMILIES)[number])) return;
-    const id = `gfont-${font.replace(/\s+/g, '-')}`;
-    if (document.getElementById(id)) return; // already injected
-    const link = document.createElement('link');
-    link.id = id;
-    link.rel = 'stylesheet';
-    const encoded = font.replace(/ /g, '+');
-    link.href = `https://fonts.googleapis.com/css2?family=${encoded}:wght@400;500;600;700;800;900&display=swap`;
-    document.head.appendChild(link);
-  }, [brand.fontFamily]);
+  // All Google Fonts are pre-loaded in globals.css — no dynamic injection needed.
 
   // Group services by occasion
   const occasionGroups = useMemo(() => {
@@ -875,13 +862,16 @@ function PublicBookingPage() {
 
   return (
     <div
-      className="min-h-screen bg-[var(--background-secondary)]"
+      className="studio-portal min-h-screen bg-[var(--background-secondary)]"
       style={{
-        fontFamily: brand.fontFamily + ', DM Sans, sans-serif',
+        fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
         '--studio-primary': brand.primaryColor,
         '--studio-accent': brand.accentColor,
+        '--studio-font': `"${brand.fontFamily}", DM Sans, sans-serif`,
       } as React.CSSProperties}
     >
+      {/* Force font on all children — overrides Tailwind/body CSS resets */}
+      <style dangerouslySetInnerHTML={{ __html: `.studio-portal,.studio-portal *{font-family:"${brand.fontFamily}",DM Sans,sans-serif!important}` }} />
       {/* ------------------------------------------------------------------ */}
       {/*  Hero Header                                                        */}
 {/*  */}
