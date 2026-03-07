@@ -591,6 +591,26 @@ function PublicBookingPage() {
     }
   }, [activeTab, authUser, fetchStudioHistory]);
 
+  // Inject studio font into <head> — beats any CSS specificity including Tailwind base styles.
+  // Using a uniquely-id'd <style> tag in document.head is the only reliable way in Next.js
+  // App Router because React may de-duplicate/hoist inline <style> tags placed in the body.
+  useEffect(() => {
+    const font = brand.fontFamily || 'DM Sans';
+    const styleId = 'studio-portal-font-override';
+    let el = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement('style');
+      el.id = styleId;
+      document.head.appendChild(el);
+    }
+    el.textContent = `#studio-portal-root,#studio-portal-root *{font-family:"${font}","DM Sans",sans-serif!important;}`;
+    return () => {
+      // Clean up on unmount so font doesn't bleed into other routes
+      const s = document.getElementById(styleId);
+      if (s) s.remove();
+    };
+  }, [brand.fontFamily]);
+
   const handleSaveProfile = async () => {
     const token = localStorage.getItem('customer_token');
     if (!token) return;
@@ -777,21 +797,17 @@ function PublicBookingPage() {
   const btnRadius =
     brand.buttonShape === 'pill' ? '9999px' : brand.buttonShape === 'luxury-sharp' ? '4px' : '12px';
 
-  /* ------------------------------------------------------------------ */
-  /*  Root wrapper — font override via CSS variable + direct font-family */
-  /* ------------------------------------------------------------------ */
-
   return (
     <div
+      id="studio-portal-root"
       className="studio-portal min-h-screen"
       style={{
-        '--font-sans': `"${brand.fontFamily}", DM Sans, sans-serif`,
         '--studio-primary': brand.primaryColor,
         '--studio-accent': brand.accentColor,
-        fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
         backgroundColor: '#f5f5f0',
       } as React.CSSProperties}
     >
+      {/* Font is injected into <head> via useEffect above — no inline style needed */}
 
       {/* ================================================================ */}
       {/*  HERO — full-bleed, dramatic, editorial                          */}

@@ -394,17 +394,41 @@ export default function SettingsPage() {
                 placeholder="The Lens & Light Studio"
               />
 
+              {/* ── Public Booking URL ──────────────────────────────────────── */}
               <div className="space-y-2">
-                <label htmlFor="slug" className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-                  <Globe className="h-4 w-4 text-[var(--primary)]" />
-                  Public Booking URL
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="slug" className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                    <Globe className="h-4 w-4 text-[var(--primary)]" />
+                    Public Booking URL
+                  </label>
+                  {/* Live / Unsaved badge — only when slug is valid */}
+                  {profileForm.slug.length >= 3 && (
+                    slugChanged ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-0.5 text-xs font-semibold text-amber-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        Unsaved changes
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-xs font-semibold text-emerald-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live
+                      </span>
+                    )
+                  )}
+                </div>
 
-                {/* URL builder row */}
-                <div className="flex items-stretch rounded-2xl overflow-hidden border border-[var(--border)] focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 transition-all bg-[var(--surface-0)]">
-                  <span className="flex items-center px-4 bg-[var(--surface-1)] border-r border-[var(--border)] text-[var(--foreground-tertiary)] text-sm font-mono whitespace-nowrap select-none">
-                    /studio/
-                  </span>
+                {/* Input row */}
+                <div
+                  className="flex items-stretch rounded-xl border border-[var(--border)] bg-[var(--surface-0)] overflow-hidden transition-all duration-150 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/15"
+                  style={{ height: '48px' }}
+                >
+                  {/* Prefix */}
+                  <div className="flex items-center gap-1.5 pl-4 pr-3 bg-[var(--surface-1)] border-r border-[var(--border)] shrink-0 select-none">
+                    <Globe className="h-3.5 w-3.5 text-[var(--foreground-tertiary)]" />
+                    <span className="text-sm font-mono text-[var(--foreground-tertiary)] whitespace-nowrap">/studio/</span>
+                  </div>
+
+                  {/* Editable slug */}
                   <input
                     id="slug"
                     type="text"
@@ -414,81 +438,85 @@ export default function SettingsPage() {
                       setProfileForm(prev => ({ ...prev, slug: value }));
                       setSlugChanged(value !== (studio?.slug || ''));
                     }}
-                    className="flex-1 bg-transparent px-4 py-3 text-sm font-mono text-[var(--foreground)] outline-none placeholder:text-[var(--foreground-tertiary)]"
-                    placeholder="my-awesome-studio"
+                    className="flex-1 min-w-0 bg-transparent px-3 text-[15px] font-mono font-medium text-[var(--foreground)] outline-none placeholder:text-[var(--foreground-tertiary)]/60"
+                    placeholder="my-studio"
                     spellCheck={false}
                     autoComplete="off"
                   />
-                  {/* Character counter */}
-                  <span className={`flex items-center pr-3 text-xs font-mono tabular-nums shrink-0 ${profileForm.slug.length > 45 ? 'text-amber-500' : 'text-[var(--foreground-tertiary)]'}`}>
+
+                  {/* Char counter */}
+                  <span className={`flex items-center pr-3 text-xs font-mono tabular-nums shrink-0 ${profileForm.slug.length > 44 ? 'text-amber-500' : 'text-[var(--foreground-tertiary)]'}`}>
                     {profileForm.slug.length}/50
                   </span>
+
+                  {/* Divider */}
+                  <div className="w-px self-stretch bg-[var(--border)] my-2" />
+
+                  {/* Copy */}
+                  <button
+                    type="button"
+                    disabled={!profileForm.slug}
+                    onClick={() => {
+                      const url = `${window.location.origin}/studio/${profileForm.slug}`;
+                      navigator.clipboard.writeText(url);
+                      setSlugCopied(true);
+                      setTimeout(() => setSlugCopied(false), 2000);
+                    }}
+                    className="flex items-center gap-2 px-4 text-sm font-medium text-[var(--foreground-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    title="Copy link"
+                  >
+                    {slugCopied
+                      ? <><CheckCircle2 className="h-4 w-4 text-[var(--success)]" /><span className="hidden sm:inline text-[var(--success)]">Copied</span></>
+                      : <><Copy className="h-4 w-4" /><span className="hidden sm:inline">Copy</span></>
+                    }
+                  </button>
+
+                  {/* Divider */}
+                  <div className="w-px self-stretch bg-[var(--border)] my-2" />
+
+                  {/* Open */}
+                  <a
+                    href={profileForm.slug ? `/studio/${profileForm.slug}` : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { if (!profileForm.slug) e.preventDefault(); }}
+                    className="flex items-center gap-2 px-4 text-sm font-medium text-[var(--foreground-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/5 transition-colors shrink-0"
+                    title="Open public booking page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="hidden sm:inline">Open</span>
+                  </a>
                 </div>
 
-                {/* Live URL preview card */}
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-0)] p-3 flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center shrink-0">
-                    <Globe className="h-4 w-4 text-[var(--primary)]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--foreground-tertiary)] mb-0.5">Your public booking link</p>
-                    <p className="text-xs font-mono text-[var(--foreground)] truncate">
-                      <span className="text-[var(--foreground-tertiary)]">{typeof window !== 'undefined' ? window.location.origin : ''}</span>
-                      <span className="text-[var(--primary)] font-bold">/studio/{profileForm.slug || '…'}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      title="Copy link"
-                      disabled={!profileForm.slug}
-                      onClick={() => {
-                        const url = `${window.location.origin}/studio/${profileForm.slug}`;
-                        navigator.clipboard.writeText(url);
-                        setSlugCopied(true);
-                        setTimeout(() => setSlugCopied(false), 2000);
-                      }}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--foreground)] disabled:opacity-40"
-                    >
-                      {slugCopied ? <CheckCircle2 className="h-4 w-4 text-[var(--success)]" /> : <Copy className="h-4 w-4" />}
-                    </button>
-                    <a
-                      href={profileForm.slug ? `/studio/${profileForm.slug}` : '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Open public page"
-                      onClick={(e) => { if (!profileForm.slug) e.preventDefault(); }}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-1)] transition-colors text-[var(--foreground-tertiary)] hover:text-[var(--primary)]"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </div>
+                {/* Full URL preview — large, readable, never truncated */}
+                <div className="rounded-lg bg-[var(--surface-1)] border border-[var(--border)] px-4 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--foreground-tertiary)] mb-1.5">Your public booking link</p>
+                  <p className="text-sm font-mono leading-relaxed break-all">
+                    <span className="text-[var(--foreground-tertiary)]">
+                      {typeof window !== 'undefined' ? window.location.origin : 'https://photostudio-saas-frontend.vercel.app'}
+                    </span>
+                    <span className="text-[var(--primary)] font-bold">/studio/</span>
+                    <span className="text-[var(--foreground)] font-bold">{profileForm.slug || <span className="text-[var(--foreground-tertiary)] font-normal italic">your-slug</span>}</span>
+                  </p>
                 </div>
 
-                {/* Validation hint */}
+                {/* Validation error */}
                 {profileForm.slug.length > 0 && profileForm.slug.length < 3 && (
-                  <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2">
-                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                    <p className="text-xs text-red-500 font-medium">Minimum 3 characters required</p>
-                  </div>
+                  <p className="flex items-center gap-1.5 text-xs text-red-500 font-medium pt-0.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    Minimum 3 characters required
+                  </p>
                 )}
 
-                {/* Status strip */}
-                {slugChanged ? (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
-                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-amber-500">URL will change on save</p>
-                      <p className="text-[10px] text-amber-500/80 mt-0.5">All existing shared links, QR codes, and bookmarks will stop working.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 rounded-xl bg-[var(--success)]/10 border border-[var(--success)]/20 px-3 py-2">
-                    <CheckCircle2 className="h-4 w-4 text-[var(--success)] shrink-0" />
-                    <p className="text-xs text-[var(--success)] font-medium">Active — this URL is live</p>
-                  </div>
+                {/* Change warning */}
+                {slugChanged && profileForm.slug.length >= 3 && (
+                  <p className="flex items-start gap-1.5 text-xs text-amber-600 pt-0.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                    Changing your URL will break all existing shared links, QR codes, and bookmarks.
+                  </p>
                 )}
               </div>
+              {/* ────────────────────────────────────────────────────────────── */}
             </div>
 
             {/* Contact Information */}
