@@ -56,7 +56,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If 401 and not already retried
+    // If 401 and not already retried — refresh token and retry, redirect to login on failure
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -81,6 +81,31 @@ api.interceptors.response.use(
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
+      }
+    }
+
+    // If 403 and not already retried — may be caused by an expired access token hitting a
+    // RolesGuard before the JWT strategy throws (backend returns 403 instead of 401).
+    // Attempt a silent token refresh and retry once. Do NOT redirect on failure — a real
+    // permission denial (e.g. non-owner hitting an owner route) should propagate as-is.
+    if (error.response?.status === 403 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = getItem('refreshToken');
+        if (refreshToken) {
+          const response = await axios.post(`${API_URL}/auth/refresh`, {
+            refreshToken,
+          });
+
+          const { accessToken } = response.data;
+          setItem('accessToken', accessToken);
+
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalRequest);
+        }
+      } catch {
+        // Refresh failed — let the original 403 propagate
       }
     }
 
