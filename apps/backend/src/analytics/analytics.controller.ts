@@ -80,7 +80,11 @@ export class AnalyticsController {
       throw new ForbiddenException("User must belong to a studio");
     }
     const { startDate, endDate } = resolveDateRange(startDateStr, endDateStr);
-    return this.analyticsService.getOverviewStats(user.studioId, startDate, endDate);
+    return this.analyticsService.getOverviewStats(
+      user.studioId,
+      startDate,
+      endDate,
+    );
   }
 
   /** GET /analytics/revenue */
@@ -94,7 +98,11 @@ export class AnalyticsController {
       throw new ForbiddenException("User must belong to a studio");
     }
     const { startDate, endDate } = resolveDateRange(startDateStr, endDateStr);
-    return this.analyticsService.getRevenueOverTime(user.studioId, startDate, endDate);
+    return this.analyticsService.getRevenueOverTime(
+      user.studioId,
+      startDate,
+      endDate,
+    );
   }
 
   /** GET /analytics/bookings-by-status */
@@ -108,7 +116,11 @@ export class AnalyticsController {
       throw new ForbiddenException("User must belong to a studio");
     }
     const { startDate, endDate } = resolveDateRange(startDateStr, endDateStr);
-    return this.analyticsService.getBookingsByStatus(user.studioId, startDate, endDate);
+    return this.analyticsService.getBookingsByStatus(
+      user.studioId,
+      startDate,
+      endDate,
+    );
   }
 
   /** GET /analytics/service-performance */
@@ -122,7 +134,11 @@ export class AnalyticsController {
       throw new ForbiddenException("User must belong to a studio");
     }
     const { startDate, endDate } = resolveDateRange(startDateStr, endDateStr);
-    return this.analyticsService.getServicePerformance(user.studioId, startDate, endDate);
+    return this.analyticsService.getServicePerformance(
+      user.studioId,
+      startDate,
+      endDate,
+    );
   }
 
   /** GET /analytics/customer-insights */
@@ -136,6 +152,10 @@ export class AnalyticsController {
       throw new ForbiddenException("User must belong to a studio");
     }
     const { startDate, endDate } = resolveDateRange(startDateStr, endDateStr);
-    return this.analyticsService.getCustomerInsights(user.studioId, startDate, endDate);
+    return this.analyticsService.getCustomerInsights(
+      user.studioId,
+      startDate,
+      endDate,
+    );
   }
 }

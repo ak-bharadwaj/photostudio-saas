@@ -20,7 +20,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private cacheService: CacheService,
-  ) { }
+  ) {}
 
   // ============================================
   // ADMIN AUTHENTICATION
@@ -92,12 +92,18 @@ export class AuthService {
   // ============================================
 
   async login(dto: UserLoginDto) {
+    if (!dto.email && !dto.phone) {
+      throw new UnauthorizedException("Email or phone is required");
+    }
+
+    const whereClause: any = dto.email ? { email: dto.email } : { phone: dto.phone };
+
     // Run both DB lookups in parallel to eliminate timing oracle that would
     // reveal whether an email belongs to an admin vs. a regular user.
-    const [admin, user] = await Promise.all([
-      this.prisma.admin.findUnique({ where: { email: dto.email } }),
+    const [admin, user]: [any, any] = await Promise.all([
+      dto.email ? this.prisma.admin.findUnique({ where: { email: dto.email } }) : Promise.resolve(null),
       this.prisma.user.findUnique({
-        where: { email: dto.email },
+        where: whereClause,
         include: { studio: true },
       }),
     ]);
@@ -149,14 +155,17 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    // Check studio status for non-admins (allow ACTIVE and TRIAL)
-    if (user.studio && user.studio.status !== "ACTIVE" && user.studio.status !== "TRIAL") {
-      throw new UnauthorizedException("Studio is not active");
+    // Check studio status for non-admins (allow ACTIVE, TRIAL, and EXPIRED)
+    if (
+      user.studio &&
+      user.studio.status === "SUSPENDED"
+    ) {
+      throw new UnauthorizedException("Studio is suspended");
     }
 
     const tokens = await this.generateTokens({
       sub: user.id,
-      email: user.email,
+      email: user.email || user.phone || "",
       type: "user",
       studioId: user.studioId ?? undefined,
     });
@@ -165,15 +174,16 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        phone: user.phone,
         name: user.name,
         role: user.role,
         studioId: user.studioId,
         studio: user.studio
           ? {
-            id: user.studio.id,
-            name: user.studio.name,
-            slug: user.studio.slug,
-          }
+              id: user.studio.id,
+              name: user.studio.name,
+              slug: user.studio.slug,
+            }
           : null,
       },
       ...tokens,
@@ -194,7 +204,8 @@ export class AuthService {
 
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
+        email: dto.email || null,
+        phone: dto.phone || null,
         name: dto.name,
         passwordHash,
         studioId,
@@ -206,9 +217,77 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
+      phone: user.phone,
       name: user.name,
       role: user.role,
       studioId: user.studioId,
+    };
+  }
+
+  async customerRegister(dto: UserRegisterDto) {
+    if (!dto.email && !dto.phone) {
+      throw new UnauthorizedException("Email or phone is required");
+    }
+
+    const whereClause: any = dto.email ? { email: dto.email } : { phone: dto.phone };
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: whereClause,
+    });
+
+    if (existingUser) {
+      if (existingUser.provider !== 'local') {
+          throw new ConflictException(`You previously signed up with ${existingUser.provider}. Please log in using that method.`);
+      }
+      throw new ConflictException("User with this email or phone already exists");
+    }
+
+    const passwordHash = await this.hashPassword(dto.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        phone: dto.phone,
+        name: dto.name,
+        passwordHash,
+        role: "CUSTOMER",
+      },
+      include: { studio: true },
+    });
+
+    // Synchronize existing studio-specific Customer records to this new global User
+    // This links all their previous bookings across different studios to this one account
+    if (dto.email) {
+      await this.prisma.customer.updateMany({
+        where: { email: dto.email, globalUserId: null },
+        data: { globalUserId: user.id },
+      });
+    } else if (dto.phone) {
+      await this.prisma.customer.updateMany({
+        where: { phone: dto.phone, globalUserId: null },
+        data: { globalUserId: user.id },
+      });
+    }
+
+    const tokens = await this.generateTokens({
+      sub: user.id,
+      email: user.email || user.phone || "",
+      type: "user",
+      studioId: undefined,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        name: user.name,
+        role: user.role,
+        studioId: null,
+        studio: null,
+      },
+      ...tokens,
+      userType: "user",
     };
   }
 
@@ -274,7 +353,7 @@ export class AuthService {
     // 3. Generate tokens for the global customer
     const tokens = await this.generateTokens({
       sub: user.id,
-      email: user.email,
+      email: user.email || user.phone || "",
       type: "user",
       studioId: user.studioId || undefined,
     });
@@ -283,15 +362,16 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        phone: user.phone,
         name: user.name,
         role: user.role,
         studioId: user.studioId,
         studio: user.studio
           ? {
-            id: user.studio.id,
-            name: user.studio.name,
-            slug: user.studio.slug,
-          }
+              id: user.studio.id,
+              name: user.studio.name,
+              slug: user.studio.slug,
+            }
           : null,
       },
       ...tokens,
@@ -304,8 +384,7 @@ export class AuthService {
 
   async generateTokens(payload: JwtPayload) {
     const secret = this.configService.get<string>("jwt.secret");
-    const expiresIn =
-      this.configService.get<string>("jwt.expiresIn") || "15m";
+    const expiresIn = this.configService.get<string>("jwt.expiresIn") || "15m";
     const refreshExpiresIn =
       this.configService.get<string>("jwt.refreshExpiresIn") || "7d";
 
@@ -318,7 +397,10 @@ export class AuthService {
 
     const refreshToken = this.jwtService.sign(
       { ...payload },
-      { ...baseOpts, expiresIn: refreshExpiresIn as JwtSignOptions["expiresIn"] },
+      {
+        ...baseOpts,
+        expiresIn: refreshExpiresIn as JwtSignOptions["expiresIn"],
+      },
     );
 
     // Store refresh token in Redis

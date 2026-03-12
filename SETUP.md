@@ -1,6 +1,6 @@
-# 🚀 PhotoStudio SaaS Setup Guide
+# 🚀 ReviewsFeedback SaaS Setup Guide
 
-This guide will help you get the **PhotoStudio SaaS** platform up and running on your local machine.
+This guide will help you get the **ReviewsFeedback** platform up and running on your local machine.
 
 ## 📋 Prerequisites
 
@@ -34,7 +34,7 @@ You need to set up environment variables for both the backend and frontend.
 ### Frontend
 1. Go to `apps/frontend`.
 2. Copy `.env.example` to `.env.local`.
-3. Ensure `NEXT_PUBLIC_API_URL` points to `http://localhost:3000`.
+3. Ensure `NEXT_PUBLIC_API_URL` points to `http://localhost:3001`.
 
 ---
 
@@ -63,9 +63,9 @@ pnpm dev
 ```
 
 ### Accessing the apps:
-- **Frontend**: [http://localhost:3001](http://localhost:3001)
-- **Backend API**: [http://localhost:3000](http://localhost:3000)
-- **Swagger Docs**: [http://localhost:3000/api](http://localhost:3000/api)
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:3001](http://localhost:3001)
+- **Swagger Docs**: [http://localhost:3001/api](http://localhost:3001/api)
 
 ---
 

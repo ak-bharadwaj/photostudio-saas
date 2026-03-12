@@ -34,7 +34,9 @@ describe("Customer Flow (e2e)", () => {
   afterAll(async () => {
     // Clean up test customer
     if (createdCustomerId) {
-      await prisma.customer.deleteMany({ where: { id: createdCustomerId } }).catch(() => {});
+      await prisma.customer
+        .deleteMany({ where: { id: createdCustomerId } })
+        .catch(() => {});
     }
     await app.close();
   });

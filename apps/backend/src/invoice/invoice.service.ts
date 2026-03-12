@@ -67,6 +67,26 @@ export class InvoiceService {
     // Calculate totals
     const subtotal = dto.lineItems.reduce((sum, item) => sum + item.amount, 0);
 
+    // If bookingId is provided, check for a quoteAmount to apply bargaining discount
+    let discount = dto.discount || 0;
+    if (dto.bookingId) {
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: dto.bookingId },
+        select: { quoteAmount: true },
+      });
+
+      if (booking?.quoteAmount) {
+        const negotiatedPrice = Number(booking.quoteAmount);
+        // If negotiated price is lower than subtotal, apply the difference as bargaining discount
+        if (negotiatedPrice < subtotal) {
+          discount = subtotal - negotiatedPrice;
+          this.logger.log(
+            `Applying bargaining discount of ${discount} to match quote of ${negotiatedPrice}`,
+          );
+        }
+      }
+    }
+
     // Auto-calculate tax if not provided
     let tax = dto.tax;
     if (tax === undefined || tax === null) {
@@ -78,7 +98,6 @@ export class InvoiceService {
       tax = (subtotal * taxRate) / 100;
     }
 
-    const discount = dto.discount || 0;
     const total = subtotal + tax - discount;
 
     // Create invoice with retry-on-collision for invoice number uniqueness
@@ -290,7 +309,7 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       studioName: invoice.studio.name,
       studioEmail: invoice.studio.email,
-      studioPhone: invoice.studio.phone ?? '',
+      studioPhone: invoice.studio.phone ?? "",
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email || undefined,
       customerPhone: invoice.customer.phone,
@@ -333,7 +352,10 @@ export class InvoiceService {
           invoiceUrl: pdfUrl,
         });
       } catch (error: unknown) {
-        this.logger.error("Failed to send invoice email:", error instanceof Error ? error.stack : String(error));
+        this.logger.error(
+          "Failed to send invoice email:",
+          error instanceof Error ? error.stack : String(error),
+        );
       }
     }
 
@@ -365,7 +387,7 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       studioName: invoice.studio.name,
       studioEmail: invoice.studio.email,
-      studioPhone: invoice.studio.phone ?? '',
+      studioPhone: invoice.studio.phone ?? "",
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email || undefined,
       customerPhone: invoice.customer.phone,
@@ -421,7 +443,10 @@ export class InvoiceService {
       const invoiceNumber = await this.generateInvoiceNumber(studioId);
       try {
         return await this.prisma.invoice.create({
-          data: { ...invoiceData, invoiceNumber } as unknown as Prisma.InvoiceCreateInput,
+          data: {
+            ...invoiceData,
+            invoiceNumber,
+          } as unknown as Prisma.InvoiceCreateInput,
           include: {
             customer: true,
             booking: { include: { service: true } },

@@ -1,0 +1,35 @@
+/* --- Architectural Utilities --- */
+.grain-overlay {
+    position: relative;
+}
+
+.grain-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: var(--grain-opacity);
+    background-image: var(--noise-url);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.bg-organic {
+    background: var(--background-gradient);
+}
+
+.shadow-expensive {
+    box-shadow: var(--shadow-expensive);
+}
+
+.border-delicate {
+    border: 1px solid var(--border-ultra-thin);
+}
+
+/* Glassmorphism Refinement */
+.glass-atelier {
+    background: rgba(var(--primary-rgb), 0.02);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-ultra-thin);
+}

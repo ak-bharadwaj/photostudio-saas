@@ -21,7 +21,9 @@ describe("Booking Flow (e2e)", () => {
   function futureDate(slotIndex: number): string {
     // Spread bookings 200 minutes apart (> max service duration of 120 min) in year 2099
     const base = new Date(Date.UTC(2099, 0, 1, 0, 0, 0, 0));
-    base.setUTCMinutes(base.getUTCMinutes() + runSeed * 200 * 8 + slotIndex * 200);
+    base.setUTCMinutes(
+      base.getUTCMinutes() + runSeed * 200 * 8 + slotIndex * 200,
+    );
     return base.toISOString();
   }
 

@@ -16,7 +16,7 @@ import { Throttle } from "@nestjs/throttler";
 import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { AdminLoginDto, AdminCreateDto } from "./dto/admin-auth.dto";
-import { UserLoginDto, ChangePasswordDto } from "./dto/user-auth.dto";
+import { UserLoginDto, UserRegisterDto, ChangePasswordDto } from "./dto/user-auth.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { Public } from "./decorators/public.decorator";
 import { CurrentUser } from "./decorators/current-user.decorator";
@@ -24,6 +24,8 @@ import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { AuthGuard } from "@nestjs/passport";
 import { UserPayload } from "../common/interfaces/user-payload.interface";
 import type { Request, Response } from "express";
+
+import { SkipSubscriptionCheck } from "./decorators/skip-subscription-check.decorator";
 
 @Controller("auth")
 export class AuthController {
@@ -40,42 +42,55 @@ export class AuthController {
   @Get("google")
   @UseGuards(AuthGuard("google"))
   async googleAuth(@Req() _req: Request) {
-    // Passport redirects to Google automatically
+    // The oauth_return_to cookie is set by the Express middleware in main.ts
+    // before this handler runs. Passport's AuthGuard redirects to Google here.
   }
 
   @Public()
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
-  async googleAuthRedirect(@Req() req: Request & { user?: { email: string; name: string; provider: string; providerId: string } }, @Res() res: Response) {
-    if (!req.user) {
-      // Passport failed to populate user (e.g. OAuth error or denied consent)
-      const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
-      return res.redirect(`${frontendUrl}/portal?error=oauth_failed`);
-    }
-    const authData = await this.authService.validateOAuthUser(req.user);
-    const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+  async googleAuthRedirect(
+    @Req()
+    req: Request & {
+      user?: {
+        email: string;
+        name: string;
+        provider: string;
+        providerId: string;
+      };
+      session?: Record<string, any>;
+      cookies?: Record<string, string>;
+    },
+    @Res() res: Response,
+  ) {
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") ||
+      "http://localhost:3000";
 
-    // Determine safe return path from OAuth state param
-    let returnUrl = "/portal";
-    if (req.query.state) {
-      try {
-        returnUrl = decodeURIComponent(req.query.state as string);
-      } catch {
-        // Malformed URI component — fall back to default
-        returnUrl = "/portal";
-      }
+    if (!req.user) {
+      return res.redirect(`${frontendUrl}/portal/login?error=oauth_failed`);
     }
+
+    const authData = await this.authService.validateOAuthUser(req.user);
+
+    // Read returnTo from the cookie set in googleAuth, then clear it.
+    const cookieReturnTo = req.cookies?.['oauth_return_to'] || '';
+    res.clearCookie('oauth_return_to');
+
+    // Fall back chain: cookie → OAuth state param → /portal
+    const rawReturn =
+      (cookieReturnTo && cookieReturnTo.startsWith('/') ? cookieReturnTo : '') ||
+      (req.query?.state ? decodeURIComponent(req.query.state as string) : '') ||
+      '/';
 
     // Guard against open-redirect: only allow relative paths
-    const safeReturnUrl = returnUrl.startsWith("/") ? returnUrl : "/portal";
+    const safeReturnUrl = rawReturn.startsWith('/') ? rawReturn : '/';
 
-    // Tokens go in the URL *fragment* (#) — fragments are never sent to servers
-    // in request logs, Referer headers, or browser history on modern browsers.
-    // The /auth/callback page reads window.location.hash and immediately clears it.
+    // Tokens go in the URL *fragment* (#) — never logged by servers or proxy
     const fragment = [
       `token=${encodeURIComponent(authData.accessToken)}`,
       `refreshToken=${encodeURIComponent(authData.refreshToken)}`,
-    ].join("&");
+    ].join('&');
 
     return res.redirect(
       `${frontendUrl}/auth/callback?returnTo=${encodeURIComponent(safeReturnUrl)}#${fragment}`,
@@ -122,6 +137,13 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Public()
+  @Post("register/customer")
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
+  async customerRegister(@Body() dto: UserRegisterDto) {
+    return this.authService.customerRegister(dto);
+  }
+
   // ============================================
   // TOKEN MANAGEMENT
   // ============================================
@@ -142,6 +164,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @SkipSubscriptionCheck()
   @Get("me")
   async getMe(@CurrentUser() user: UserPayload) {
     return { user };

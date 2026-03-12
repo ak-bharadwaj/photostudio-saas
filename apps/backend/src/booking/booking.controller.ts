@@ -18,6 +18,8 @@ import {
   UpdateBookingStatusDto,
   CreateInternalBookingDto,
   SendQuoteDto,
+  AcceptQuoteDto,
+  RejectQuoteDto,
 } from "./dto/booking.dto";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -48,7 +50,9 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
     if (!user.studioId) {
-      throw new ForbiddenException("Admin must specify a studio context for this operation");
+      throw new ForbiddenException(
+        "Admin must specify a studio context for this operation",
+      );
     }
     return this.bookingService.createInternal(dto, user.studioId);
   }
@@ -117,7 +121,11 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.update(id, updateBookingDto, user.studioId ?? undefined);
+    return this.bookingService.update(
+      id,
+      updateBookingDto,
+      user.studioId ?? undefined,
+    );
   }
 
   // Studio users: Update booking status
@@ -132,7 +140,11 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.updateStatus(id, updateStatusDto, user.studioId ?? undefined);
+    return this.bookingService.updateStatus(
+      id,
+      updateStatusDto,
+      user.studioId ?? undefined,
+    );
   }
 
   // Studio users: Cancel booking
@@ -147,7 +159,11 @@ export class BookingController {
       throw new ForbiddenException("User must belong to a studio");
     }
 
-    return this.bookingService.cancel(id, body.notes, user.studioId ?? undefined);
+    return this.bookingService.cancel(
+      id,
+      body.notes,
+      user.studioId ?? undefined,
+    );
   }
 
   @Post(":id/quote")
@@ -162,5 +178,38 @@ export class BookingController {
     }
 
     return this.bookingService.sendQuote(id, user.studioId, dto);
+  }
+
+  // Customer: Request negotiation/adjustment
+  @Post(":id/negotiate")
+  @Roles("CUSTOMER")
+  negotiateQuote(
+    @Param("id") id: string,
+    @Body() dto: RejectQuoteDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.bookingService.negotiateQuote(id, user.id, dto.notes);
+  }
+
+  // Customer: Accept quote
+  @Post(":id/accept")
+  @Roles("CUSTOMER")
+  acceptQuote(
+    @Param("id") id: string,
+    @Body() dto: AcceptQuoteDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.bookingService.acceptQuote(id, user.id);
+  }
+
+  // Customer: Reject quote (Cancel)
+  @Post(":id/reject")
+  @Roles("CUSTOMER")
+  rejectQuote(
+    @Param("id") id: string,
+    @Body() dto: RejectQuoteDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.bookingService.rejectQuote(id, user.id, dto.notes);
   }
 }

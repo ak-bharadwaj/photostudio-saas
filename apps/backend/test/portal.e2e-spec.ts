@@ -50,7 +50,9 @@ describe("Customer Portal Flow (e2e)", () => {
   afterAll(async () => {
     // Clean up customer user
     if (customerId) {
-      await prisma.user.deleteMany({ where: { id: customerId } }).catch(() => {});
+      await prisma.user
+        .deleteMany({ where: { id: customerId } })
+        .catch(() => {});
     }
     await app.close();
   });

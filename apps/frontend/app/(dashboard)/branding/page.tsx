@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NextImage from 'next/image';
 import { useAuthStore } from '@/lib/auth-store';
-import { studiosApi } from '@/lib/api';
+import { studiosApi, uploadApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea, Select } from '@/components/ui/input';
@@ -22,6 +22,10 @@ import {
   FileText,
   Image as ImageIcon,
   X,
+  Plus,
+  Trash2,
+  Sparkles,
+  Check,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -36,12 +40,242 @@ interface BrandingConfig {
   fontFamily: string;
   headerText: string;
   tagline: string;
-  heroStyle?: 'solid' | 'mesh' | 'glass';
-  cardTheme?: 'modern' | 'classic' | 'elevated';
-  buttonShape?: 'rounded' | 'pill' | 'luxury-sharp';
+  heroStyle?: 'solid' | 'mesh' | 'glass' | 'cinematic';
+  cardTheme?: 'modern' | 'classic' | 'elevated' | 'editorial' | 'minimal';
+  buttonShape?: 'rounded' | 'pill' | 'luxury-sharp' | 'geometric';
   logoPosition?: string;
-  [key: string]: unknown; // allow future fields from DB without breaking
+  themePreset?: string;
+  bgType?: 'solid' | 'gradient' | 'grain' | 'dark-studio';
+  layoutMode?: 'standard' | 'split' | 'centered' | 'full-editorial';
+  [key: string]: unknown;
 }
+
+const THEME_PRESETS = [
+  {
+    id: 'noir-luxury',
+    name: 'Noir Luxury',
+    primaryColor: '#0A0A0B',
+    secondaryColor: '#1A1A1D',
+    accentColor: '#D4AF37',
+    fontFamily: 'Playfair Display',
+    heroStyle: 'cinematic',
+    cardTheme: 'editorial',
+    buttonShape: 'luxury-sharp',
+    bgType: 'dark-studio',
+    layoutMode: 'full-editorial',
+    description: 'High-contrast, timeless elegance with gold accents and serif typography.'
+  },
+  {
+    id: 'alabaster-minimal',
+    name: 'Alabaster Minimal',
+    primaryColor: '#FDFCF0',
+    secondaryColor: '#E5E7EB',
+    accentColor: '#111827',
+    fontFamily: 'Outfit',
+    heroStyle: 'solid',
+    cardTheme: 'minimal',
+    buttonShape: 'pill',
+    bgType: 'solid',
+    layoutMode: 'centered',
+    description: 'Breatheable, airy design for clean and modern aesthetic.'
+  },
+  {
+    id: 'golden-hour',
+    name: 'Golden Hour',
+    primaryColor: '#3D2B1F',
+    secondaryColor: '#5C4033',
+    accentColor: '#FFA500',
+    fontFamily: 'Cormorant Garamond',
+    heroStyle: 'mesh',
+    cardTheme: 'elevated',
+    buttonShape: 'rounded',
+    bgType: 'grain',
+    layoutMode: 'split',
+    description: 'Warm, earthy tones capturing the magic of natural light.'
+  },
+  {
+    id: 'midnight-vibrant',
+    name: 'Midnight Radiant',
+    primaryColor: '#020617',
+    secondaryColor: '#1E1B4B',
+    accentColor: '#818CF8',
+    fontFamily: 'Plus Jakarta Sans',
+    heroStyle: 'mesh',
+    cardTheme: 'modern',
+    buttonShape: 'rounded',
+    bgType: 'grain',
+    layoutMode: 'standard',
+    description: 'Professional dark mode with energetic indigo highlights.'
+  },
+  {
+    id: 'royal-velvet',
+    name: 'Royal Velvet',
+    primaryColor: '#2D0A0A',
+    secondaryColor: '#451212',
+    accentColor: '#E11D48',
+    fontFamily: 'Playfair Display',
+    heroStyle: 'glass',
+    cardTheme: 'elevated',
+    buttonShape: 'luxury-sharp',
+    bgType: 'dark-studio',
+    layoutMode: 'full-editorial',
+    description: 'Deep crimson tones for high-end boutique experiences.'
+  },
+  {
+    id: 'sage-artisan',
+    name: 'Sage Artisan',
+    primaryColor: '#164E63',
+    secondaryColor: '#0E7490',
+    accentColor: '#2DD4BF',
+    fontFamily: 'DM Sans',
+    heroStyle: 'mesh',
+    cardTheme: 'modern',
+    buttonShape: 'rounded',
+    bgType: 'grain',
+    layoutMode: 'standard',
+    description: 'Balanced, refreshing tones for lifestyle and professional services.'
+  },
+  {
+    id: 'monochrome-pro',
+    name: 'Monochrome Pro',
+    primaryColor: '#050505',
+    secondaryColor: '#0A0A0B',
+    accentColor: '#FFFFFF',
+    fontFamily: 'Inter',
+    heroStyle: 'solid',
+    cardTheme: 'minimal',
+    buttonShape: 'geometric',
+    bgType: 'solid',
+    layoutMode: 'full-editorial',
+    description: 'The ultimate professional look. Deep obsidian black, pure white, pure focus.'
+  },
+  {
+    id: 'desert-stone',
+    name: 'Desert Stone',
+    primaryColor: '#8B4513',
+    secondaryColor: '#A0522D',
+    accentColor: '#F4A460',
+    fontFamily: 'Lora',
+    heroStyle: 'mesh',
+    cardTheme: 'modern',
+    buttonShape: 'rounded',
+    bgType: 'grain',
+    layoutMode: 'split',
+    description: 'Earthy, warm, and grounded. Perfect for outdoor and travel services.'
+  },
+  {
+    id: 'arctic-dawn',
+    name: 'Arctic Dawn',
+    primaryColor: '#0F172A',
+    secondaryColor: '#1E293B',
+    accentColor: '#38BDF8',
+    fontFamily: 'Montserrat',
+    heroStyle: 'glass',
+    cardTheme: 'elevated',
+    buttonShape: 'pill',
+    bgType: 'gradient',
+    layoutMode: 'centered',
+    description: 'Cool, crisp, and futuristic. Ideal for tech and commercial work.'
+  },
+  {
+    id: 'cyber-studio',
+    name: 'Cyber Studio',
+    primaryColor: '#2E1065',
+    secondaryColor: '#4C1D95',
+    accentColor: '#F0ABFC',
+    fontFamily: 'Space Grotesk',
+    heroStyle: 'mesh',
+    cardTheme: 'modern',
+    buttonShape: 'geometric',
+    bgType: 'dark-studio',
+    layoutMode: 'standard',
+    description: 'Vibrant neon aesthetics for creative and avant-garde partners.'
+  },
+  {
+    id: 'champagne-glow',
+    name: 'Champagne Glow',
+    primaryColor: '#FAF9F6',
+    secondaryColor: '#F5F5F5',
+    accentColor: '#C5A059',
+    fontFamily: 'Josefin Sans',
+    heroStyle: 'glass',
+    cardTheme: 'modern',
+    buttonShape: 'pill',
+    bgType: 'grain',
+    layoutMode: 'standard',
+    description: 'Soft, sophisticated palette for maternity and bridal partners.'
+  },
+  {
+    id: 'industrial-loft',
+    name: 'Industrial Loft',
+    primaryColor: '#1C1C1C',
+    secondaryColor: '#333333',
+    accentColor: '#EA580C',
+    fontFamily: 'Roboto',
+    heroStyle: 'solid',
+    cardTheme: 'classic',
+    buttonShape: 'geometric',
+    bgType: 'grain',
+    layoutMode: 'split',
+    description: 'Raw, powerful aesthetic with bold orange highlights.'
+  },
+  {
+    id: 'ethereal-dream',
+    name: 'Ethereal Dream',
+    primaryColor: '#0F172A',
+    secondaryColor: '#1E293B',
+    accentColor: '#C084FC',
+    fontFamily: 'Outfit',
+    heroStyle: 'cinematic',
+    cardTheme: 'elevated',
+    buttonShape: 'pill',
+    bgType: 'dark-studio',
+    layoutMode: 'full-editorial',
+    description: 'Whimsical, purple-toned gradients for creative and fantasy shoots.'
+  },
+  {
+    id: 'vintage-film',
+    name: 'Vintage Film',
+    primaryColor: '#5C4033',
+    secondaryColor: '#D2B48C',
+    accentColor: '#8B0000',
+    fontFamily: 'Playfair Display',
+    heroStyle: 'solid',
+    cardTheme: 'classic',
+    buttonShape: 'rounded',
+    bgType: 'grain',
+    layoutMode: 'centered',
+    description: 'Nostalgic, warm, and cinematic. Excellent for creators and vintage aesthetics.'
+  },
+  {
+    id: 'nordic-sage',
+    name: 'Nordic Sage',
+    primaryColor: '#78866B',
+    secondaryColor: '#E9EAD9',
+    accentColor: '#4A5D23',
+    fontFamily: 'Inter',
+    heroStyle: 'mesh',
+    cardTheme: 'modern',
+    buttonShape: 'pill',
+    bgType: 'gradient',
+    layoutMode: 'standard',
+    description: 'Clean, organic, and peaceful. Brings a calming, breath-of-fresh-air feeling to your booking.'
+  },
+  {
+    id: 'onyx-prestige',
+    name: 'Onyx Prestige',
+    primaryColor: '#000000',
+    secondaryColor: '#1A1A1A',
+    accentColor: '#D4AF37', // Gold
+    fontFamily: 'Cormorant Garamond',
+    heroStyle: 'cinematic',
+    cardTheme: 'elevated',
+    buttonShape: 'luxury-sharp',
+    bgType: 'dark-studio',
+    layoutMode: 'full-editorial',
+    description: 'The epitome of high-end luxury. Midnight black with pure gold accents and editorial typography.'
+  }
+];
 
 interface StudioData {
   id: string;
@@ -52,18 +286,22 @@ interface StudioData {
   logoUrl: string | null;
   brandingConfig: BrandingConfig | null;
   defaultTerms: string | null;
+  hotDeal: string | null;
 }
 
 const DEFAULT_BRANDING: BrandingConfig = {
-  primaryColor: '#1a73e8',
-  secondaryColor: '#5f6368',
-  accentColor: '#7c3aed',
-  fontFamily: 'Inter',
+  primaryColor: '#0A0A0B',
+  secondaryColor: '#1A1A1D',
+  accentColor: '#D4AF37',
+  fontFamily: 'Plus Jakarta Sans',
   headerText: '',
   tagline: '',
-  heroStyle: 'solid',
+  heroStyle: 'mesh',
   cardTheme: 'modern',
   buttonShape: 'rounded',
+  themePreset: 'midnight-vibrant',
+  bgType: 'grain',
+  layoutMode: 'standard',
 };
 
 const FONT_OPTIONS = [
@@ -81,6 +319,7 @@ const FONT_OPTIONS = [
   'Josefin Sans',
   'Roboto',
   'Open Sans',
+  'Space Grotesk',
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -129,9 +368,15 @@ function ColorPicker({
           value={value}
           onChange={(e) => {
             const v = e.target.value;
-            if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === '') onChange(v);
+            // Allow '#' or valid hex characters up to 7 (e.g., #FFFFFF)
+            if (/^#?[0-9a-fA-F]{0,6}$/.test(v)) {
+              // Automatically add '#' if missing and it looks like a hex color
+              const sanitized = v.startsWith('#') || v === '' ? v : '#' + v;
+              onChange(sanitized);
+            }
           }}
           className="font-mono text-xs h-9 uppercase pl-2 pr-8"
+          placeholder="#000000"
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-[var(--border)] shadow-inner" style={{ backgroundColor: value }} />
       </div>
@@ -193,7 +438,7 @@ function LogoUploader({
             <div className="relative h-full w-full">
               <NextImage
                 src={getFullUrl(logoUrl)}
-                alt="Studio logo"
+                alt="Partner logo"
                 fill
                 className="object-contain animate-in zoom-in duration-500"
                 sizes="(max-width: 1024px) 100vw, 33vw"
@@ -264,6 +509,22 @@ function hexAlpha(color: string, alpha: string): string {
   return color;
 }
 
+function getContrastColor(hexColor: string): string {
+  const hex = (hexColor || '').replace('#', '');
+  if (hex.length === 3 || hex.length === 6) {
+    const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.substring(0, 2), 16);
+    const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.substring(2, 4), 16);
+    const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.substring(4, 6), 16);
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 128 ? '#000000' : '#ffffff';
+  }
+  return '#ffffff';
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Live Preview Component — pixel-accurate replica of the real portal        */
+/* -------------------------------------------------------------------------- */
+
 /* -------------------------------------------------------------------------- */
 /*  Live Preview Component — pixel-accurate replica of the real portal        */
 /* -------------------------------------------------------------------------- */
@@ -282,9 +543,10 @@ function BrandPreview({
   const buttonShape = branding.buttonShape || 'rounded';
   const primaryColor = branding.primaryColor || '#7c3aed';
   const accentColor = branding.accentColor || '#db2777';
+  const preset = branding.themePreset || '';
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-  const btnRadius = buttonShape === 'pill' ? '9999px' : buttonShape === 'luxury-sharp' ? '6px' : '0.875rem';
+  const btnRadius = buttonShape === 'pill' ? '9999px' : buttonShape === 'luxury-sharp' ? '4px' : buttonShape === 'geometric' ? '0px' : '0.875rem';
 
   const getFullUrl = (url: string) => {
     if (!url) return '';
@@ -292,60 +554,84 @@ function BrandPreview({
     return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // Hero background — exact same logic as portal page.tsx
-  const heroBg = heroStyle === 'solid'
-    ? primaryColor
-    : heroStyle === 'mesh'
-      ? `radial-gradient(ellipse at 0% 0%, ${hexAlpha(primaryColor, 'cc')} 0%, transparent 55%),
-         radial-gradient(ellipse at 100% 0%, ${hexAlpha(accentColor, '99')} 0%, transparent 55%),
-         radial-gradient(ellipse at 50% 100%, ${hexAlpha(primaryColor, '66')} 0%, transparent 60%),
-         linear-gradient(160deg, #0c0c1a 0%, #1a0a2e 50%, #0c0c1a 100%)`
-      : `linear-gradient(135deg, ${primaryColor}, ${accentColor})`;
+  // Preset-aware background logic for preview
+  let heroBg = '';
+  let containerBg = 'var(--background-secondary)';
+  
+  if (preset === 'noir-luxury') {
+    heroBg = 'linear-gradient(160deg, #0a0a0b 0%, #1a1a1d 100%)';
+    containerBg = '#0a0a0b';
+  } else if (preset === 'midnight-vibrant' || preset === 'midnight-radiant') {
+    heroBg = 'linear-gradient(145deg, #020617 0%, #1e1b4b 100%)';
+    containerBg = '#020617';
+  } else if (preset === 'monochrome-pro') {
+    heroBg = '#000000';
+    containerBg = '#050505';
+  } else if (heroStyle === 'solid') {
+    heroBg = primaryColor;
+  } else if (heroStyle === 'mesh') {
+    heroBg = `radial-gradient(ellipse at 0% 0%, ${hexAlpha(primaryColor, 'cc')} 0%, transparent 55%),
+             radial-gradient(ellipse at 100% 0%, ${hexAlpha(accentColor, '99')} 0%, transparent 55%),
+             radial-gradient(ellipse at 50% 100%, ${hexAlpha(primaryColor, '66')} 0%, transparent 60%),
+             linear-gradient(160deg, #0c0c1a 0%, #1a0a2e 50%, #0c0c1a 100%)`;
+  } else if (heroStyle === 'cinematic') {
+    heroBg = `linear-gradient(to bottom, transparent, rgba(0,0,0,0.8)), url('https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800') center/cover`;
+  } else {
+    heroBg = `linear-gradient(135deg, ${primaryColor}, ${accentColor})`;
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-[var(--foreground-tertiary)] bg-[var(--surface-0)] p-3 rounded-xl border border-[var(--border)]">
         <div className="flex items-center gap-2">
           <Eye className="h-3 w-3 text-[var(--primary)]" />
-          Visual Blueprint
+          Live Preview
         </div>
         <div className="flex items-center gap-1">
           <div className="h-2 w-2 rounded-full bg-[var(--success)] animate-pulse" />
-          Live
+          Active
         </div>
       </div>
 
       <div
-        className="rounded-3xl border border-[var(--border)] overflow-hidden shadow-2xl"
+        className="rounded-3xl border border-[var(--border)] overflow-hidden shadow-2xl relative min-h-[400px]"
         style={{
           fontFamily: (branding.fontFamily || 'Inter') + ', sans-serif',
-          background: 'var(--background-secondary)',
+          background: containerBg,
         }}
       >
-        {/* ── Hero Header — mirrors portal exactly ── */}
+        {/* Global Noise Overlay for premium look */}
+        <div 
+          className="absolute inset-0 z-10 pointer-events-none opacity-[0.05] mix-blend-overlay"
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }} 
+        />
+
+        {/* ── Hero Header ── */}
         <div
           className={cn(
             'relative overflow-hidden',
-            heroStyle === 'mesh' ? 'min-h-[140px] flex items-center py-8' : 'py-8',
+            heroStyle === 'cinematic' ? 'h-48' : 'py-8',
           )}
           style={{ background: heroBg }}
         >
-          {/* Floating orbs for mesh */}
-          {heroStyle === 'mesh' && (
+          {heroStyle === 'mesh' && !preset && (
             <>
               <div className="absolute top-0 left-1/4 w-32 h-32 rounded-full opacity-30 blur-2xl pointer-events-none" style={{ backgroundColor: primaryColor }} />
               <div className="absolute bottom-0 right-1/4 w-28 h-28 rounded-full opacity-20 blur-2xl pointer-events-none" style={{ backgroundColor: accentColor }} />
             </>
           )}
-          {/* Dot pattern overlay */}
-          <div className="absolute inset-0 opacity-[0.07] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+          
+          {/* Preset specific glow */}
+          {(preset === 'midnight-vibrant' || preset === 'midnight-radiant') && (
+            <div className="absolute top-0 left-0 w-32 h-32 rounded-full opacity-40 blur-3xl pointer-events-none" style={{ backgroundColor: '#818CF8' }} />
+          )}
 
-          <div className="relative px-6 w-full">
+          <div className="relative px-6 h-full flex items-center">
             <div className={cn(
-              'flex items-center gap-4',
+              'flex items-center gap-4 w-full',
               heroStyle === 'glass' && 'bg-white/10 backdrop-blur-2xl p-4 rounded-2xl border border-white/20 shadow-xl',
+              heroStyle === 'cinematic' && 'mt-auto pb-6'
             )}>
-              {/* Logo */}
               {logoUrl ? (
                 <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/15 backdrop-blur-sm shadow-lg border border-white/20">
                   <NextImage src={getFullUrl(logoUrl)} alt="Logo" fill className="object-contain p-1" sizes="48px" unoptimized />
@@ -355,73 +641,52 @@ function BrandPreview({
                   <Camera className="h-6 w-6 text-white" />
                 </div>
               )}
-              {/* Text */}
               <div>
-                <h3 className="text-lg font-black text-white tracking-tight leading-tight">
+                <h3 className="text-lg font-black tracking-tight leading-tight text-white">
                   {branding.headerText || studioName}
                 </h3>
                 {branding.tagline && (
-                  <p className="text-white/75 text-[10px] mt-0.5 font-medium">{branding.tagline}</p>
+                  <p className="text-[10px] mt-0.5 font-medium text-white/70">{branding.tagline}</p>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Tab bar stub ── */}
-        <div className="bg-[var(--background)]/85 border-b border-[var(--border)] px-6 py-2 flex gap-4">
-          <span className="text-xs font-semibold border-b-2 pb-1" style={{ borderColor: primaryColor, color: primaryColor }}>Book</span>
-          <span className="text-xs font-semibold text-[var(--foreground-tertiary)]">My History</span>
-          <span className="text-xs font-semibold text-[var(--foreground-tertiary)]">Account</span>
-        </div>
-
         {/* ── Services section ── */}
-        <div className="p-5 space-y-4" style={{ background: 'var(--background-secondary)' }}>
-          {/* Occasion header */}
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: hexAlpha(primaryColor, '18') }}>
-              <Camera className="h-3 w-3" style={{ color: primaryColor }} />
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: primaryColor }}>Services</span>
-            <div className="h-px flex-1 bg-[var(--border)]" />
-          </div>
-
-          {/* Mock service cards — exact card theme logic */}
-          <div className="grid grid-cols-3 gap-2">
-            {['Wedding', 'Portrait', 'Event'].map((name) => (
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {['Wedding', 'Portrait'].map((name) => (
               <div
                 key={name}
                 className={cn(
-                  'relative overflow-hidden text-left transition-all duration-300',
-                  cardTheme === 'modern' && 'rounded-2xl border border-[var(--border)] bg-[var(--surface-0)]',
-                  cardTheme === 'classic' && 'rounded-xl border-2 border-[var(--border)] bg-[var(--surface-0)]',
-                  cardTheme === 'elevated' && 'rounded-[1.5rem] p-1 shadow-md bg-[var(--surface-0)]',
+                  'relative overflow-hidden transition-all duration-500',
+                  cardTheme === 'modern' && 'rounded-xl border border-[var(--border)] bg-[var(--surface-0)]',
+                  cardTheme === 'minimal' && 'border-b-2 border-[var(--border)] bg-transparent',
+                  cardTheme === 'editorial' && 'rounded-none border border-[var(--border)] bg-white/5',
+                  cardTheme === 'elevated' && 'rounded-3xl shadow-lg bg-[var(--surface-0)]',
                 )}
               >
-                <div
-                  className={cn('w-full h-16 flex items-center justify-center', cardTheme === 'elevated' ? 'rounded-[1.2rem]' : 'rounded-t-2xl')}
-                  style={{ background: `linear-gradient(135deg, ${hexAlpha(primaryColor, '18')}, ${hexAlpha(accentColor, '25')})` }}
-                >
-                  <Camera className="h-6 w-6" style={{ color: primaryColor }} />
+                <div className="h-20 bg-black/5 flex items-center justify-center" style={{ background: `linear-gradient(45deg, ${hexAlpha(primaryColor, '10')}, transparent)` }}>
+                   <Camera size={20} className="opacity-20" />
                 </div>
-                <div className="p-2">
-                  <p className="text-[9px] font-bold text-[var(--foreground)] uppercase tracking-widest">{name}</p>
-                  <p className="text-[9px] font-black mt-0.5" style={{ color: primaryColor }}>₹2,999</p>
+                <div className="p-3">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-foreground/40">{name}</p>
+                  <p className="text-xs font-bold mt-1" style={{ color: primaryColor }}>₹4,999</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* CTA button — exact same radius logic */}
           <button
-            className="w-full py-2.5 text-white text-xs font-bold"
+            className="w-full py-3 text-[10px] font-black uppercase tracking-[0.2em]"
             style={{
               backgroundColor: primaryColor,
+              color: getContrastColor(primaryColor),
               borderRadius: btnRadius,
-              boxShadow: `0 4px 14px 0 ${hexAlpha(primaryColor, '50')}`,
             }}
           >
-            Book Session
+            Confirm Booking
           </button>
         </div>
       </div>
@@ -444,6 +709,7 @@ export default function BrandingPage() {
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [defaultTerms, setDefaultTerms] = useState('');
+  const [hotDeal, setHotDeal] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -464,6 +730,7 @@ export default function BrandingPage() {
         setStudio(s);
         setLogoUrl(s?.logoUrl || null);
         setDefaultTerms(s?.defaultTerms || '');
+        setHotDeal(s?.hotDeal || '');
         setBranding({
           ...DEFAULT_BRANDING,
           ...(s?.brandingConfig || {}),
@@ -487,6 +754,86 @@ export default function BrandingPage() {
     setHasChanges(true);
   };
 
+  const applyThemePreset = (presetId: string) => {
+    const preset = THEME_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    
+    updateBranding({
+      themePreset: preset.id,
+      primaryColor: preset.primaryColor,
+      secondaryColor: preset.secondaryColor,
+      accentColor: preset.accentColor,
+      fontFamily: preset.fontFamily,
+      heroStyle: preset.heroStyle as any,
+      cardTheme: preset.cardTheme as any,
+      buttonShape: preset.buttonShape as any,
+      bgType: preset.bgType as any,
+      layoutMode: preset.layoutMode as any,
+    });
+    addToast('success', `Applied ${preset.name} theme`);
+  };
+
+  function ThemeGallery() {
+    return (
+      <Card className="border-2 border-[var(--primary)]/10">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-[var(--primary)]" />
+              <CardTitle>Premium Theme Gallery</CardTitle>
+            </div>
+            <div className="px-3 py-1 bg-[var(--primary)]/10 text-[var(--primary)] text-[10px] font-black uppercase tracking-[0.2em] rounded-full">
+              10 Curated Styles
+            </div>
+          </div>
+          <CardDescription>
+            Choose a professionally designed theme to instantly transform your partner's public identity.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {THEME_PRESETS.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => applyThemePreset(theme.id)}
+                className={cn(
+                  "group relative flex flex-col items-center gap-3 p-4 rounded-3xl border-2 transition-all duration-500",
+                  branding.themePreset === theme.id 
+                    ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-xl scale-105" 
+                    : "border-transparent bg-[var(--surface-0)] hover:border-[var(--primary)]/30 hover:bg-[var(--surface-1)]"
+                )}
+              >
+                <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-inner flex flex-col">
+                   <div 
+                    className="flex-1 w-full" 
+                    style={{ background: `linear-gradient(135deg, ${theme.primaryColor} 0%, ${theme.secondaryColor} 100%)` }}
+                   />
+                   <div 
+                    className="h-1/3 w-full" 
+                    style={{ backgroundColor: theme.accentColor }}
+                   />
+                   {branding.themePreset === theme.id && (
+                     <div className="absolute inset-0 bg-[var(--primary)]/20 backdrop-blur-[2px] flex items-center justify-center">
+                        <Check className="h-8 w-8 text-white drop-shadow-lg" />
+                     </div>
+                   )}
+                </div>
+                <div className="text-center">
+                  <p className="text-[11px] font-black tracking-tight text-[var(--foreground)] uppercase truncate w-full">
+                    {theme.name}
+                  </p>
+                  <p className="text-[9px] font-medium text-[var(--foreground-tertiary)] mt-0.5 line-clamp-1">
+                    {theme.fontFamily}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Logo upload — direct to Cloudinary unsigned (no backend required)
   const handleLogoUpload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -495,24 +842,13 @@ export default function BrandingPage() {
     }
     try {
       setUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'photostudio_logos');
-      formData.append('folder', `studios/${studio?.id}/logo`);
-      const res = await fetch('https://api.cloudinary.com/v1_1/djscnn7hc/image/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err?.error?.message || 'Cloudinary upload failed');
-      }
-      const data = await res.json();
-      setLogoUrl(data.secure_url);
+      const res = await uploadApi.uploadLogo(file);
+      setLogoUrl(res.data.url);
       setHasChanges(true);
       addToast('success', 'Logo uploaded successfully');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to upload logo';
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const msg = axiosErr?.response?.data?.message || (err instanceof Error ? err.message : 'Failed to upload logo');
       addToast('error', msg);
     } finally {
       setUploading(false);
@@ -541,11 +877,15 @@ export default function BrandingPage() {
         cardTheme: branding.cardTheme,
         buttonShape: branding.buttonShape,
         logoPosition: branding.logoPosition,
+        themePreset: branding.themePreset,
+        bgType: branding.bgType,
+        layoutMode: branding.layoutMode,
       };
       await studiosApi.update(studio.id, {
         brandingConfig: brandingPayload,
-        logoUrl: logoUrl || undefined,
-        defaultTerms: defaultTerms || undefined,
+        logoUrl: logoUrl, // Explicitly send logoUrl even if it is null
+        defaultTerms: defaultTerms || '',
+        hotDeal: hotDeal || '',
       });
       setHasChanges(false);
       addToast('success', 'Branding saved successfully');
@@ -565,6 +905,7 @@ export default function BrandingPage() {
     if (!studio) return;
     setLogoUrl(studio.logoUrl);
     setDefaultTerms(studio.defaultTerms || '');
+    setHotDeal(studio.hotDeal || '');
     setBranding({
       ...DEFAULT_BRANDING,
       ...(studio.brandingConfig || {}),
@@ -638,6 +979,8 @@ export default function BrandingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column — Settings */}
         <div className="lg:col-span-2 space-y-6">
+          <ThemeGallery />
+          
           {/* Logo */}
           <Card>
             <CardHeader>
@@ -710,13 +1053,13 @@ export default function BrandingPage() {
             <CardContent>
               <div className="space-y-4">
                 <Select
-                    label="Font Family"
-                    value={branding.fontFamily}
-                    onChange={(e) =>
-                      updateBranding({ fontFamily: e.target.value })
-                    }
-                    options={FONT_OPTIONS.map((font) => ({ value: font, label: font }))}
-                  />
+                  label="Font Family"
+                  value={branding.fontFamily}
+                  onChange={(e) =>
+                    updateBranding({ fontFamily: e.target.value })
+                  }
+                  options={FONT_OPTIONS.map((font) => ({ value: font, label: font }))}
+                />
 
                 <Input
                   label="Header Text"
@@ -739,29 +1082,47 @@ export default function BrandingPage() {
             </CardContent>
           </Card>
 
-          {/* Terms & Conditions */}
-          <Card>
+          {/* Hot Deal / Offer */}
+          <Card className="border-2 border-[var(--primary)]/20 shadow-lg shadow-[var(--primary)]/5">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[var(--primary)]" />
-                <CardTitle>Terms & Conditions</CardTitle>
+                <Sparkles className="h-5 w-5 text-[var(--primary)]" />
+                <CardTitle>Hot Deal / Offer</CardTitle>
               </div>
               <CardDescription>
-                Set default terms and conditions that customers must agree to
-                when booking. These appear on the booking confirmation step.
+                Create a special offer or "Hot Deal" to attract more customers. This will be prominently displayed on your booking page.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Textarea
-                value={defaultTerms}
-                onChange={(e) => {
-                  setDefaultTerms(e.target.value);
-                  setHasChanges(true);
-                }}
-                rows={8}
-                placeholder="Enter your studio's terms and conditions, cancellation policy, etc."
-                helperText="Supports plain text. Customers will see a checkbox to accept these terms before confirming their booking."
-              />
+              <div className="space-y-4">
+                <Input
+                  label="Deal Headline"
+                  placeholder="e.g. 20% OFF on Wedding Shoots this month!"
+                  value={hotDeal}
+                  onChange={(e) => {
+                    setHotDeal(e.target.value);
+                    setHasChanges(true);
+                  }}
+                  helperText="This headline will be shown as a promotional banner or highlight."
+                />
+                
+                <div className="pt-4 border-t border-[var(--border)]/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="h-4 w-4 text-[var(--foreground-tertiary)]" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-[var(--foreground-tertiary)]">Booking Terms (Optional)</span>
+                  </div>
+                  <Textarea
+                    value={defaultTerms}
+                    onChange={(e) => {
+                      setDefaultTerms(e.target.value);
+                      setHasChanges(true);
+                    }}
+                    rows={4}
+                    placeholder="Enter any specific terms, cancellation policy, etc."
+                    className="text-sm"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

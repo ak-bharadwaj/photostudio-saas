@@ -113,7 +113,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     // Construct error response
-    const errorResponse = {
+    const errorResponse: any = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
@@ -121,6 +121,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error,
       message,
     };
+
+    if (process.env.NODE_ENV !== 'production' && exception instanceof Error) {
+        errorResponse.debugMessage = exception.message;
+        if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+            errorResponse.prismaCode = exception.code;
+        }
+    }
 
     // Log the error in non-production environments with full details
     if (process.env.NODE_ENV !== "production") {

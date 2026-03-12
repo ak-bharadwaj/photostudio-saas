@@ -380,10 +380,12 @@ export class UserService {
       totalUsers,
       activeUsers,
       inactiveUsers: totalUsers - activeUsers,
-      usersByRole: usersByRole.map((item: { role: UserRole; _count: number }) => ({
-        role: item.role,
-        count: item._count,
-      })),
+      usersByRole: usersByRole.map(
+        (item: { role: UserRole; _count: number }) => ({
+          role: item.role,
+          count: item._count,
+        }),
+      ),
     };
   }
 }

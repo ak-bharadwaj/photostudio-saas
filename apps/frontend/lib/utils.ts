@@ -13,7 +13,8 @@ export function formatCurrency(
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(val);
 }
 
@@ -22,9 +23,9 @@ export function formatDate(date: string | Date | null | undefined): string {
   try {
     const d = new Date(date);
     if (isNaN(d.getTime())) return 'Invalid Date';
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     }).format(d);
   } catch (_error: unknown) {
@@ -37,7 +38,7 @@ export function formatDateTime(date: string | Date | null | undefined): string {
   try {
     const d = new Date(date);
     if (isNaN(d.getTime())) return 'Invalid Date';
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

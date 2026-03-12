@@ -45,7 +45,12 @@ describe("Payment Flow (e2e)", () => {
       .send({
         customerId,
         lineItems: [
-          { description: "Payment E2E Session", quantity: 1, rate: 10000, amount: 10000 },
+          {
+            description: "Payment E2E Session",
+            quantity: 1,
+            rate: 10000,
+            amount: 10000,
+          },
         ],
         dueDate: dueDate.toISOString(),
       });
@@ -56,7 +61,9 @@ describe("Payment Flow (e2e)", () => {
     // Clean up
     if (invoiceId) {
       await prisma.payment.deleteMany({ where: { invoiceId } }).catch(() => {});
-      await prisma.invoice.deleteMany({ where: { id: invoiceId } }).catch(() => {});
+      await prisma.invoice
+        .deleteMany({ where: { id: invoiceId } })
+        .catch(() => {});
     }
     await app.close();
   });
@@ -151,7 +158,11 @@ describe("Payment Flow (e2e)", () => {
       await request(app.getHttpServer())
         .post("/payments")
         .set("Authorization", `Bearer ${accessToken}`)
-        .send({ invoiceId: "non-existent-invoice-id", amount: 1000, paymentMethod: "CASH" })
+        .send({
+          invoiceId: "non-existent-invoice-id",
+          amount: 1000,
+          paymentMethod: "CASH",
+        })
         .expect(404);
     });
   });

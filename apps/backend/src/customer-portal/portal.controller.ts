@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { IsString, IsOptional, MaxLength, MinLength } from "class-validator";
 import { Request } from "express";
@@ -19,8 +20,9 @@ import { PrismaService } from "../prisma/prisma.service";
 import { BookingService } from "../booking/booking.service";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import { UserRole, Prisma } from "@prisma/client";
+import { UserRole, Prisma, BookingStatus } from "@prisma/client";
 import { UserPayload } from "../common/interfaces/user-payload.interface";
+import { InvoiceService } from "../invoice/invoice.service";
 
 class UpdatePortalMeDto {
   @IsOptional()
@@ -40,6 +42,7 @@ export class PortalController {
   constructor(
     private prisma: PrismaService,
     private bookingService: BookingService,
+    private invoiceService: InvoiceService,
   ) {}
 
   @Get("me")
@@ -60,7 +63,10 @@ export class PortalController {
   }
 
   @Patch("me")
-  async updateMe(@Req() req: Request & { user: UserPayload }, @Body() dto: UpdatePortalMeDto) {
+  async updateMe(
+    @Req() req: Request & { user: UserPayload },
+    @Body() dto: UpdatePortalMeDto,
+  ) {
     try {
       return await this.prisma.user.update({
         where: { id: req.user.id },
@@ -129,6 +135,13 @@ export class PortalController {
               logoUrl: true,
             },
           },
+          review: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+            },
+          },
         },
         orderBy: { scheduledAt: "desc" },
         skip,
@@ -146,6 +159,46 @@ export class PortalController {
         totalPages: Math.ceil(total / safeLimit),
       },
     };
+  }
+
+  @Get("bookings/:id")
+  async getOneBooking(
+    @Param("id") id: string,
+    @Req() req: Request & { user: UserPayload },
+  ) {
+    const userId = req.user.id;
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        service: true,
+        studio: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+            email: true,
+            phone: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            globalUserId: true,
+          },
+        },
+        statusLogs: {
+          orderBy: { createdAt: "desc" },
+        },
+        review: true,
+      },
+    });
+
+    if (!booking || booking.customer.globalUserId !== userId) {
+      throw new NotFoundException("Booking not found");
+    }
+
+    return booking;
   }
 
   @Get("invoices")
@@ -207,6 +260,73 @@ export class PortalController {
     };
   }
 
+  @Get("invoices/:id")
+  async getOneInvoice(
+    @Param("id") id: string,
+    @Req() req: Request & { user: UserPayload },
+  ) {
+    const userId = req.user.id;
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        payments: {
+          orderBy: { paidAt: "desc" },
+        },
+        studio: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            state: true,
+            zipCode: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            globalUserId: true,
+          },
+        },
+        booking: {
+          include: {
+            service: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice || invoice.customer.globalUserId !== userId) {
+      throw new NotFoundException("Invoice not found");
+    }
+
+    return invoice;
+  }
+
+  @Get("invoices/:id/pdf")
+  async getInvoicePdf(
+    @Param("id") id: string,
+    @Req() req: Request & { user: UserPayload },
+  ) {
+    const userId = req.user.id;
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: { customer: true },
+    });
+
+    if (!invoice || invoice.customer.globalUserId !== userId) {
+      throw new NotFoundException("Invoice not found");
+    }
+
+    return this.invoiceService.generatePdf(invoice.id, invoice.studioId);
+  }
+
   @Get("studios")
   async getMyStudios(@Req() req: Request & { user: UserPayload }) {
     const userId = req.user.id;
@@ -239,7 +359,10 @@ export class PortalController {
   }
 
   @Post("bookings/:id/accept-quote")
-  async acceptQuote(@Param("id") id: string, @Req() req: Request & { user: UserPayload }) {
+  async acceptQuote(
+    @Param("id") id: string,
+    @Req() req: Request & { user: UserPayload },
+  ) {
     return this.bookingService.acceptQuote(id, req.user.id);
   }
 
@@ -249,6 +372,62 @@ export class PortalController {
     @Req() req: Request & { user: UserPayload },
     @Body() body: { notes?: string },
   ) {
-    return this.bookingService.rejectQuote(id, req.user.id, body.notes);
+    return this.bookingService.rejectQuote(
+      id,
+      req.user.id,
+      body.notes || "Quote rejected by customer",
+    );
+  }
+
+  @Post("bookings/:id/negotiate")
+  async negotiateQuote(
+    @Param("id") id: string,
+    @Req() req: Request & { user: UserPayload },
+    @Body() body: { notes: string },
+  ) {
+    return this.bookingService.negotiateQuote(id, req.user.id, body.notes);
+  }
+
+  @Post("bookings/:id/review")
+  async createReview(
+    @Param("id") bookingId: string,
+    @Req() req: Request & { user: UserPayload },
+    @Body() body: { rating: number; comment?: string },
+  ) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { customer: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException("Booking not found");
+    }
+
+    if (booking.status !== BookingStatus.COMPLETED) {
+      throw new BadRequestException("Can only review completed bookings");
+    }
+
+    // Verify booking belongs to this global user
+    if (booking.customer.globalUserId !== req.user.id) {
+      throw new BadRequestException("Unauthorized access to this booking");
+    }
+
+    const existingReview = await this.prisma.review.findUnique({
+      where: { bookingId: booking.id },
+    });
+
+    if (existingReview) {
+      throw new BadRequestException("This session has already been reviewed.");
+    }
+
+    return this.prisma.review.create({
+      data: {
+        rating: body.rating,
+        comment: body.comment,
+        bookingId: booking.id,
+        studioId: booking.studioId,
+        customerId: booking.customerId,
+      },
+    });
   }
 }

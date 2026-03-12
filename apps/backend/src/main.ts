@@ -1,4 +1,5 @@
 import { NestFactory } from "@nestjs/core";
+// Config check reload
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
@@ -38,6 +39,26 @@ async function bootstrap() {
   // Cookie parser — must be registered before CSRF middleware which reads req.cookies
   app.use(cookieParser());
 
+  // ── OAuth returnTo cookie ────────────────────────────────────────────────
+  // Intercept GET /auth/google *before* Passport's AuthGuard runs so we can
+  // stash the returnTo query param in a short-lived HttpOnly cookie.
+  // Passport's redirect to Google consumes the response immediately, so we
+  // cannot set cookies from inside the route handler.
+  app.use('/auth/google', (req: Request, res: Response, next: NextFunction) => {
+    if (req.method === 'GET' && !req.path.includes('/callback')) {
+      const returnTo = (req.query?.returnTo as string) || '/portal';
+      const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/portal';
+      res.cookie('oauth_return_to', safeReturnTo, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 5 * 60 * 1000, // 5 minutes
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+    next();
+  });
+
+
   // Global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter());
 
@@ -52,19 +73,28 @@ async function bootstrap() {
 
   // CORS configuration
   // ALLOWED_ORIGINS env var accepts a comma-separated list for multi-origin support
-  // e.g. "https://photostudio.vercel.app,https://www.yourdomain.com"
+  // e.g. "https://reviewsfeedback.vercel.app,https://www.yourdomain.com"
   const extraOrigins = (configService.get<string>("ALLOWED_ORIGINS") || "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
   const allowedOrigins = Array.from(
-    new Set([frontendUrl, ...extraOrigins, "http://localhost:3000"]),
+    new Set([
+      frontendUrl,
+      ...extraOrigins,
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ]),
   );
   // Allow any Vercel preview deployment for this project
-  const vercelPreviewPattern = /^https:\/\/photostudio-saas-frontend-[a-z0-9]+-s-projects-2f2710cf\.vercel\.app$/;
+  const vercelPreviewPattern =
+    /^https:\/\/reviewsfeedback-saas-frontend-[a-z0-9]+-s-projects-2f2710cf\.vercel\.app$/;
 
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
@@ -102,8 +132,8 @@ async function bootstrap() {
   // Swagger API Documentation
   if (process.env.NODE_ENV !== "production") {
     const config = new DocumentBuilder()
-      .setTitle("Photo Studio SaaS API")
-      .setDescription("API documentation for Photo Studio Management Platform")
+      .setTitle("ReviewsFeedback SaaS API")
+      .setDescription("API documentation for ReviewsFeedback Management Platform")
       .setVersion("1.0")
       .addBearerAuth(
         {
@@ -157,6 +187,9 @@ async function bootstrap() {
 
 bootstrap().catch((error: unknown) => {
   const logger = new Logger("Bootstrap");
-  logger.error("Application failed to start", error instanceof Error ? error.stack : String(error));
+  logger.error(
+    "Application failed to start",
+    error instanceof Error ? error.stack : String(error),
+  );
   process.exit(1);
 });

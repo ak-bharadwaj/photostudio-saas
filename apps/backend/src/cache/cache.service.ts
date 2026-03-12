@@ -70,7 +70,10 @@ export class CacheService implements OnModuleDestroy {
       const data = await this.redis.get(key);
       return data ? JSON.parse(data) : null;
     } catch (error: unknown) {
-      this.logger.error(`Error getting cache key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error getting cache key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return null;
     }
   }
@@ -90,7 +93,10 @@ export class CacheService implements OnModuleDestroy {
       }
       await this.redis.setex(key, ttlSeconds, stringifiedValue);
     } catch (error: unknown) {
-      this.logger.error(`Error setting cache key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error setting cache key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -105,7 +111,10 @@ export class CacheService implements OnModuleDestroy {
       }
       await this.redis.del(key);
     } catch (error: unknown) {
-      this.logger.error(`Error deleting cache key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error deleting cache key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -115,7 +124,7 @@ export class CacheService implements OnModuleDestroy {
   async invalidate(pattern: string): Promise<void> {
     try {
       if (!this.redis) {
-        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        const regex = new RegExp("^" + pattern.replace(/\*/g, ".*") + "$");
         for (const key of this.memoryCache.keys()) {
           if (regex.test(key)) {
             this.memoryCache.delete(key);
@@ -141,14 +150,17 @@ export class CacheService implements OnModuleDestroy {
   async incr(key: string): Promise<number> {
     try {
       if (!this.redis) {
-        const current = await this.get<number>(key) || 0;
+        const current = (await this.get<number>(key)) || 0;
         const next = current + 1;
         await this.set(key, next, 3600);
         return next;
       }
       return await this.redis.incr(key);
     } catch (error: unknown) {
-      this.logger.error(`Error incrementing cache key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error incrementing cache key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return 0;
     }
   }
@@ -167,7 +179,10 @@ export class CacheService implements OnModuleDestroy {
       }
       await this.redis.expire(key, seconds);
     } catch (error: unknown) {
-      this.logger.error(`Error setting expiration on key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error setting expiration on key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -183,7 +198,10 @@ export class CacheService implements OnModuleDestroy {
       const result = await this.redis.exists(key);
       return result === 1;
     } catch (error: unknown) {
-      this.logger.error(`Error checking existence of key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error checking existence of key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return false;
     }
   }
@@ -202,7 +220,10 @@ export class CacheService implements OnModuleDestroy {
       }
       return await this.redis.ttl(key);
     } catch (error: unknown) {
-      this.logger.error(`Error getting TTL of key ${key}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Error getting TTL of key ${key}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return -1;
     }
   }

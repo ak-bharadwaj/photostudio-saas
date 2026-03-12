@@ -11,7 +11,7 @@ import { ArrowLeft, Building2, User, Palette } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
 
-export default function CreateStudioPage() {
+export default function CreatePartnerPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,8 @@ export default function CreateStudioPage() {
     ownerName: '',
     ownerEmail: '',
     ownerPassword: '',
-    subscriptionTier: 'STARTER',
+    subscriptionTier: 'PRO',
+    subscriptionDurationDays: 30,
     defaultTerms: '',
     // Branding
     primaryColor: '#6366f1',
@@ -40,11 +41,11 @@ export default function CreateStudioPage() {
       .trim();
   };
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       if (field === 'studioName' && !prev.slug) {
-        next.slug = generateSlug(value);
+        next.slug = generateSlug(value as string);
       }
       return next;
     });
@@ -61,12 +62,12 @@ export default function CreateStudioPage() {
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.studioName.trim()) newErrors.studioName = 'Studio name is required';
+    if (!formData.studioName.trim()) newErrors.studioName = 'Partner name is required';
     if (!formData.slug.trim()) newErrors.slug = 'Slug is required';
     else if (!/^[a-z0-9-]+$/.test(formData.slug)) newErrors.slug = 'Slug can only contain lowercase letters, numbers, and hyphens';
-    if (!formData.studioEmail.trim()) newErrors.studioEmail = 'Studio email is required';
+    if (!formData.studioEmail.trim()) newErrors.studioEmail = 'Partner email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.studioEmail)) newErrors.studioEmail = 'Invalid email format';
-    if (!formData.studioPhone.trim()) newErrors.studioPhone = 'Studio phone is required';
+    if (!formData.studioPhone.trim()) newErrors.studioPhone = 'Partner phone is required';
     if (!formData.ownerName.trim()) newErrors.ownerName = 'Owner name is required';
     if (!formData.ownerEmail.trim()) newErrors.ownerEmail = 'Owner email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.ownerEmail)) newErrors.ownerEmail = 'Invalid email format';
@@ -84,7 +85,7 @@ export default function CreateStudioPage() {
 
     setLoading(true);
     try {
-      await adminApi.createStudio({
+      await adminApi.createPartner({
         studioName: formData.studioName,
         slug: formData.slug,
         studioEmail: formData.studioEmail,
@@ -93,6 +94,7 @@ export default function CreateStudioPage() {
         ownerEmail: formData.ownerEmail,
         ownerPassword: formData.ownerPassword,
         subscriptionTier: formData.subscriptionTier,
+        subscriptionDurationDays: formData.subscriptionDurationDays,
         defaultTerms: formData.defaultTerms || undefined,
         brandingConfig: {
           primaryColor: formData.primaryColor,
@@ -100,14 +102,14 @@ export default function CreateStudioPage() {
         },
       });
 
-      addToast('success', `Studio "${formData.studioName}" created successfully!`);
+      addToast('success', `Partner "${formData.studioName}" created successfully!`);
 
       router.push('/admin/studios');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       const message = Array.isArray(e.response?.data?.message)
         ? (e.response?.data?.message as string[]).join(', ')
-        : e.response?.data?.message || 'Failed to create studio';
+        : e.response?.data?.message || 'Failed to create partner';
       addToast('error', message);
     } finally {
       setLoading(false);
@@ -122,14 +124,14 @@ export default function CreateStudioPage() {
         className="inline-flex items-center gap-2 text-sm text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Studios
+        Back to Partners
       </Link>
 
       {/* Page Header */}
       <PageHeader
         eyebrow="Admin"
-        title="Create New Studio"
-        subtitle="Set up a new photography studio with an owner account"
+        title="Create New Partner"
+        subtitle="Set up a new business partner with an owner account"
         accentColor="violet"
       />
 
@@ -139,18 +141,18 @@ export default function CreateStudioPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Building2 className="h-5 w-5 text-[var(--foreground-secondary)]" />
-              Studio Details
+              Partner Details
             </CardTitle>
-            <CardDescription>Basic information about the studio</CardDescription>
+            <CardDescription>Basic information about the business partner</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Studio Name"
+                label="Partner Name"
                 value={formData.studioName}
                 onChange={(e) => handleChange('studioName', e.target.value)}
                 error={errors.studioName}
-                placeholder="e.g. Lens & Light Photography"
+                placeholder="e.g. Enterprise Solutions"
                 required
               />
               <Input
@@ -165,16 +167,16 @@ export default function CreateStudioPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Studio Email"
+                label="Partner Email"
                 type="email"
                 value={formData.studioEmail}
                 onChange={(e) => handleChange('studioEmail', e.target.value)}
                 error={errors.studioEmail}
-                placeholder="contact@studio.com"
+                placeholder="contact@business.com"
                 required
               />
               <Input
-                label="Studio Phone"
+                label="Partner Phone"
                 value={formData.studioPhone}
                 onChange={(e) => handleChange('studioPhone', e.target.value)}
                 error={errors.studioPhone}
@@ -182,17 +184,29 @@ export default function CreateStudioPage() {
                 required
               />
             </div>
-            <Select
-              label="Subscription Tier"
-              value={formData.subscriptionTier}
-              onChange={(e) => handleChange('subscriptionTier', e.target.value)}
-              options={[
-                { value: 'STARTER', label: 'Starter (Free trial)' },
-                { value: 'PROFESSIONAL', label: 'Professional' },
-                { value: 'STUDIO', label: 'Studio' },
-                { value: 'ENTERPRISE', label: 'Enterprise' },
-              ]}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Subscription Tier"
+                value={formData.subscriptionTier}
+                onChange={(e) => handleChange('subscriptionTier', e.target.value)}
+                options={[
+                  { value: 'PRO', label: 'Pro Plan' },
+                ]}
+              />
+              <Select
+                label="Subscription Duration"
+                value={formData.subscriptionDurationDays.toString()}
+                onChange={(e) => handleChange('subscriptionDurationDays', parseInt(e.target.value))}
+                options={[
+                  { value: '30', label: '1 Month' },
+                  { value: '90', label: '3 Months' },
+                  { value: '180', label: '6 Months' },
+                  { value: '365', label: '1 Year' },
+                  { value: '730', label: '2 Years' },
+                  { value: '1825', label: '5 Years' },
+                ]}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -203,7 +217,7 @@ export default function CreateStudioPage() {
               <User className="h-5 w-5 text-[var(--foreground-secondary)]" />
               Owner Account
             </CardTitle>
-            <CardDescription>The studio owner will use these credentials to log in</CardDescription>
+            <CardDescription>The business owner will use these credentials to log in</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
@@ -299,7 +313,7 @@ export default function CreateStudioPage() {
             Cancel
           </Button>
           <Button type="submit" isLoading={loading}>
-            Create Studio
+            Create Partner
           </Button>
         </div>
       </form>

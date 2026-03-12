@@ -1,6 +1,15 @@
-import { Injectable, BadRequestException, InternalServerErrorException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { v2 as cloudinary, UploadApiResponse, UploadApiOptions } from "cloudinary";
+import {
+  v2 as cloudinary,
+  UploadApiResponse,
+  UploadApiOptions,
+} from "cloudinary";
 import * as fs from "fs";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -15,6 +24,8 @@ export class UploadService {
   constructor(private configService: ConfigService) {
     const cloudinaryUrl =
       this.configService.get<string>("CLOUDINARY_URL") || "";
+
+    // Check if the URL is valid and extract credentials
     const isPlaceholder =
       !cloudinaryUrl ||
       cloudinaryUrl.includes("<your_api_key>") ||
@@ -22,14 +33,35 @@ export class UploadService {
       cloudinaryUrl === "cloudinary://undefined:undefined@undefined";
 
     if (!isPlaceholder) {
-      cloudinary.config({ cloudinary_url: cloudinaryUrl });
-      this.useLocalFallback = false;
-      this.logger.log("Cloudinary configured — using cloud storage");
+      try {
+        // Correct way to config programmatically if using a URL string:
+        // Either set process.env.CLOUDINARY_URL or parse it:
+        const urlMatch = cloudinaryUrl.match(
+          /cloudinary:\/\/([^:]+):([^@]+)@(.+)/,
+        );
+        if (urlMatch) {
+          cloudinary.config({
+            api_key: urlMatch[1],
+            api_secret: urlMatch[2],
+            cloud_name: urlMatch[3],
+            secure: true,
+          });
+          this.useLocalFallback = false;
+          this.logger.log(`Cloudinary configured for cloud: ${urlMatch[3]}`);
+        } else {
+          // Fallback to simple config if regex fails but URL exists
+          cloudinary.config({ cloudinary_url: cloudinaryUrl });
+          this.useLocalFallback = false;
+          this.logger.log("Cloudinary configured using URL string");
+        }
+      } catch (err) {
+        this.logger.error("Failed to parse Cloudinary URL:", err);
+        this.useLocalFallback = true;
+      }
     } else {
       this.useLocalFallback = true;
       this.logger.warn(
-        "CLOUDINARY_URL not configured — falling back to local disk storage. " +
-          "Set a real CLOUDINARY_URL in .env to use cloud storage.",
+        "CLOUDINARY_URL not configured — falling back to local disk storage.",
       );
     }
 
@@ -48,10 +80,7 @@ export class UploadService {
     file: Express.Multer.File,
   ): Promise<string> {
     if (this.useLocalFallback) {
-      throw new InternalServerErrorException(
-        "Logo upload is not available: Cloudinary is not configured. " +
-          "Please set CLOUDINARY_URL in the server environment.",
-      );
+      return this.saveLocally(file, `logo`);
     }
     try {
       const result = await this.uploadToCloudinary(file.buffer, {
@@ -91,7 +120,9 @@ export class UploadService {
       return result.secure_url;
     } catch (error: unknown) {
       this.logger.error("Portfolio image upload failed:", error);
-      throw new InternalServerErrorException("Failed to upload portfolio image");
+      throw new InternalServerErrorException(
+        "Failed to upload portfolio image",
+      );
     }
   }
 
@@ -172,7 +203,10 @@ export class UploadService {
     try {
       await cloudinary.uploader.destroy(publicId);
     } catch (error: unknown) {
-      this.logger.error(`Failed to delete file ${publicId}:`, error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        `Failed to delete file ${publicId}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 

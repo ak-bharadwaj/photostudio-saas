@@ -7,7 +7,13 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
-import { SubscriptionTier, Prisma, StudioStatus, BillingModel, CommissionType } from "@prisma/client";
+import {
+  SubscriptionTier,
+  Prisma,
+  StudioStatus,
+  BillingModel,
+  CommissionType,
+} from "@prisma/client";
 import {
   CreateAdminDto,
   AdminLoginDto,
@@ -108,56 +114,67 @@ export class AdminService {
     const passwordHash = await bcrypt.hash(dto.ownerPassword, 12);
 
     // Create studio with owner in a transaction
-    const studio = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const newStudio = await tx.studio.create({
-        data: {
-          name: dto.studioName,
-          slug: dto.slug,
-          email: dto.studioEmail,
-          phone: dto.studioPhone,
-          subscriptionTier:
-            (dto.subscriptionTier as SubscriptionTier) || "STARTER",
-          status: "TRIAL",
-          brandingConfig: dto.brandingConfig || {},
-          defaultTerms: dto.defaultTerms,
-          subscriptionExpiresAt: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000,
-          ), // 14 days trial
-        },
-      });
+    const studio = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const newStudio = await tx.studio.create({
+          data: {
+            name: dto.studioName,
+            slug: dto.slug,
+            email: dto.studioEmail,
+            phone: dto.studioPhone,
+            subscriptionTier:
+              (dto.subscriptionTier as SubscriptionTier) || "PRO",
+            status: "TRIAL",
+            brandingConfig: dto.brandingConfig || {},
+            defaultTerms: dto.defaultTerms,
+            subscriptionExpiresAt: new Date(
+              Date.now() + (dto.subscriptionDurationDays || 14) * 24 * 60 * 60 * 1000,
+            ), // custom duration or 14 days trial
+          },
+        });
 
-      // Create owner user for the studio
-      await tx.user.create({
-        data: {
-          email: dto.ownerEmail,
-          name: dto.ownerName,
-          passwordHash,
-          studioId: newStudio.id,
-          role: "OWNER",
-          isActive: true,
-        },
-      });
+        // Create owner user for the studio
+        await tx.user.create({
+          data: {
+            email: dto.ownerEmail,
+            name: dto.ownerName,
+            passwordHash,
+            studioId: newStudio.id,
+            role: "OWNER",
+            isActive: true,
+          },
+        });
 
-      return newStudio;
-    });
+        return newStudio;
+      },
+    );
 
     // Return the studio with the owner info
     return this.getStudioById(studio.id);
   }
 
   // Studio Management
-  async getAllStudios(page = 1, limit = 20, status?: string, tier?: string) {
+  async getAllStudios(page = 1, limit = 20, status?: string, tier?: string, search?: string) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.StudioWhereInput = {};
     if (status) where.status = status as StudioStatus;
     if (tier) where.subscriptionTier = tier as SubscriptionTier;
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { slug: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [studios, total] = await Promise.all([
       this.prisma.studio.findMany({
         where,
         skip,
         take: limit,
+        orderBy: { createdAt: 'desc' },
         include: {
           _count: {
             select: {
@@ -167,7 +184,6 @@ export class AdminService {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
       }),
       this.prisma.studio.count({ where }),
     ]);
@@ -188,6 +204,8 @@ export class AdminService {
       where: { id },
       include: {
         users: {
+          take: 50,
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             email: true,
@@ -201,6 +219,7 @@ export class AdminService {
             customers: true,
             services: true,
             invoices: true,
+            users: true,
           },
         },
       },
@@ -224,11 +243,28 @@ export class AdminService {
 
     const updateData: Prisma.StudioUpdateInput = {};
     if (updateStudioDto.name) updateData.name = updateStudioDto.name;
+    
+    if (updateStudioDto.slug && updateStudioDto.slug !== studio.slug) {
+      const existing = await this.prisma.studio.findUnique({
+        where: { slug: updateStudioDto.slug.toLowerCase() },
+      });
+      if (existing) {
+        throw new ConflictException("Slug is already in use");
+      }
+      updateData.slug = updateStudioDto.slug.toLowerCase();
+    }
+
     if (updateStudioDto.email) updateData.email = updateStudioDto.email;
     if (updateStudioDto.phone) updateData.phone = updateStudioDto.phone;
-    if (updateStudioDto.status) updateData.status = updateStudioDto.status as StudioStatus;
+    if (updateStudioDto.status)
+      updateData.status = updateStudioDto.status as StudioStatus;
     if (updateStudioDto.subscriptionTier)
-      updateData.subscriptionTier = updateStudioDto.subscriptionTier as SubscriptionTier;
+      updateData.subscriptionTier =
+        updateStudioDto.subscriptionTier as SubscriptionTier;
+    if (updateStudioDto.subscriptionExpiresAt)
+      updateData.subscriptionExpiresAt = new Date(updateStudioDto.subscriptionExpiresAt);
+    if (updateStudioDto.isRecommended !== undefined)
+      updateData.isRecommended = updateStudioDto.isRecommended;
     if (updateStudioDto.defaultTerms !== undefined)
       updateData.defaultTerms = updateStudioDto.defaultTerms;
     if (updateStudioDto.brandingConfig)
@@ -238,7 +274,8 @@ export class AdminService {
     if (updateStudioDto.commissionRate !== undefined)
       updateData.commissionRate = updateStudioDto.commissionRate;
     if (updateStudioDto.commissionType)
-      updateData.commissionType = updateStudioDto.commissionType as CommissionType;
+      updateData.commissionType =
+        updateStudioDto.commissionType as CommissionType;
     if (updateStudioDto.currency)
       updateData.currency = updateStudioDto.currency;
     if (updateStudioDto.subscriptionExpiresAt)
@@ -247,6 +284,8 @@ export class AdminService {
       );
     if (updateStudioDto.taxRate !== undefined)
       updateData.taxRate = updateStudioDto.taxRate;
+    if (updateStudioDto.isRecommended !== undefined)
+      updateData.isRecommended = updateStudioDto.isRecommended;
 
     // Handle slug change with uniqueness check
     if (updateStudioDto.slug && updateStudioDto.slug !== studio.slug) {

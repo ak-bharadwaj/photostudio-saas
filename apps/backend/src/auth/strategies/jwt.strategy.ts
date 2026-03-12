@@ -74,26 +74,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       // CUSTOMER-role users (OAuth) may not belong to a studio
       if (user.studio) {
-        if (
-          user.studio.status !== "ACTIVE" &&
-          user.studio.status !== "TRIAL"
-        ) {
-          throw new UnauthorizedException(
-            `Studio is ${user.studio.status.toLowerCase()}`,
-          );
-        }
-
-        if (
-          user.studio.subscriptionExpiresAt &&
-          new Date(user.studio.subscriptionExpiresAt) < new Date()
-        ) {
-          throw new UnauthorizedException("Studio subscription has expired");
+        if (user.studio.status === "SUSPENDED") {
+          throw new UnauthorizedException("Studio is suspended");
         }
       }
 
       const result: UserPayload = {
         id: user.id,
-        email: user.email,
+        email: user.email || "",
+        phone: user.phone || undefined,
         name: user.name,
         role: user.role,
         studioId: user.studioId ?? undefined,
@@ -103,6 +92,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
               name: user.studio.name,
               slug: user.studio.slug,
               status: user.studio.status,
+              subscriptionExpiresAt: user.studio.subscriptionExpiresAt,
             }
           : undefined,
         type: "user",

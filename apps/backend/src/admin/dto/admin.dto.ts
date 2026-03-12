@@ -7,6 +7,7 @@ import {
   IsEnum,
   IsOptional,
   IsObject,
+  IsBoolean,
 } from "class-validator";
 import { Transform } from "class-transformer";
 
@@ -50,8 +51,12 @@ export class UpdateStudioDto {
   @IsOptional()
   @MinLength(3)
   @MaxLength(50)
-  @Matches(/^[a-z0-9-]+$/, { message: 'Slug can only contain lowercase letters, numbers, and hyphens' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
+  @Matches(/^[a-z0-9-]+$/, {
+    message: "Slug can only contain lowercase letters, numbers, and hyphens",
+  })
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.toLowerCase() : value,
+  )
   slug?: string;
 
   @IsString()
@@ -99,6 +104,10 @@ export class UpdateStudioDto {
 
   @IsOptional()
   taxRate?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isRecommended?: boolean;
 }
 
 export class CreateStudioWithOwnerDto {
@@ -137,4 +146,7 @@ export class CreateStudioWithOwnerDto {
   @IsString()
   @MinLength(8)
   ownerPassword: string;
+
+  @IsOptional()
+  subscriptionDurationDays?: number;
 }

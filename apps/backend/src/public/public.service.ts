@@ -15,7 +15,7 @@ export class PublicService {
     private prisma: PrismaService,
     private cacheService: CacheService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   /**
    * Get public studio information by slug (for booking page)
@@ -35,10 +35,13 @@ export class PublicService {
         slug: true,
         email: true,
         phone: true,
-        logoUrl: true,
         brandingConfig: true,
         defaultTerms: true,
+        hotDeal: true,
         status: true,
+        address: true,
+        city: true,
+        state: true,
         services: {
           where: { isActive: true },
           select: {
@@ -63,6 +66,21 @@ export class PublicService {
           },
           orderBy: { sortOrder: "asc" },
           take: 12, // Limit portfolio items on public page
+        },
+        reviews: {
+          where: { isVisible: true },
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            reply: true,
+            createdAt: true,
+            customer: {
+              select: { name: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 20,
         },
       },
     });
@@ -129,11 +147,19 @@ export class PublicService {
     }
 
     // Check for scheduling conflicts using correct overlap algorithm
-    const endAt = new Date(scheduledAt.getTime() + service.durationMinutes * 60000);
+    const endAt = new Date(
+      scheduledAt.getTime() + service.durationMinutes * 60000,
+    );
     const candidates = await this.prisma.booking.findMany({
       where: {
         studioId: studio.id,
-        status: { in: [BookingStatus.INQUIRY, BookingStatus.QUOTED, BookingStatus.CONFIRMED] },
+        status: {
+          in: [
+            BookingStatus.INQUIRY,
+            BookingStatus.QUOTED,
+            BookingStatus.CONFIRMED,
+          ],
+        },
         // Optimisation: booking starting on or after endAt can never overlap
         scheduledAt: { lt: endAt },
       },
@@ -147,7 +173,8 @@ export class PublicService {
 
     for (const candidate of candidates) {
       const candidateEnd = new Date(
-        candidate.scheduledAt.getTime() + candidate.service.durationMinutes * 60000,
+        candidate.scheduledAt.getTime() +
+          candidate.service.durationMinutes * 60000,
       );
       // True overlap: new booking starts before candidate ends AND new booking ends after candidate starts
       if (scheduledAt < candidateEnd && endAt > candidate.scheduledAt) {
@@ -158,74 +185,78 @@ export class PublicService {
     // Find or create customer + create booking atomically in one transaction
     // Using upsert keyed on (studioId, phone) eliminates the non-atomic
     // find-then-create race condition that could produce duplicate customers.
-    const booking = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const customer = await tx.customer.upsert({
-        where: {
-          studioId_phone: {
+    const booking = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const customer = await tx.customer.upsert({
+          where: {
+            studioId_phone: {
+              studioId: studio.id,
+              phone: dto.customerPhone,
+            },
+          },
+          create: {
             studioId: studio.id,
+            globalUserId: globalUserId || undefined,
+            name: dto.customerName,
+            email: dto.customerEmail,
             phone: dto.customerPhone,
           },
-        },
-        create: {
-          studioId: studio.id,
-          globalUserId: globalUserId || undefined,
-          name: dto.customerName,
-          email: dto.customerEmail,
-          phone: dto.customerPhone,
-        },
-        update: {
-          // Only update globalUserId when we have one — never overwrite an existing
-          // link with undefined (which would NULL it out in Prisma).
-          ...(globalUserId ? { globalUserId } : {}),
-          name: dto.customerName,
-          email: dto.customerEmail || undefined,
-        },
-      });
+          update: {
+            // Only update globalUserId when we have one — never overwrite an existing
+            // link with undefined (which would NULL it out in Prisma).
+            ...(globalUserId ? { globalUserId } : {}),
+            name: dto.customerName,
+            email: dto.customerEmail || undefined,
+          },
+        });
 
-      const newBooking = await tx.booking.create({
-        data: {
-          studioId: studio.id,
-          customerId: customer.id,
-          serviceId: service.id,
-          scheduledAt,
-          status: BookingStatus.INQUIRY,
-          customerNotes: dto.customerNotes,
-          acceptedTerms: dto.acceptedTerms ?? false,
-        },
-        include: {
-          service: true,
-          customer: true,
-        },
-      });
+        const newBooking = await tx.booking.create({
+          data: {
+            studioId: studio.id,
+            customerId: customer.id,
+            serviceId: service.id,
+            scheduledAt,
+            status: BookingStatus.INQUIRY,
+            customerNotes: dto.customerNotes,
+            acceptedTerms: dto.acceptedTerms ?? false,
+          },
+          include: {
+            service: true,
+            customer: true,
+          },
+        });
 
-      await tx.bookingStatusLog.create({
-        data: {
-          bookingId: newBooking.id,
-          status: BookingStatus.INQUIRY,
-          notes: "Booking created via public form",
-        },
-      });
+        await tx.bookingStatusLog.create({
+          data: {
+            bookingId: newBooking.id,
+            status: BookingStatus.INQUIRY,
+            notes: "Booking created via public form",
+          },
+        });
 
-      return newBooking;
-    });
+        return newBooking;
+      },
+    );
 
     // TODO: Send confirmation email to customer
     // TODO: Send notification to studio
 
     // Send confirmation email to customer (non-blocking)
     if (booking.customer.email) {
-      this.notificationService.sendBookingConfirmation({
-        to: booking.customer.email,
-        customerName: booking.customer.name,
-        studioName: studio.name,
-        serviceName: service.name,
-        scheduledDate: scheduledAt,
-        studioEmail: studio.email,
-        studioPhone: studio.phone ?? '',
-        bookingId: booking.id,
-      }).catch(() => {
-        // Non-critical — do not fail the request if email delivery fails
-      });
+      this.notificationService
+        .sendBookingConfirmation({
+          to: booking.customer.email,
+          customerName: booking.customer.name,
+          studioName: studio.name,
+          serviceName: service.name,
+          scheduledDate: scheduledAt,
+          studioEmail: studio.email,
+          studioPhone: studio.phone ?? "",
+          bookingId: booking.id,
+        })
+        .catch(() => {
+          // Non-critical — do not fail the request if email delivery fails
+        });
     }
 
     return {
@@ -275,7 +306,9 @@ export class PublicService {
     // errors when the server timezone is not UTC.
     const [year, month, day] = date.split("-").map(Number);
     if (!year || !month || !day || isNaN(year) || isNaN(month) || isNaN(day)) {
-      throw new BadRequestException("Invalid date format — expected YYYY-MM-DD");
+      throw new BadRequestException(
+        "Invalid date format — expected YYYY-MM-DD",
+      );
     }
     const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
     const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
@@ -315,21 +348,26 @@ export class PublicService {
         }
 
         // Check if slot conflicts with existing bookings
-        const hasConflict = existingBookings.some((booking: { scheduledAt: Date; service: { durationMinutes: number } }) => {
-          const bookingEnd = new Date(
-            booking.scheduledAt.getTime() +
-            booking.service.durationMinutes * 60000,
-          );
-          const slotEnd = new Date(
-            slotTime.getTime() + service.durationMinutes * 60000,
-          );
+        const hasConflict = existingBookings.some(
+          (booking: {
+            scheduledAt: Date;
+            service: { durationMinutes: number };
+          }) => {
+            const bookingEnd = new Date(
+              booking.scheduledAt.getTime() +
+                booking.service.durationMinutes * 60000,
+            );
+            const slotEnd = new Date(
+              slotTime.getTime() + service.durationMinutes * 60000,
+            );
 
-          return (
-            (slotTime >= booking.scheduledAt && slotTime < bookingEnd) ||
-            (slotEnd > booking.scheduledAt && slotEnd <= bookingEnd) ||
-            (slotTime <= booking.scheduledAt && slotEnd >= bookingEnd)
-          );
-        });
+            return (
+              (slotTime >= booking.scheduledAt && slotTime < bookingEnd) ||
+              (slotEnd > booking.scheduledAt && slotEnd <= bookingEnd) ||
+              (slotTime <= booking.scheduledAt && slotEnd >= bookingEnd)
+            );
+          },
+        );
 
         if (!hasConflict) {
           slots.push({
@@ -347,5 +385,278 @@ export class PublicService {
       durationMinutes: service.durationMinutes,
       slots,
     };
+  }
+
+  /**
+   * Marketplace: Search results for services across all studios
+   */
+  async searchServices(
+    q?: string,
+    categoryId?: string,
+    location?: string,
+    isRecommended?: boolean,
+    uniquePerStudio?: boolean,
+    limit = 12,
+    offset = 0,
+  ) {
+    const where: any = {
+      isActive: true,
+      studio: {
+        status: { in: ["ACTIVE", "TRIAL"] },
+        isPublic: true,
+      },
+    };
+
+    if (location) {
+      where.studio.city = { contains: location, mode: "insensitive" };
+    }
+
+    if (isRecommended) {
+      where.studio.isRecommended = true;
+    }
+
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+        { occasion: { contains: q, mode: "insensitive" } },
+        { studio: { name: { contains: q, mode: "insensitive" } } },
+      ];
+    }
+
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    const [total, items] = await Promise.all([
+      this.prisma.service.count({ where }),
+      this.prisma.service.findMany({
+        where,
+        include: {
+          studio: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logoUrl: true,
+              brandingConfig: true,
+              isRecommended: true,
+              address: true,
+              city: true,
+              state: true,
+              reviews: {
+                where: { isVisible: true },
+                select: { rating: true },
+              },
+            },
+          },
+          category: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: uniquePerStudio ? limit * 3 : limit, // Fetch more to allow deduping
+        skip: offset,
+      }),
+    ]);
+
+    let finalItems = items;
+    if (uniquePerStudio) {
+      const seenStudios = new Set();
+      finalItems = [];
+      for (const item of items) {
+        if (!seenStudios.has(item.studio.id)) {
+          seenStudios.add(item.studio.id);
+          finalItems.push(item);
+        }
+        if (finalItems.length === limit) break;
+      }
+    }
+
+    // Ensure we don't return duplicates if uniquePerStudio was NOT requested but somehow crept in
+    // (Though normally Prisma handles this, it's safer for this specific requirement)
+
+    const itemsWithStats = finalItems.map((item) => {
+      const studioReviews = (item.studio as any).reviews || [];
+      const avgRating =
+        studioReviews.length > 0
+          ? studioReviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
+            studioReviews.length
+          : 0;
+
+      const { reviews: _, ...studioWithoutReviews } = item.studio as any;
+
+      return {
+        ...item,
+        studio: {
+          ...studioWithoutReviews,
+          avgRating: Number(avgRating.toFixed(1)),
+          reviewCount: studioReviews.length,
+        },
+      };
+    });
+
+    return { total, items: itemsWithStats, limit, offset };
+  }
+
+  /**
+   * Marketplace: Discover studios
+   */
+  async discoverStudios(
+    location?: string,
+    isRecommended?: boolean,
+    limit = 12,
+    offset = 0,
+  ) {
+    const where: any = {
+      status: { in: ["ACTIVE", "TRIAL"] },
+      isPublic: true,
+    };
+
+    if (location) {
+      where.city = { contains: location, mode: "insensitive" };
+    }
+
+    if (isRecommended) {
+      where.isRecommended = true;
+    }
+
+    const [total, items] = await Promise.all([
+      this.prisma.studio.count({ where }),
+      this.prisma.studio.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logoUrl: true,
+          brandingConfig: true,
+          address: true,
+          city: true,
+          state: true,
+          defaultTerms: true,
+          hotDeal: true,
+          reviews: {
+            where: { isVisible: true },
+            select: { rating: true },
+          },
+          _count: {
+            select: { services: true, reviews: true },
+          },
+        },
+        take: limit,
+        skip: offset,
+      }),
+    ]);
+
+    const itemsWithStats = items.map((item) => {
+      const reviews = item.reviews || [];
+      const avgRating =
+        reviews.length > 0
+          ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+          : 0;
+
+      const { reviews: _, ...studioWithoutReviews } = item;
+
+      return {
+        ...studioWithoutReviews,
+        avgRating: Number(avgRating.toFixed(1)),
+        reviewCount: reviews.length,
+      };
+    });
+
+    return { total, items: itemsWithStats, limit, offset };
+  }
+
+  /**
+   * Marketplace: Get all categories
+   */
+  async getCategories() {
+    return this.prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Marketplace: Get recent reviews for global display
+   */
+  async getRecentReviews(limit = 10) {
+    return this.prisma.review.findMany({
+      where: { isVisible: true },
+      include: {
+        customer: { select: { name: true } },
+        studio: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+  }
+
+  /**
+   * Marketplace: Get single service details by ID
+   */
+  async getServiceById(id: string) {
+    const service = await this.prisma.service.findUnique({
+      where: { id, isActive: true },
+      include: {
+        studio: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+            brandingConfig: true,
+            email: true,
+            phone: true,
+            address: true,
+            city: true,
+            state: true,
+            reviews: {
+              where: { isVisible: true },
+              select: { rating: true },
+            },
+          },
+        },
+        category: true,
+      },
+    });
+
+    if (!service) {
+      throw new NotFoundException("Service not found");
+    }
+
+    // Add aggregate stats for the studio
+    const reviews = (service.studio as any).reviews || [];
+    const avgRating =
+      reviews.length > 0
+        ? reviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
+          reviews.length
+        : 0;
+
+    const { reviews: _, ...studioWithoutReviews } = service.studio as any;
+
+    return {
+      ...service,
+      studio: {
+        ...studioWithoutReviews,
+        avgRating: Number(avgRating.toFixed(1)),
+        reviewCount: reviews.length,
+      },
+    };
+  }
+
+  /**
+   * Marketplace: Get all distinct studio cities
+   */
+  async getLocations() {
+    const studios = await this.prisma.studio.findMany({
+      where: {
+        status: { in: ["ACTIVE", "TRIAL"] },
+        isPublic: true,
+      },
+      select: { city: true },
+      distinct: ["city"],
+    });
+
+    return studios.map((s) => s.city).filter(Boolean);
   }
 }

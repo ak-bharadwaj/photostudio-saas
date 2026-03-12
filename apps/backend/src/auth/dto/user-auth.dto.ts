@@ -1,11 +1,23 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from "class-validator";
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsOptional,
+  ValidateIf,
+} from "class-validator";
 import { Transform } from "class-transformer";
 
 export class UserLoginDto {
   @IsEmail()
-  @IsNotEmpty()
+  @IsOptional()
   @Transform(({ value }) => value?.trim().toLowerCase())
-  email: string;
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  phone?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -15,9 +27,14 @@ export class UserLoginDto {
 
 export class UserRegisterDto {
   @IsEmail()
-  @IsNotEmpty()
+  @IsOptional()
   @Transform(({ value }) => value?.trim().toLowerCase())
-  email: string;
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  phone?: string;
 
   @IsString()
   @IsNotEmpty()

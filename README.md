@@ -1,6 +1,6 @@
-# PhotoStudio SaaS
+# ReviewsFeedback SaaS
 
-**The enterprise-grade operating system for modern photography studios.**
+**The enterprise-grade operating system for modern business feedback and reviews.**
 
 A fully multi-tenant SaaS platform for managing bookings, customers, invoices, portfolios, staff, and finances — built on a NestJS + Next.js monorepo.
 
@@ -595,10 +595,10 @@ DATABASE_URL="postgresql://postgres:password@containers-us-west-xxx.railway.app:
 
 # Create database
 psql -U postgres
-CREATE DATABASE photostudio;
+CREATE DATABASE reviewsfeedback;
 
 # Connection string
-DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/photostudio"
+DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/reviewsfeedback"
 ```
 
 ### Comparison table
@@ -683,7 +683,7 @@ After running `npx prisma db seed`:
 
 | Role | Email | Password |
 |---|---|---|
-| Platform Admin | `admin@photostudio.com` | `Admin@123` |
+| Platform Admin | `admin@reviewsfeedback.com` | `Admin@123` |
 | Studio Owner | `owner@lensandlight.com` | `Demo@123` |
 | Photographer | `photographer@lensandlight.com` | `Demo@123` |
 

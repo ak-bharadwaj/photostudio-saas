@@ -11,4 +11,4 @@ import { NotificationModule } from "../notification/notification.module";
   providers: [PublicService],
   exports: [PublicService],
 })
-export class PublicModule { }
+export class PublicModule {}

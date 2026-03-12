@@ -74,7 +74,7 @@ export default function AdminLayout({
             </div>
             <div>
               <h1 className="text-sm font-bold text-[var(--foreground)]">Admin Panel</h1>
-              <p className="text-xs text-[var(--foreground-tertiary)]">PhotoStudio SaaS</p>
+              <p className="text-xs text-[var(--foreground-tertiary)]">ReviewsFeedback SaaS</p>
             </div>
           </div>
         </div>

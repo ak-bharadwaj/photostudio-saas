@@ -146,7 +146,7 @@ export default function MyStudioPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const slug = user?.studio?.slug || '';
-  const studioName = user?.studio?.name || 'Your Studio';
+  const studioName = user?.studio?.name || 'Your Business';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://yourdomain.com';
   const bookingUrl = slug ? `${origin}/studio/${slug}` : '';
 
@@ -200,7 +200,7 @@ export default function MyStudioPage() {
 
   const shareVia = (platform: string) => {
     if (!bookingUrl) return;
-    const text = `Book a photography session with ${studioName}`;
+    const text = `Book an appointment with ${studioName}`;
     const urls: Record<string, string> = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(bookingUrl)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(bookingUrl)}`,
@@ -214,7 +214,7 @@ export default function MyStudioPage() {
     <div className="space-y-8 animate-fade-in">
 
       <PageHeader
-        eyebrow="My Studio"
+        eyebrow="My Business"
         title="Your Public Booking Page"
         subtitle="Everything in one place — your shareable link, QR code, social sharing, branding, and pending quote requests."
         accentColor="violet"
@@ -327,7 +327,7 @@ export default function MyStudioPage() {
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Sparkles className="h-10 w-10 text-[var(--foreground-tertiary)] mb-3" />
                   <p className="text-sm font-semibold text-[var(--foreground-secondary)]">No studio slug configured</p>
-                  <p className="text-xs text-[var(--foreground-tertiary)] mt-1 mb-4">Set up your studio slug to get a shareable booking link.</p>
+                  <p className="text-xs text-[var(--foreground-tertiary)] mt-1 mb-4">Set up your partner slug to get a shareable booking link.</p>
                   <Link href="/settings" className="text-xs font-semibold text-[var(--primary)] hover:underline">Go to Settings →</Link>
                 </div>
               )}
@@ -465,7 +465,7 @@ export default function MyStudioPage() {
                   <QRDisplay url={bookingUrl} />
                   <div className="text-center">
                     <p className="text-xs font-semibold text-[var(--foreground-secondary)]">{studioName}</p>
-                    <p className="text-[10px] text-[var(--foreground-tertiary)] mt-0.5">Scan to book a session</p>
+                    <p className="text-[10px] text-[var(--foreground-tertiary)] mt-0.5">Scan to book an appointment</p>
                   </div>
                   <a
                     href={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(bookingUrl)}&bgcolor=ffffff&color=7c3aed&margin=20`}
@@ -489,7 +489,7 @@ export default function MyStudioPage() {
           {/* Quick links */}
           <Card glass>
             <CardHeader>
-              <CardTitle className="text-sm font-bold">Studio Settings</CardTitle>
+              <CardTitle className="text-sm font-bold">Partner Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {[
@@ -497,7 +497,7 @@ export default function MyStudioPage() {
                 { href: '/share-links', icon: Share2, label: 'Share Links', desc: 'Social & marketing links', color: '#6366f1' },
                 { href: '/services', icon: Calendar, label: 'Services', desc: 'Prices & durations', color: '#0891b2' },
                 { href: '/portfolio', icon: Eye, label: 'Portfolio', desc: 'Showcase your work', color: '#7c3aed' },
-                { href: '/settings', icon: Globe, label: 'Studio Settings', desc: 'Slug, contact, timezone', color: '#10b981' },
+                { href: '/settings', icon: Globe, label: 'Partner Settings', desc: 'Slug, contact, timezone', color: '#10b981' },
               ].map(({ href, icon: Icon, label, desc, color }) => (
                 <Link
                   key={href}

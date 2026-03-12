@@ -32,7 +32,9 @@ describe("User Flow (e2e)", () => {
 
   afterAll(async () => {
     if (createdUserId) {
-      await prisma.user.deleteMany({ where: { id: createdUserId } }).catch(() => {});
+      await prisma.user
+        .deleteMany({ where: { id: createdUserId } })
+        .catch(() => {});
     }
     await app.close();
   });

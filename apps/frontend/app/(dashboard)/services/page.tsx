@@ -46,8 +46,12 @@ interface Service {
 const serviceSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   description: z.string().optional(),
-  price: z.string().min(1, 'Price is required'),
-  duration: z.string().optional(),
+  price: z.string().min(1, 'Price is required').refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) >= 0, {
+    message: 'Price must be a positive number',
+  }),
+  duration: z.string().optional().refine((v) => !v || (!isNaN(parseInt(v)) && parseInt(v) >= 0), {
+    message: 'Duration must be a positive number of minutes',
+  }),
   occasion: z.string().optional(),
 });
 
@@ -209,7 +213,7 @@ function ServiceForm({
         label="Service Name"
         {...register('name')}
         error={errors.name?.message}
-        placeholder="e.g. Wedding Photography"
+        placeholder="e.g. Enterprise Consulting"
         required
       />
 
@@ -362,11 +366,14 @@ export default function ServicesPage() {
   const onCreateService = async (data: ServiceFormData) => {
     try {
       setIsSubmitting(true);
+      const price = parseFloat(data.price);
+      const duration = data.duration ? parseInt(data.duration) : 0;
+
       await servicesApi.create({
         name: data.name,
         description: data.description,
-        price: parseFloat(data.price),
-        durationMinutes: data.duration ? parseInt(data.duration) : undefined,
+        price: isNaN(price) ? 0 : price,
+        durationMinutes: isNaN(duration) ? 0 : duration,
         occasion: data.occasion || undefined,
         coverImage: coverImageUrl || undefined,
       });
@@ -388,11 +395,14 @@ export default function ServicesPage() {
 
     try {
       setIsSubmitting(true);
+      const price = parseFloat(data.price);
+      const duration = data.duration ? parseInt(data.duration) : 0;
+
       await servicesApi.update(selectedService.id, {
         name: data.name,
         description: data.description,
-        price: parseFloat(data.price),
-        durationMinutes: data.duration ? parseInt(data.duration) : 0,
+        price: isNaN(price) ? 0 : price,
+        durationMinutes: isNaN(duration) ? 0 : duration,
         occasion: data.occasion || undefined,
         coverImage: coverImageUrl || undefined,
       });
@@ -467,9 +477,9 @@ export default function ServicesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Studio"
+        eyebrow="Business"
         title="Services"
-        subtitle="Manage your photography services and packages"
+        subtitle="Manage your professional services and offerings"
         accentColor="violet"
         actions={
           <Button onClick={() => { resetFormState(); setIsCreateModalOpen(true); }}>
@@ -603,7 +613,7 @@ export default function ServicesPage() {
           resetFormState();
         }}
         title="Create New Service"
-        description="Add a new photography service or package"
+        description="Add a new professional service or offering"
         size="lg"
       >
         <ServiceForm

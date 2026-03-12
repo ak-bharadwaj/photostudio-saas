@@ -11,6 +11,7 @@ import { UserRole } from "@prisma/client";
 export abstract class UserPayload {
   id!: string;
   email!: string;
+  phone?: string;
   name!: string;
   type!: "admin" | "user";
   isAdmin!: boolean;
@@ -23,5 +24,6 @@ export abstract class UserPayload {
     name: string;
     slug: string;
     status: string;
+    subscriptionExpiresAt?: Date | null;
   };
 }

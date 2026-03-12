@@ -1,6 +1,6 @@
 # k6 Load Testing
 
-This directory contains k6 load test scripts for the Photo Studio SaaS API.
+This directory contains k6 load test scripts for the ReviewsFeedback SaaS API.
 
 ## Prerequisites
 
@@ -55,7 +55,7 @@ k6 run k6/auth-load-test.js
 
 ### Custom Base URL
 ```bash
-k6 run --env BASE_URL=https://api.photostudio.com k6/auth-load-test.js
+k6 run --env BASE_URL=https://api.reviewsfeedback.com k6/auth-load-test.js
 ```
 
 ### Generate HTML Report

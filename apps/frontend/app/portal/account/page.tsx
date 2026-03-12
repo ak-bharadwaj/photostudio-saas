@@ -35,7 +35,7 @@ export default function AccountPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const token = safeGetItem('customer_token');
+    const token = safeGetItem('accessToken');
     const guestPhone = safeGetItem('customer_guest_phone');
     const guestName = safeGetItem('customer_guest_name');
 
@@ -85,7 +85,7 @@ export default function AccountPage() {
       return;
     }
 
-    const token = safeGetItem('customer_token');
+    const token = safeGetItem('accessToken');
     if (!token) { router.replace('/portal/login'); return; }
     setSaving(true);
     try {

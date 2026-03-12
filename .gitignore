@@ -33,9 +33,6 @@ yarn-error.log*
 *.sln
 *.sw?
 
-# Prisma
-/prisma/migrations
-/apps/backend/prisma/migrations
 
 # Docker
 docker-compose.override.yml
@@ -68,3 +65,5 @@ skills-lock.json
 
 nul
 
+
+.vercel

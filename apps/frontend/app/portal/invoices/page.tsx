@@ -97,7 +97,7 @@ export default function InvoicesPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(() => {
-    const token = safeGetItem('customer_token');
+    const token = safeGetItem('accessToken');
     const guestPhone = safeGetItem('customer_guest_phone');
 
     abortRef.current?.abort();
@@ -113,7 +113,7 @@ export default function InvoicesPage() {
     } else {
       router.replace('/portal/login');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [router]);
 
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function InvoicesPage() {
   const handleDownload = async (invoiceId: string, invoiceNumber: string) => {
     setDownloading(invoiceId);
     try {
-      const token = safeGetItem('customer_token');
+      const token = safeGetItem('accessToken');
       const response = await axios.get(
         `${API_URL}/portal/invoices/${invoiceId}/pdf`,
         {
@@ -243,7 +243,7 @@ export default function InvoicesPage() {
             </div>
             <h1 className="text-3xl font-black tracking-tight text-white">Financial History</h1>
             <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} across all studios
+              {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} across all partners
               {overdueCount > 0 && <span className="ml-2 font-bold" style={{ color: '#f87171' }}>· {overdueCount} overdue</span>}
             </p>
           </div>
@@ -324,7 +324,7 @@ export default function InvoicesPage() {
           </div>
           <h3 className="text-lg font-black text-[var(--foreground)] mb-2">No invoices yet</h3>
           <p className="text-sm text-[var(--foreground-tertiary)]">
-            Invoices from your sessions will appear here.
+            Invoices from your engagements will appear here.
           </p>
         </div>
       ) : (

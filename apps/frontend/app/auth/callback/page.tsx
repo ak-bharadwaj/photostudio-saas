@@ -11,7 +11,10 @@
  *  1. Reads tokens from window.location.hash
  *  2. Stores them safely
  *  3. Clears the hash (replaceState) so tokens don't linger in the URL bar
- *  4. Redirects to the returnTo path (or /portal by default)
+ *  4. If a returnTo param was provided, honours it.
+ *     Otherwise calls /auth/me to detect role:
+ *       - STUDIO_OWNER / ADMIN → /dashboard
+ *       - everyone else         → /portal
  */
 
 import { useEffect, useState } from 'react';
@@ -28,16 +31,15 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     // Parse the URL fragment: #token=...&refreshToken=...
-    const hash = window.location.hash.slice(1); // strip leading '#'
+    const hash = window.location.hash.slice(1);
     const params = new URLSearchParams(hash);
 
     const token = params.get('token');
     const refreshToken = params.get('refreshToken');
 
-    // Read returnTo from query string (set by backend redirect)
+    // Read returnTo from query string (optionally set by callers)
     const searchParams = new URLSearchParams(window.location.search);
-    const returnTo = searchParams.get('returnTo') || '/portal';
-    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/portal';
+    const returnTo = searchParams.get('returnTo');
 
     if (!token || !refreshToken) {
       setError('Authentication failed. Tokens not received.');
@@ -48,11 +50,35 @@ export default function AuthCallbackPage() {
     storageSet('accessToken', token);
     storageSet('refreshToken', refreshToken);
 
-    // Immediately clear the hash so tokens are removed from the URL bar
+    // Clear the hash so tokens are removed from the URL bar
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
-    // Navigate to destination
-    router.replace(safeReturnTo);
+    // If an explicit returnTo was provided, honour it
+    if (returnTo && returnTo.startsWith('/')) {
+      router.replace(returnTo);
+      return;
+    }
+
+    // Otherwise detect user role and route accordingly
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const user = data?.user ?? data;
+        const role: string = user?.role ?? '';
+        if (role === 'STUDIO_OWNER' || role === 'ADMIN') {
+          router.replace('/dashboard');
+        } else {
+          // Customers go to the home page by default, unless returnTo was set
+          router.replace('/');
+        }
+      })
+      .catch(() => {
+        // If the /me call fails, fall back to home
+        router.replace('/');
+      });
   }, [router]);
 
   if (error) {
@@ -61,7 +87,7 @@ export default function AuthCallbackPage() {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-[var(--danger)]">Sign-in failed</h2>
           <p className="mt-2 text-sm text-[var(--foreground-secondary)]">{error}</p>
-          <a href="/login" className="mt-4 inline-block text-sm text-[var(--primary)] underline">
+          <a href="/portal/login" className="mt-4 inline-block text-sm text-[var(--primary)] underline">
             Back to login
           </a>
         </div>

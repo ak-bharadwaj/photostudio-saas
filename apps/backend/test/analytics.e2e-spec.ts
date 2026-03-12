@@ -30,7 +30,7 @@ describe("Analytics Flow (e2e)", () => {
     // Admin token (no studioId)
     const adminRes = await request(app.getHttpServer())
       .post("/auth/admin/login")
-      .send({ email: "admin@photostudio.com", password: "Admin@123" });
+      .send({ email: "admin@reviewsfeedback.com", password: "Admin@123" });
     adminToken = adminRes.body.accessToken;
   });
 
@@ -40,7 +40,9 @@ describe("Analytics Flow (e2e)", () => {
 
   describe("Auth guards", () => {
     it("should reject unauthenticated GET /analytics/overview", () => {
-      return request(app.getHttpServer()).get("/analytics/overview").expect(401);
+      return request(app.getHttpServer())
+        .get("/analytics/overview")
+        .expect(401);
     });
 
     it("should reject unauthenticated GET /analytics/revenue", () => {

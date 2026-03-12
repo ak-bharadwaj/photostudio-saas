@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Output standalone for Docker
+  output: 'standalone',
+  
   reactStrictMode: true,
   
   // Disable x-powered-by header for security
@@ -24,7 +26,16 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
       {
-        // Unsplash — used for seeded demo data / avatars
+        protocol: "http",
+        hostname: "localhost",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
+        pathname: "/uploads/**",
+      },
+      {
         protocol: "https",
         hostname: "images.unsplash.com",
         pathname: "/**",

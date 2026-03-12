@@ -39,7 +39,9 @@ describe("Invoice Flow (e2e)", () => {
   afterAll(async () => {
     // Clean up test invoices
     if (invoiceId) {
-      await prisma.invoice.deleteMany({ where: { id: invoiceId } }).catch(() => {});
+      await prisma.invoice
+        .deleteMany({ where: { id: invoiceId } })
+        .catch(() => {});
     }
     await app.close();
   });
@@ -126,7 +128,9 @@ describe("Invoice Flow (e2e)", () => {
         .post("/invoices")
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          lineItems: [{ description: "Test", quantity: 1, rate: 100, amount: 100 }],
+          lineItems: [
+            { description: "Test", quantity: 1, rate: 100, amount: 100 },
+          ],
         })
         .expect(400);
     });
@@ -184,7 +188,9 @@ describe("Invoice Flow (e2e)", () => {
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
           customerId,
-          lineItems: [{ description: "Delete Test", quantity: 1, rate: 100, amount: 100 }],
+          lineItems: [
+            { description: "Delete Test", quantity: 1, rate: 100, amount: 100 },
+          ],
           dueDate: dueDate.toISOString(),
         })
         .expect(201);

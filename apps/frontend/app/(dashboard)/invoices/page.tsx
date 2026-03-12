@@ -46,6 +46,7 @@ export default function InvoicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [stats, setStats] = useState({ totalRevenue: 0, pendingRevenue: 0 });
   // Per-row loading states
   const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
@@ -61,7 +62,10 @@ export default function InvoicesPage() {
       const params: Record<string, string | number> = { limit: PAGE_SIZE, page };
       if (statusFilter) params.status = statusFilter;
       if (searchTerm.trim()) params.search = searchTerm.trim();
-      const response = await invoicesApi.getAll(params);
+      const [response, statsRes] = await Promise.all([
+        invoicesApi.getAll(params),
+        invoicesApi.getStats()
+      ]);
       if (ctrl.signal.aborted) return;
       const payload = response.data;
       // Backend returns { data: [...], meta: {...} } or plain array
@@ -72,6 +76,7 @@ export default function InvoicesPage() {
         setInvoices(payload || []);
         setMeta({ total: (payload || []).length, page: 1, limit: PAGE_SIZE, totalPages: 1 });
       }
+      setStats(statsRes.data || { totalRevenue: 0, pendingRevenue: 0 });
     } catch (e) {
       if ((e as { name?: string }).name === 'CanceledError') return;
       const error = e as { response?: { data?: { message?: string } } };
@@ -139,19 +144,17 @@ export default function InvoicesPage() {
   // Stats: computed from current page data — shown as "on this page" context
   // Full aggregate stats come from the meta total count
   const getPaid = (inv: Invoice) => (inv.payments || []).reduce((s, p) => s + Number(p.amount), 0);
-  const totalRevenue = (invoices || [])
-    .filter(inv => inv?.status === 'PAID')
-    .reduce((sum, inv) => sum + Number(inv?.total || 0), 0);
-  const pendingAmount = (invoices || [])
-    .filter(inv => inv && ['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.status))
-    .reduce((sum, inv) => sum + Math.max(0, Number(inv?.total || 0) - getPaid(inv)), 0);
+
+  // Global stats from API
+  const totalRevenue = stats.totalRevenue;
+  const pendingAmount = stats.pendingRevenue;
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Finance"
         title="Billing & Invoices"
-        subtitle="Track your revenue, manage invoices and issue professional billing."
+        subtitle="Track your revenue, manage invoices and issue professional billing for your appointments."
         accentColor="violet"
         actions={
           <Link href="/invoices/new">
@@ -228,86 +231,153 @@ export default function InvoicesPage() {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Paid</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Paid</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={`/invoices/${invoice.id}`}
+                            className="text-[var(--primary)] hover:underline"
+                          >
+                            {invoice.invoiceNumber}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-[var(--foreground)]">{invoice.customer.name}</p>
+                            <p className="text-sm text-[var(--foreground-secondary)]">{invoice.customer.email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {formatCurrency(Number(invoice.total || 0))}
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(getPaid(invoice))}
+                        </TableCell>
+                        <TableCell>{invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</TableCell>
+                        <TableCell>
+                          <Badge {...getInvoiceStatusBadge(invoice.status)}>
+                            {invoice.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/invoices/${invoice.id}`}>
+                              <Button variant="ghost" size="sm" aria-label={`View invoice ${invoice.invoiceNumber}`}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+
+                            {invoice.status === 'DRAFT' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label={`Send invoice ${invoice.invoiceNumber}`}
+                                disabled={sendingIds.has(invoice.id)}
+                                onClick={() => handleSendInvoice(invoice.id)}
+                              >
+                                {sendingIds.has(invoice.id)
+                                  ? <LoadingSpinner className="h-4 w-4" />
+                                  : <Send className="h-4 w-4" />}
+                              </Button>
+                            )}
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Download invoice ${invoice.invoiceNumber} as PDF`}
+                              disabled={downloadingIds.has(invoice.id)}
+                              onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
+                            >
+                              {downloadingIds.has(invoice.id)
+                                ? <LoadingSpinner className="h-4 w-4" />
+                                : <Download className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List (Visible on mobile) */}
+              <div className="sm:hidden grid grid-cols-1 gap-4">
                 {invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/invoices/${invoice.id}`}
-                        className="text-[var(--primary)] hover:underline"
-                      >
-                        {invoice.invoiceNumber}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-[var(--foreground)]">{invoice.customer.name}</p>
-                        <p className="text-sm text-[var(--foreground-secondary)]">{invoice.customer.email}</p>
+                  <div key={invoice.id} className="border border-border/40 rounded-2xl overflow-hidden bg-surface-0 shadow-sm">
+                    <div className="p-4 flex items-center justify-between border-b border-border/10 bg-surface-1/30">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm tracking-tight">{invoice.invoiceNumber}</p>
+                          <p className="text-[10px] text-foreground-tertiary font-black uppercase tracking-widest truncate max-w-[120px]">
+                            {invoice.customer.name}
+                          </p>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell className="font-semibold">
-                      {formatCurrency(Number(invoice.total || 0))}
-                    </TableCell>
-                    <TableCell>
-                      {formatCurrency(getPaid(invoice))}
-                    </TableCell>
-                    <TableCell>{invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</TableCell>
-                    <TableCell>
                       <Badge {...getInvoiceStatusBadge(invoice.status)}>
                         {invoice.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="px-4 py-3 border-b border-border/5 bg-surface-0/50 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest mb-1">Total Amount</p>
+                        <p className="text-lg font-black text-foreground tabular-nums">{formatCurrency(Number(invoice.total || 0))}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest mb-1">Due Date</p>
+                        <p className="text-xs font-bold text-foreground">{invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</p>
+                      </div>
+                    </div>
+                    <div className="p-4 flex items-center justify-between bg-surface-1/20">
+                      <Link href={`/invoices/${invoice.id}`}>
+                        <Button variant="outline" size="sm" className="rounded-xl font-bold h-9">
+                          <Eye className="h-4 w-4 mr-2" /> View
+                        </Button>
+                      </Link>
                       <div className="flex items-center gap-2">
-                        <Link href={`/invoices/${invoice.id}`}>
-                          <Button variant="ghost" size="sm" aria-label={`View invoice ${invoice.invoiceNumber}`}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-
                         {invoice.status === 'DRAFT' && (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            aria-label={`Send invoice ${invoice.invoiceNumber}`}
+                            className="rounded-xl h-9 w-9 p-0"
                             disabled={sendingIds.has(invoice.id)}
                             onClick={() => handleSendInvoice(invoice.id)}
                           >
-                            {sendingIds.has(invoice.id)
-                              ? <LoadingSpinner className="h-4 w-4" />
-                              : <Send className="h-4 w-4" />}
+                            {sendingIds.has(invoice.id) ? <LoadingSpinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
                           </Button>
                         )}
-
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          aria-label={`Download invoice ${invoice.invoiceNumber} as PDF`}
+                          className="rounded-xl h-9 w-9 p-0"
                           disabled={downloadingIds.has(invoice.id)}
                           onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
                         >
-                          {downloadingIds.has(invoice.id)
-                            ? <LoadingSpinner className="h-4 w-4" />
-                            : <Download className="h-4 w-4" />}
+                          {downloadingIds.has(invoice.id) ? <LoadingSpinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
 
           {/* Pagination controls */}

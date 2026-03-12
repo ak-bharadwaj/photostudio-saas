@@ -54,6 +54,18 @@ export class BrandingConfigDto {
   @IsString()
   @IsOptional()
   logoPosition?: string;
+
+  @IsString()
+  @IsOptional()
+  bgType?: string;
+
+  @IsString()
+  @IsOptional()
+  layoutMode?: string;
+
+  @IsString()
+  @IsOptional()
+  themePreset?: string;
 }
 
 export class CreateStudioDto {
@@ -190,6 +202,10 @@ export class UpdateStudioDto {
   @IsString()
   @IsOptional()
   defaultTerms?: string;
+
+  @IsString()
+  @IsOptional()
+  hotDeal?: string;
 
   @IsEnum(SubscriptionTier)
   @IsOptional()

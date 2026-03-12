@@ -24,14 +24,8 @@ model Studio {
   email                 String           @unique
   phone                 String
   logoUrl               String?          @map("logo_url")
-  address               String?
-  city                  String?
-  state                 String?
-  zipCode               String?          @map("zip_code")
-  website               String?
-  description           String?
   brandingConfig        Json?            @map("branding_config")
-  subscriptionTier      SubscriptionTier @default(STARTER) @map("subscription_tier")
+  subscriptionTier      SubscriptionTier @default(PRO) @map("subscription_tier")
   subscriptionExpiresAt DateTime?        @map("subscription_expires_at")
   status                StudioStatus     @default(ACTIVE)
   createdAt             DateTime         @default(now()) @map("created_at")
@@ -42,17 +36,29 @@ model Studio {
   currency              String           @default("INR")
   defaultTerms          String?          @map("default_terms")
   taxRate               Decimal?         @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
+  address               String?
+  city                  String?
+  state                 String?
+  zipCode               String?          @map("zip_code")
+  website               String?
+  description           String?
+  isPublic              Boolean          @default(true) @map("is_public")
+  hotDeal               String?          @map("hot_deal")
+  isRecommended         Boolean          @default(false) @map("is_recommended")
   bookings              Booking[]
   commissions           Commission[]
   customers             Customer[]
   invoices              Invoice[]
   portfolioItems        PortfolioItem[]
+  reviews               Review[]
   services              Service[]
   users                 User[]
   workflows             Workflow[]
 
   @@index([slug])
   @@index([status])
+  @@index([name])
+  @@index([createdAt])
   @@map("studios")
 }
 
@@ -76,41 +82,59 @@ model Commission {
   @@map("commissions")
 }
 
+model StudioRequest {
+  id         String              @id @default(uuid())
+  studioName String              @map("studio_name")
+  ownerName  String              @map("owner_name")
+  email      String
+  phone      String?
+  city       String?
+  status     StudioRequestStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  @@map("studio_requests")
+}
+
 model User {
-  id           String    @id @default(uuid())
-  studioId     String?   @map("studio_id")
-  email        String    @unique
-  passwordHash String?   @map("password_hash")
+  id           String     @id @default(uuid())
+  studioId     String?    @map("studio_id")
+  email        String?    @unique
+  phone        String?    @unique
+  passwordHash String?    @map("password_hash")
   name         String
-  role         UserRole  @default(PHOTOGRAPHER)
-  isActive     Boolean   @default(true) @map("is_active")
-  provider     String    @default("local")
-  providerId   String?   @map("provider_id")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  bookings     Booking[] @relation("AssignedBookings")
-  studio       Studio?   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  role         UserRole   @default(PHOTOGRAPHER)
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  provider     String     @default("local")
+  providerId   String?    @map("provider_id")
+  bookings     Booking[]  @relation("AssignedBookings")
   customers    Customer[]
+  studio       Studio?    @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@index([studioId])
   @@index([email])
+  @@index([phone])
   @@map("users")
 }
 
 model Customer {
   id           String    @id @default(uuid())
   studioId     String    @map("studio_id")
-  globalUserId String?   @map("global_user_id")
   name         String
   email        String?
   phone        String
   metadata     Json?
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
+  globalUserId String?   @map("global_user_id")
   bookings     Booking[]
-  studio       Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
   globalUser   User?     @relation(fields: [globalUserId], references: [id])
+  studio       Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
   invoices     Invoice[]
+  reviews      Review[]
 
   @@unique([studioId, phone])
   @@index([studioId])
@@ -133,7 +157,9 @@ model Service {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   coverImage      String?   @map("cover_image")
   occasion        String?
+  categoryId      String?   @map("category_id")
   bookings        Booking[]
+  category        Category? @relation(fields: [categoryId], references: [id])
   studio          Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@index([studioId])
@@ -143,30 +169,32 @@ model Service {
 }
 
 model Booking {
-  id               String             @id @default(uuid())
-  studioId         String             @map("studio_id")
-  customerId       String             @map("customer_id")
-  serviceId        String             @map("service_id")
-  assignedToUserId String?            @map("assigned_to_user_id")
-  scheduledAt      DateTime           @map("scheduled_at")
-  status           BookingStatus      @default(INQUIRY)
-  customerNotes    String?            @map("customer_notes")
-  internalNotes    String?            @map("internal_notes")
-  createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
-  acceptedTerms    Boolean            @default(false) @map("accepted_terms")
-  contractUrl      String?            @map("contract_url")
-  quoteAmount      Decimal?           @map("quote_amount") @db.Decimal(10, 2)
-  quoteNotes       String?            @map("quote_notes")
-  quotedAt         DateTime?          @map("quoted_at")
-  quoteAcceptedAt  DateTime?          @map("quote_accepted_at")
-  statusLogs       BookingStatusLog[]
-  assignedTo       User?              @relation("AssignedBookings", fields: [assignedToUserId], references: [id])
-  customer         Customer           @relation(fields: [customerId], references: [id])
-  service          Service            @relation(fields: [serviceId], references: [id])
-  studio           Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  commissions      Commission[]
-  invoices         Invoice[]
+  id                  String             @id @default(uuid())
+  studioId            String             @map("studio_id")
+  customerId          String             @map("customer_id")
+  serviceId           String             @map("service_id")
+  assignedToUserId    String?            @map("assigned_to_user_id")
+  scheduledAt         DateTime           @map("scheduled_at")
+  status              BookingStatus      @default(INQUIRY)
+  customerNotes       String?            @map("customer_notes")
+  internalNotes       String?            @map("internal_notes")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  acceptedTerms       Boolean            @default(false) @map("accepted_terms")
+  contractUrl         String?            @map("contract_url")
+  quoteAcceptedAt     DateTime?          @map("quote_accepted_at")
+  quoteAmount         Decimal?           @map("quote_amount") @db.Decimal(10, 2)
+  quoteNotes          String?            @map("quote_notes")
+  quotedAt            DateTime?          @map("quoted_at")
+  quoteRejectionNotes String?            @map("quote_rejection_notes")
+  statusLogs          BookingStatusLog[]
+  assignedTo          User?              @relation("AssignedBookings", fields: [assignedToUserId], references: [id])
+  customer            Customer           @relation(fields: [customerId], references: [id])
+  service             Service            @relation(fields: [serviceId], references: [id])
+  studio              Studio             @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  commissions         Commission[]
+  invoices            Invoice[]
+  review              Review?
 
   @@index([studioId])
   @@index([customerId])
@@ -176,6 +204,8 @@ model Booking {
   @@index([studioId, status])
   @@index([studioId, scheduledAt])
   @@index([status, scheduledAt])
+  @@index([studioId, customerId])
+  @@index([studioId, createdAt])
   @@map("bookings")
 }
 
@@ -257,6 +287,39 @@ model PortfolioItem {
   @@map("portfolio_items")
 }
 
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  imageUrl  String?   @map("image_url")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  services  Service[]
+
+  @@map("categories")
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  studioId   String   @map("studio_id")
+  customerId String   @map("customer_id")
+  bookingId  String?  @unique @map("booking_id")
+  rating     Int      @default(5)
+  comment    String?
+  reply      String?
+  isVisible  Boolean  @default(true) @map("is_visible")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  customer   Customer @relation(fields: [customerId], references: [id])
+  studio     Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@index([customerId])
+  @@map("reviews")
+}
+
 model Workflow {
   id        String   @id @default(uuid())
   studioId  String   @map("studio_id")
@@ -269,6 +332,13 @@ model Workflow {
 
   @@index([studioId])
   @@map("workflows")
+}
+
+enum StudioRequestStatus {
+  PENDING
+  REVIEWED
+  ACCEPTED
+  REJECTED
 }
 
 enum BillingModel {
@@ -286,6 +356,7 @@ enum SubscriptionTier {
   PROFESSIONAL
   STUDIO
   ENTERPRISE
+  PRO
 }
 
 enum StudioStatus {

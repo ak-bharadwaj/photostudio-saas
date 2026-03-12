@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Query, Req, BadRequestException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Req,
+  BadRequestException,
+} from "@nestjs/common";
 import { Request } from "express";
 import { Throttle } from "@nestjs/throttler";
 import { PublicService } from "./public.service";
@@ -64,5 +73,91 @@ export class PublicController {
       );
     }
     return this.publicService.getAvailableTimeSlots(slug, serviceId, date);
+  }
+
+  /**
+   * GET /public/marketplace/search
+   * Global service search
+   */
+  @Public()
+  @Get("marketplace/search")
+  async searchServices(
+    @Query("q") q?: string,
+    @Query("categoryId") categoryId?: string,
+    @Query("location") location?: string,
+    @Query("isRecommended") isRecommended?: string,
+    @Query("uniquePerStudio") uniquePerStudio?: string,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ) {
+    return this.publicService.searchServices(
+      q,
+      categoryId,
+      location,
+      isRecommended === "true",
+      uniquePerStudio === "true",
+      limit ? parseInt(limit) : 12,
+      offset ? parseInt(offset) : 0,
+    );
+  }
+
+  /**
+   * GET /public/marketplace/studios
+   * Discover studios
+   */
+  @Public()
+  @Get("marketplace/studios")
+  async discoverStudios(
+    @Query("location") location?: string,
+    @Query("isRecommended") isRecommended?: string,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ) {
+    return this.publicService.discoverStudios(
+      location,
+      isRecommended === "true",
+      limit ? parseInt(limit) : 12,
+      offset ? parseInt(offset) : 0,
+    );
+  }
+
+  /**
+   * GET /public/marketplace/categories
+   * Get all categories
+   */
+  @Public()
+  @Get("marketplace/categories")
+  async getCategories() {
+    return this.publicService.getCategories();
+  }
+
+  /**
+   * GET /public/marketplace/locations
+   * Get all distinct studio cities
+   */
+  @Public()
+  @Get("marketplace/locations")
+  async getLocations() {
+    return this.publicService.getLocations();
+  }
+
+  /**
+   * GET /public/marketplace/reviews
+   * Get global recent reviews
+   */
+  @Public()
+  @Get("marketplace/reviews")
+  async getRecentReviews(@Query("limit") limit?: string) {
+    return this.publicService.getRecentReviews(limit ? parseInt(limit) : 10);
+  }
+
+  /**
+   * GET /public/services/:id
+   * Get single service details
+   */
+  @Public()
+  @Get("services/:id")
+  async getServiceById(@Param("id") id: string) {
+    return this.publicService.getServiceById(id);
   }
 }

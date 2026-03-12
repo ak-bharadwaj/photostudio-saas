@@ -13,6 +13,8 @@ interface User {
     name: string;
     slug: string;
     logoUrl?: string;
+    status: string;
+    subscriptionExpiresAt?: string | null;
   };
 }
 
@@ -22,7 +24,8 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
 
-  login: (email: string, password: string) => Promise<void>;
+  login: (credentials: { email?: string; phone?: string; password: string }) => Promise<void>;
+  customerRegister: (credentials: { name: string; email?: string; phone?: string; password: string }) => Promise<void>;
   adminLogin: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
@@ -45,17 +48,17 @@ function storageRemove(key: string): void {
   try { localStorage.removeItem(key); } catch { /* ignore */ }
 }
 
-export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
 
-  login: async (email: string, password: string) => {
+  login: async (credentials: { email?: string; phone?: string; password: string }) => {
     try {
       set({ isLoading: true, error: null });
 
-      const response = await authApi.login(email, password);
+      const response = await authApi.login(credentials);
       const { accessToken, refreshToken, user, userType } = response.data;
 
       storageSet('accessToken', accessToken);
@@ -79,8 +82,33 @@ export const useAuthStore: UseBoundStore<StoreApi<AuthState>> = create<AuthState
     }
   },
 
+  customerRegister: async (credentials: { name: string; email?: string; phone?: string; password: string }) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await authApi.customerRegister(credentials);
+      const { accessToken, refreshToken, user, userType } = response.data;
+
+      storageSet('accessToken', accessToken);
+      storageSet('refreshToken', refreshToken);
+
+      set({
+        user,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error: unknown) {
+      const e = error as { response?: { data?: { message?: string } } };
+      set({
+        error: e.response?.data?.message || 'Registration failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
   adminLogin: async (email: string, password: string) => {
-    return get().login(email, password);
+    return get().login({ email, password });
   },
 
   logout: async () => {

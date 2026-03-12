@@ -9,7 +9,7 @@ import { CreateCustomerDto, UpdateCustomerDto } from "./dto/customer.dto";
 
 @Injectable()
 export class CustomerService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateCustomerDto, studioId: string) {
     // Check if customer with same phone exists in this studio
@@ -240,7 +240,7 @@ export class CustomerService {
           where: {
             customerId: id,
             studioId,
-            status: { in: ['DRAFT', 'SENT', 'PARTIALLY_PAID', 'OVERDUE'] },
+            status: { in: ["DRAFT", "SENT", "PARTIALLY_PAID", "OVERDUE"] },
           },
         }),
         this.prisma.invoice.aggregate({

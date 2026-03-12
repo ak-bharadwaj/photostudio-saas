@@ -33,7 +33,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       // Reserve 2 for admin/migrations — keep 8 for the app.
       max: 8,
       min: 1,
-      idleTimeoutMillis: 20000,   // release idle connections after 20 s
+      idleTimeoutMillis: 20000, // release idle connections after 20 s
       connectionTimeoutMillis: 5000, // fail fast if pool is exhausted
     });
     const adapter = new PrismaPg(pool);
@@ -87,6 +87,15 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get workflow() {
     return this._client.workflow;
   }
+  get review() {
+    return this._client.review;
+  }
+  get category() {
+    return this._client.category;
+  }
+  get studioRequest() {
+    return this._client.studioRequest;
+  }
 
   // Proxy $ methods to the extended (tenant-aware) client so that
   // transactions also respect the current tenant context.
@@ -95,7 +104,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get $transaction() {
     // _client is an opaque intersection type from $extends; $transaction is
     // present at runtime but not in the static type — cast to access it.
-    return (this._client as unknown as PrismaClient).$transaction.bind(this._client);
+    return (this._client as unknown as PrismaClient).$transaction.bind(
+      this._client,
+    );
   }
   get $queryRaw() {
     return this._baseClient.$queryRaw.bind(this._baseClient);
@@ -121,6 +132,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     await this._baseClient.payment.deleteMany();
     await this._baseClient.commission.deleteMany();
     await this._baseClient.invoice.deleteMany();
+    await this._baseClient.review.deleteMany();
     await this._baseClient.booking.deleteMany();
     await this._baseClient.portfolioItem.deleteMany();
     await this._baseClient.workflow.deleteMany();
@@ -129,5 +141,6 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     await this._baseClient.user.deleteMany();
     await this._baseClient.studio.deleteMany();
     await this._baseClient.admin.deleteMany();
+    await this._baseClient.category.deleteMany();
   }
 }

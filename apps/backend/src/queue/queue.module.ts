@@ -13,7 +13,12 @@ import { CacheModule } from "../cache/cache.module";
  * of these cron jobs for per-record delayed-job scheduling.
  */
 @Module({
-  imports: [ScheduleModule.forRoot(), NotificationModule, PrismaModule, CacheModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    NotificationModule,
+    PrismaModule,
+    CacheModule,
+  ],
   providers: [QueueService],
   exports: [QueueService],
 })

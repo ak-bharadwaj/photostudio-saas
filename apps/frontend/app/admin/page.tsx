@@ -103,14 +103,14 @@ export default function AdminDashboard() {
 
   const statCards = [
     {
-      title: 'Total Studios',
+      title: 'Total Partners',
       value: analytics?.studios.total || 0,
       icon: Building2,
       color: 'text-[var(--primary)]',
       bg: 'bg-[var(--primary-light)]',
     },
     {
-      title: 'Active Studios',
+      title: 'Active Partners',
       value: analytics?.studios.active || 0,
       icon: Activity,
       color: 'text-[var(--success)]',
@@ -134,52 +134,76 @@ export default function AdminDashboard() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return <Badge variant="success" dot>{status}</Badge>;
-      case 'TRIAL': return <Badge variant="info" dot>{status}</Badge>;
-      case 'SUSPENDED': return <Badge variant="danger" dot>{status}</Badge>;
-      case 'EXPIRED': return <Badge variant="warning" dot>{status}</Badge>;
-      default: return <Badge>{status}</Badge>;
+      case 'ACTIVE':
+      case 'CONFIRMED':
+        return <Badge className="bg-primary/10 text-primary border-primary/20 py-0.5 px-3 rounded-lg font-black tracking-widest uppercase text-[8px]">{status}</Badge>;
+      case 'PENDING':
+      case 'TRIAL':
+        return <Badge className="bg-gold/10 text-gold border-gold/20 py-0.5 px-3 rounded-lg font-black tracking-widest uppercase text-[8px]">{status}</Badge>;
+      case 'SUSPENDED':
+      case 'CANCELLED':
+        return <Badge className="bg-destructive/10 text-destructive border-destructive/20 py-0.5 px-3 rounded-lg font-black tracking-widest uppercase text-[8px]">{status}</Badge>;
+      default:
+        return <Badge className="bg-foreground/10 text-foreground border-foreground/20 py-0.5 px-3 rounded-lg font-black tracking-widest uppercase text-[8px]">{status}</Badge>;
     }
   };
 
   const getTierBadge = (tier: string) => {
-    switch (tier) {
-      case 'ENTERPRISE': return <Badge variant="secondary">{tier}</Badge>;
-      case 'STUDIO': return <Badge variant="info">{tier}</Badge>;
-      case 'PROFESSIONAL': return <Badge variant="success">{tier}</Badge>;
-      case 'STARTER': return <Badge>{tier}</Badge>;
-      default: return <Badge>{tier}</Badge>;
-    }
+    return <Badge className="bg-foreground text-background border-transparent py-0.5 px-3 rounded-lg font-black tracking-widest uppercase text-[8px]">{tier}</Badge>;
   };
 
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <PageHeader
-        eyebrow="Admin"
-        title="Platform Dashboard"
-        subtitle="Overview of your Photo Studio SaaS platform"
-        accentColor="violet"
-      />
+      {/* ── CINEMATIC OVERVIEW ── */}
+      <section className="relative pt-12 pb-20 px-8 rounded-[3rem] overflow-hidden border border-white/5" style={{ background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)' }}>
+        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-primary/10 blur-[130px] rounded-full -z-10 animate-pulse-soft" />
+        <div className="absolute -bottom-20 -right-20 text-[20vw] font-black text-white/[0.015] select-none leading-none -z-10 tracking-tighter">PLATFORM</div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[var(--foreground-secondary)]">{stat.title}</p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{stat.value}</p>
-                </div>
-                <div className={`flex items-center justify-center h-11 w-11 rounded-[var(--radius-lg)] ${stat.bg}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+        <div className="max-w-full mx-auto space-y-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="space-y-4 animate-cinematic">
+              <div className="flex items-center gap-3">
+                <Badge className="bg-primary/20 text-primary border-primary/30 py-1 px-4 rounded-full font-black tracking-[0.3em] uppercase text-[9px]">
+                  SYSTEM PROTOCOL
+                </Badge>
+                <div className="h-px w-12 bg-white/10" />
+              </div>
+              <h1 className="text-6xl font-black tracking-tighter text-white leading-[0.9]">
+                PLATFORM<br />
+                <span className="text-primary italic">ANALYTICS.</span>
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-4 animate-cinematic" style={{ animationDelay: '100ms' }}>
+              <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl">
+                <Activity className="h-6 w-6 text-primary animate-pulse" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-white/40 tracking-widest uppercase">SYSTEM STATUS</p>
+                <p className="text-lg font-black text-white">OPERATIONAL</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-cinematic" style={{ animationDelay: '200ms' }}>
+            {statCards.map((stat) => (
+              <div key={stat.title} className="glass-ultra p-10 border-white/5 group hover:border-primary/40 transition-all duration-700 shadow-2xl relative overflow-hidden group">
+                <div className="absolute -top-4 -right-4 h-24 w-24 bg-primary/[0.03] blur-2xl rounded-full group-hover:bg-primary/10 transition-colors" />
+                <div className="flex flex-col justify-between h-full gap-4 relative z-10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black tracking-[0.3em] uppercase text-white/30 group-hover:text-white/60 transition-colors">{stat.title}</span>
+                    <stat.icon className={`h-4 w-4 text-white/20 group-hover:text-primary transition-colors`} />
+                  </div>
+                  <div className="text-4xl font-black tracking-tighter text-white group-hover:scale-110 origin-left transition-transform duration-700 tabular-nums">
+                    {stat.value}
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Subscription Tiers Breakdown */}
       {analytics?.studios.byTier && analytics.studios.byTier.length > 0 && (
@@ -187,7 +211,7 @@ export default function AdminDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-[var(--foreground-secondary)]" />
-              Studios by Subscription Tier
+              Partners by Subscription Tier
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -204,82 +228,84 @@ export default function AdminDashboard() {
       )}
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Studios */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-[var(--foreground-secondary)]" />
-                Recent Studios
-              </CardTitle>
-              <Link href="/admin/studios" className="text-sm text-[var(--primary)] hover:underline">
-                View all
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        {/* Recent Partners */}
+        <div className="space-y-6 animate-cinematic" style={{ animationDelay: '300ms' }}>
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-tertiary flex items-center gap-3">
+              <Building2 className="h-4 w-4 text-primary" /> PARTNER INTAKE
+            </h2>
+            <Link href="/admin/studios" className="text-[10px] font-black text-primary hover:text-primary-dark transition-colors tracking-widest uppercase">
+              REVENUE CENTER →
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-4 stagger-children">
+            {activities?.recentStudios?.length === 0 && (
+              <div className="p-12 rounded-[2.5rem] border-2 border-dashed border-border/50 text-center glass-ultra">
+                <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest">NO ASSETS DETECTED</p>
+              </div>
+            )}
+            {activities?.recentStudios?.map((studio) => (
+              <Link
+                key={studio.id}
+                href={`/admin/studios/${studio.id}`}
+                className="group flex items-center justify-between p-6 rounded-[2rem] bg-surface-1 border border-border hover:border-primary/50 hover:bg-surface-2 transition-all duration-500 shadow-sm hover:shadow-xl"
+              >
+                <div className="flex items-center gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <span className="text-xl font-black text-primary">{studio.name.charAt(0)}</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black tracking-tight group-hover:text-primary transition-colors leading-none mb-1">{studio.name}</h4>
+                    <p className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase">{formatDate(studio.createdAt)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {getTierBadge(studio.subscriptionTier)}
+                  {getStatusBadge(studio.status)}
+                </div>
               </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {activities?.recentStudios?.length === 0 && (
-                <p className="text-sm text-[var(--foreground-tertiary)] text-center py-4">No studios yet</p>
-              )}
-              {activities?.recentStudios?.map((studio) => (
-                <Link
-                  key={studio.id}
-                  href={`/admin/studios/${studio.id}`}
-                  className="flex items-center justify-between p-3 rounded-[var(--radius-md)] hover:bg-[var(--overlay-light)] transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-full bg-[var(--primary-light)] flex items-center justify-center text-xs font-bold text-[var(--primary)] shrink-0">
-                      {studio.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[var(--foreground)] truncate">{studio.name}</p>
-                      <p className="text-xs text-[var(--foreground-tertiary)]">{formatDate(studio.createdAt)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {getTierBadge(studio.subscriptionTier)}
-                    {getStatusBadge(studio.status)}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        </div>
 
         {/* Recent Bookings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-[var(--foreground-secondary)]" />
-              Recent Bookings
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {activities?.recentBookings?.length === 0 && (
-                <p className="text-sm text-[var(--foreground-tertiary)] text-center py-4">No bookings yet</p>
-              )}
-              {activities?.recentBookings?.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between p-3 rounded-[var(--radius-md)] bg-[var(--surface-1)]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-[var(--foreground)] truncate">
-                      {booking.customer?.name || 'Unknown Customer'}
-                    </p>
-                    <p className="text-xs text-[var(--foreground-tertiary)]">
-                      {booking.studio?.name} &middot; {formatDate(booking.eventDate)}
-                    </p>
+        <div className="space-y-6 animate-cinematic" style={{ animationDelay: '400ms' }}>
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-tertiary flex items-center gap-3">
+              <Calendar className="h-4 w-4 text-primary" /> ACTIVE BOOKING FLOW
+            </h2>
+            <Link href="/admin/bookings" className="text-[10px] font-black text-primary hover:text-primary-dark transition-colors tracking-widest uppercase">
+              LIVE MONITOR →
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-4 stagger-children">
+            {activities?.recentBookings?.length === 0 && (
+              <div className="p-12 rounded-[2.5rem] border-2 border-dashed border-border/50 text-center glass-ultra">
+                <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest">NO FLOW DETECTED</p>
+              </div>
+            )}
+            {activities?.recentBookings?.map((booking) => (
+              <div
+                key={booking.id}
+                className="group flex items-center justify-between p-6 rounded-[2rem] bg-surface-1 border border-border hover:border-primary/20 transition-all duration-500 shadow-sm"
+              >
+                <div className="flex items-center gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-surface-2 flex items-center justify-center border border-border group-hover:bg-primary/5 transition-all">
+                    <Users className="h-5 w-5 text-foreground-tertiary opacity-40 group-hover:text-primary transition-colors" />
                   </div>
-                  {getStatusBadge(booking.status)}
+                  <div>
+                    <h4 className="text-lg font-black tracking-tight leading-none mb-1">{booking.customer?.name}</h4>
+                    <p className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase">{booking.studio?.name} &bull; {formatDate(booking.eventDate)}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                {getStatusBadge(booking.status)}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

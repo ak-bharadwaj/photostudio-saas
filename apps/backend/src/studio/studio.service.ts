@@ -9,7 +9,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationService } from "../notification/notification.service";
 import { CreateStudioDto, UpdateStudioDto } from "./dto/studio.dto";
-import { StudioStatus, Prisma } from "@prisma/client";
+import { StudioStatus, Prisma, SubscriptionTier } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
 @Injectable()
@@ -29,7 +29,7 @@ export class StudioService {
     });
 
     if (existingStudio) {
-      throw new ConflictException("Studio slug already exists");
+      throw new ConflictException("Partner slug already exists");
     }
 
     // Check if owner email is already in use
@@ -45,46 +45,54 @@ export class StudioService {
     const passwordHash = await bcrypt.hash(dto.ownerPassword, 12);
 
     // Create studio with owner in a transaction
-    const studio = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const newStudio = await tx.studio.create({
-        data: {
-          name: dto.name,
-          slug: dto.slug,
-          email: dto.email,
-          phone: dto.phone,
-          logoUrl: dto.logoUrl,
-          brandingConfig: dto.brandingConfig as Prisma.InputJsonValue | undefined,
-          subscriptionTier: dto.subscriptionTier || "STARTER",
-          status: dto.status || "TRIAL",
-          subscriptionExpiresAt: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000,
-          ), // 14 days trial
-        },
-      });
+    const studio = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const newStudio = await tx.studio.create({
+          data: {
+            name: dto.name,
+            slug: dto.slug,
+            email: dto.email,
+            phone: dto.phone,
+            logoUrl: dto.logoUrl,
+            brandingConfig: dto.brandingConfig as
+              | Prisma.InputJsonValue
+              | undefined,
+            subscriptionTier:
+              (dto.subscriptionTier as unknown as SubscriptionTier) ||
+              ("PRO" as unknown as SubscriptionTier),
+            status: dto.status || "TRIAL",
+            subscriptionExpiresAt: new Date(
+              Date.now() + 14 * 24 * 60 * 60 * 1000,
+            ), // 14 days trial
+          },
+        });
 
-      // Create owner user
-      await tx.user.create({
-        data: {
-          email: dto.ownerEmail,
-          name: dto.ownerName,
-          passwordHash,
-          studioId: newStudio.id,
-          role: "OWNER",
-          isActive: true,
-        },
-      });
+        // Create owner user
+        await tx.user.create({
+          data: {
+            email: dto.ownerEmail,
+            name: dto.ownerName,
+            passwordHash,
+            studioId: newStudio.id,
+            role: "OWNER",
+            isActive: true,
+          },
+        });
 
-      return newStudio;
-    });
+        return newStudio;
+      },
+    );
 
     // Cache the studio (non-critical — failure must not block studio creation)
     try {
       await this.cacheService.set(`studio:slug:${studio.slug}`, studio, 3600);
     } catch (cacheErr: unknown) {
-      this.logger.error(`Failed to cache studio ${studio.id}: ${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`);
+      this.logger.error(
+        `Failed to cache studio ${studio.id}: ${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`,
+      );
     }
 
-    // Send welcome email to studio owner
+    // Send welcome email to partner owner
     try {
       await this.notificationService.sendStudioWelcome(
         dto.ownerEmail,
@@ -93,8 +101,11 @@ export class StudioService {
         studio.slug,
       );
     } catch (error: unknown) {
-      // Log error but don't fail the studio creation
-      this.logger.error("Failed to send welcome email:", error instanceof Error ? error.stack : String(error));
+      // Log error but don't fail the partner creation
+      this.logger.error(
+        "Failed to send welcome email:",
+        error instanceof Error ? error.stack : String(error),
+      );
     }
 
     return studio;
@@ -165,7 +176,7 @@ export class StudioService {
     });
 
     if (!studio) {
-      throw new NotFoundException("Studio not found");
+      throw new NotFoundException("Partner not found");
     }
 
     return studio;
@@ -194,7 +205,7 @@ export class StudioService {
     });
 
     if (!studio) {
-      throw new NotFoundException("Studio not found");
+      throw new NotFoundException("Partner not found");
     }
 
     // Cache for 1 hour
@@ -209,7 +220,7 @@ export class StudioService {
     });
 
     if (!studio) {
-      throw new NotFoundException("Studio not found");
+      throw new NotFoundException("Partner not found");
     }
 
     // Check if new slug is taken
@@ -218,7 +229,7 @@ export class StudioService {
         where: { slug: dto.slug },
       });
       if (existing) {
-        throw new ConflictException("Studio slug already exists");
+        throw new ConflictException("Partner slug already exists");
       }
     }
 
@@ -267,7 +278,7 @@ export class StudioService {
     });
 
     if (!studio) {
-      throw new NotFoundException("Studio not found");
+      throw new NotFoundException("Partner not found");
     }
 
     await this.prisma.studio.delete({
@@ -278,7 +289,7 @@ export class StudioService {
     await this.cacheService.del(`studio:slug:${studio.slug}`);
     await this.cacheService.del(`public:studio:${studio.slug}`);
 
-    return { message: "Studio deleted successfully" };
+    return { message: "Partner deleted successfully" };
   }
 
   async suspend(id: string) {
@@ -295,7 +306,7 @@ export class StudioService {
     });
 
     if (!studio) {
-      throw new NotFoundException("Studio not found");
+      throw new NotFoundException("Partner not found");
     }
 
     const updated = await this.prisma.studio.update({
@@ -316,7 +327,7 @@ export class StudioService {
     });
 
     if (!studio) {
-      throw new NotFoundException("Studio not found");
+      throw new NotFoundException("Partner not found");
     }
 
     const [

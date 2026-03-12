@@ -9,6 +9,7 @@ import { CacheModule } from "./cache/cache.module";
 import { AuthModule } from "./auth/auth.module";
 import { UserModule } from "./user/user.module";
 import { StudioModule } from "./studio/studio.module";
+import { StudioRequestModule } from "./studio-request/studio-request.module";
 import { BookingModule } from "./booking/booking.module";
 import { CustomerModule } from "./customer/customer.module";
 import { ServiceModule } from "./service/service.module";
@@ -23,7 +24,9 @@ import { PublicModule } from "./public/public.module";
 import { CustomerPortalModule } from "./customer-portal/customer-portal.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { QueueModule } from "./queue/queue.module";
+import { ReviewModule } from "./review/review.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
+import { SubscriptionGuard } from "./auth/guards/subscription.guard";
 import { TenantInterceptor } from "./common/tenant";
 import { CsrfMiddleware } from "./common/middleware/csrf.middleware";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
@@ -67,6 +70,8 @@ import * as path from "path";
     CustomerPortalModule,
     AnalyticsModule,
     QueueModule,
+    StudioRequestModule,
+    ReviewModule,
   ],
   controllers: [AppController],
   providers: [
@@ -84,6 +89,10 @@ import * as path from "path";
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: SubscriptionGuard,
     },
     {
       provide: APP_INTERCEPTOR,

@@ -176,7 +176,7 @@ export default function SettingsPage() {
     setSaving(true);
     setSaveSuccess(false);
     try {
-      const token = safeGetItem('customer_token');
+      const token = safeGetItem('accessToken');
       if (token) {
         await axios.patch(
           `${API_URL}/portal/me/preferences`,

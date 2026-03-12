@@ -34,10 +34,7 @@ export class CustomerPortalController {
   // ---------------------------------------------------------------------------
   // Helper — look up a customer by BOTH phone AND email (dual-factor).
   // ---------------------------------------------------------------------------
-  private async findCustomerByDualFactor(
-    phone: string,
-    email: string,
-  ) {
+  private async findCustomerByDualFactor(phone: string, email: string) {
     const customer = await this.prisma.customer.findFirst({
       where: { phone, email },
     });

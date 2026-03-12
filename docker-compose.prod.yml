@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: photo-studio-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-photo_studio}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - photo-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: photo-studio-redis
+    restart: always
+    networks:
+      - photo-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: photo-studio-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: https://api.${DOMAIN}/auth/google/callback
+      FRONTEND_URL: https://${DOMAIN}
+      CLOUDINARY_URL: ${CLOUDINARY_URL}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - photo-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+    container_name: photo-studio-frontend
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+    depends_on:
+      - backend
+    networks:
+      - photo-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: photo-studio-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx:/etc/nginx/templates
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+    environment:
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - photo-network
+
+networks:
+  photo-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

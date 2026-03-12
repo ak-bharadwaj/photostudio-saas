@@ -18,26 +18,27 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
 import { UserPayload } from "../common/interfaces/user-payload.interface";
+import { SkipSubscriptionCheck } from "../auth/decorators/skip-subscription-check.decorator";
 
 @Controller("studios")
 @UseGuards(RolesGuard)
 export class StudioController {
   constructor(private readonly studioService: StudioService) {}
 
-  // Admin only: Create a new studio
+  // Admin only: Create a new partner
   @Post()
   create(
     @Body() createStudioDto: CreateStudioDto,
     @CurrentUser() user: UserPayload,
   ) {
-    // Only platform admins can create studios
+    // Only platform admins can create partners
     if (!user.isAdmin) {
-      throw new ForbiddenException("Only admins can create studios");
+      throw new ForbiddenException("Only admins can create partners");
     }
     return this.studioService.create(createStudioDto);
   }
 
-  // Admin only: List all studios with pagination
+  // Admin only: List all partners with pagination
   @Get()
   findAll(
     @CurrentUser() user: UserPayload,
@@ -46,80 +47,82 @@ export class StudioController {
     @Query("status") status?: string,
   ) {
     if (!user.isAdmin) {
-      throw new ForbiddenException("Only admins can list all studios");
+      throw new ForbiddenException("Only admins can list all partners");
     }
     const pageNum = page || 1;
     const limitNum = limit || 10;
     return this.studioService.findAll(pageNum, limitNum, status);
   }
 
-  // Public: Get studio by slug (for booking page)
+  // Public: Get partner by slug (for booking page)
   @Get("slug/:slug")
   @Public()
   findBySlug(@Param("slug") slug: string) {
     return this.studioService.findBySlug(slug);
   }
 
-  // Studio owner: Get studio statistics
+  // Partner owner: Get partner statistics
   @Get(":id/stats")
   @Roles("OWNER")
   getStats(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    // Verify user owns this studio
+    // Verify user owns this partner
     if (user.studioId !== id && !user.isAdmin) {
-      throw new ForbiddenException("You do not have access to this studio");
+      throw new ForbiddenException("You do not have access to this partner");
     }
     return this.studioService.getStats(id);
   }
 
-  // Studio owner or admin: Get studio by ID
+  // Partner owner or admin: Get partner by ID
   @Get(":id")
   @Roles("OWNER", "PHOTOGRAPHER", "ASSISTANT")
+  @SkipSubscriptionCheck()
   findOne(@Param("id") id: string, @CurrentUser() user: UserPayload) {
-    // Verify user belongs to this studio or is admin
+    // Verify user belongs to this partner or is admin
     if (user.studioId !== id && !user.isAdmin) {
-      throw new ForbiddenException("You do not have access to this studio");
+      throw new ForbiddenException("You do not have access to this partner");
     }
     return this.studioService.findOne(id);
   }
 
-  // Studio owner: Update studio
+  // Partner owner: Update partner
   @Patch(":id")
   @Roles("OWNER")
+  @SkipSubscriptionCheck()
   update(
     @Param("id") id: string,
     @Body() updateStudioDto: UpdateStudioDto,
     @CurrentUser() user: UserPayload,
   ) {
-    // Verify user owns this studio
+    // Verify user owns this partner
     if (user.studioId !== id && !user.isAdmin) {
-      throw new ForbiddenException("You do not have access to this studio");
+      throw new ForbiddenException("You do not have access to this partner");
     }
     return this.studioService.update(id, updateStudioDto);
   }
 
-  // Admin only: Suspend studio
+  // Admin only: Suspend partner
   @Patch(":id/suspend")
   suspend(@Param("id") id: string, @CurrentUser() user: UserPayload) {
     if (!user.isAdmin) {
-      throw new ForbiddenException("Only admins can suspend studios");
+      throw new ForbiddenException("Only admins can suspend partners");
     }
     return this.studioService.suspend(id);
   }
 
-  // Admin only: Activate studio
+  // Admin only: Activate partner
   @Patch(":id/activate")
   activate(@Param("id") id: string, @CurrentUser() user: UserPayload) {
     if (!user.isAdmin) {
-      throw new ForbiddenException("Only admins can activate studios");
+      throw new ForbiddenException("Only admins can activate partners");
     }
     return this.studioService.activate(id);
   }
 
-  // Admin only: Delete studio
+  // Admin only: Delete partner
   @Delete(":id")
   remove(@Param("id") id: string, @CurrentUser() user: UserPayload) {
     if (!user.isAdmin) {
-      throw new ForbiddenException("Only admins can delete studios");
+      throw new ForbiddenException("Only admins can delete partners");
     }
     return this.studioService.remove(id);
   }

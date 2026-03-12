@@ -28,7 +28,9 @@ export class EmailProcessor {
       const { bookingId } = job.data;
 
       if (!bookingId) {
-        this.logger.warn(`Booking reminder job ${job.id} missing bookingId — skipping`);
+        this.logger.warn(
+          `Booking reminder job ${job.id} missing bookingId — skipping`,
+        );
         return;
       }
 
@@ -75,7 +77,9 @@ export class EmailProcessor {
       const { invoiceId } = job.data;
 
       if (!invoiceId) {
-        this.logger.warn(`Payment reminder job ${job.id} missing invoiceId — skipping`);
+        this.logger.warn(
+          `Payment reminder job ${job.id} missing invoiceId — skipping`,
+        );
         return;
       }
 
@@ -122,7 +126,9 @@ export class EmailProcessor {
       const { bookingId } = job.data;
 
       if (!bookingId) {
-        this.logger.warn(`Follow-up job ${job.id} missing bookingId — skipping`);
+        this.logger.warn(
+          `Follow-up job ${job.id} missing bookingId — skipping`,
+        );
         return;
       }
 

@@ -31,18 +31,18 @@ describe("Authentication Flow (e2e)", () => {
       return request(app.getHttpServer())
         .post("/auth/admin/login")
         .send({
-          email: "admin@photostudio.com",
+          email: "admin@reviewsfeedback.com",
           password: "Admin@123",
         })
         .expect(200)
         .expect((res) => {
           if (res.status !== 200) {
-            console.error('Admin Login Failed:', res.body);
+            console.error("Admin Login Failed:", res.body);
           }
           expect(res.body).toHaveProperty("user");
           expect(res.body).toHaveProperty("accessToken");
           expect(res.body).toHaveProperty("refreshToken");
-          expect(res.body.user.email).toBe("admin@photostudio.com");
+          expect(res.body.user.email).toBe("admin@reviewsfeedback.com");
         });
     });
 
@@ -50,7 +50,7 @@ describe("Authentication Flow (e2e)", () => {
       return request(app.getHttpServer())
         .post("/auth/admin/login")
         .send({
-          email: "admin@photostudio.com",
+          email: "admin@reviewsfeedback.com",
           password: "wrongpassword",
         })
         .expect(401);

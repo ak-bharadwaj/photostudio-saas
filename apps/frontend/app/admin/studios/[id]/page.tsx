@@ -24,6 +24,7 @@ import {
   Save,
   Mail,
   Phone,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
@@ -39,6 +40,7 @@ interface StudioDetail {
   logoUrl: string | null;
   brandingConfig: Record<string, unknown> | null;
   defaultTerms: string | null;
+  isRecommended: boolean;
   createdAt: string;
   updatedAt: string;
   subscriptionExpiresAt: string | null;
@@ -53,10 +55,11 @@ interface StudioDetail {
     customers: number;
     services: number;
     invoices: number;
+    users: number;
   };
 }
 
-export default function StudioDetailPage() {
+export default function PartnerDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { addToast } = useToast();
@@ -70,10 +73,13 @@ export default function StudioDetailPage() {
   // Edit form state
   const [editData, setEditData] = useState({
     name: '',
+    slug: '',
     email: '',
     phone: '',
     subscriptionTier: '',
     defaultTerms: '',
+    isRecommended: false,
+    subscriptionExpiresAt: '',
   });
 
   // Confirm modal
@@ -86,18 +92,21 @@ export default function StudioDetailPage() {
   const loadStudio = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await adminApi.getStudio(studioId);
+      const res = await adminApi.getPartner(studioId);
       setStudio(res.data);
       setEditData({
         name: res.data.name,
+        slug: res.data.slug,
         email: res.data.email || '',
         phone: res.data.phone || '',
         subscriptionTier: res.data.subscriptionTier,
         defaultTerms: res.data.defaultTerms || '',
+        isRecommended: res.data.isRecommended || false,
+        subscriptionExpiresAt: res.data.subscriptionExpiresAt ? res.data.subscriptionExpiresAt.split('T')[0] : '',
       });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      addToast('error', e.response?.data?.message || 'Failed to load studio');
+      addToast('error', e.response?.data?.message || 'Failed to load partner');
     } finally {
       setLoading(false);
     }
@@ -110,14 +119,17 @@ export default function StudioDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await adminApi.updateStudio(studioId, {
+      await adminApi.updatePartner(studioId, {
         name: editData.name,
+        slug: editData.slug,
         email: editData.email,
         phone: editData.phone,
         subscriptionTier: editData.subscriptionTier,
         defaultTerms: editData.defaultTerms,
+        isRecommended: editData.isRecommended,
+        subscriptionExpiresAt: editData.subscriptionExpiresAt || undefined,
       });
-      addToast('success', 'Studio updated successfully');
+      addToast('success', 'Partner updated successfully');
       setEditMode(false);
       loadStudio();
     } catch (err: unknown) {
@@ -132,14 +144,14 @@ export default function StudioDetailPage() {
     setActionLoading(true);
     try {
       if (confirmModal.action === 'suspend') {
-        await adminApi.suspendStudio(studioId);
-        addToast('success', 'Studio suspended');
+        await adminApi.suspendPartner(studioId);
+        addToast('success', 'Partner suspended');
       } else if (confirmModal.action === 'activate') {
-        await adminApi.activateStudio(studioId);
-        addToast('success', 'Studio activated');
+        await adminApi.activatePartner(studioId);
+        addToast('success', 'Partner activated');
       } else if (confirmModal.action === 'delete') {
-        await adminApi.deleteStudio(studioId);
-        addToast('success', 'Studio deleted');
+        await adminApi.deletePartner(studioId);
+        addToast('success', 'Partner deleted');
         router.push('/admin/studios');
         return;
       }
@@ -176,9 +188,9 @@ export default function StudioDetailPage() {
   if (!studio) {
     return (
       <div className="text-center py-20">
-        <p className="text-[var(--foreground-secondary)]">Studio not found</p>
+        <p className="text-[var(--foreground-secondary)]">Partner not found</p>
         <Link href="/admin/studios" className="mt-4 text-sm text-[var(--primary)] hover:underline">
-          Back to Studios
+          Back to Partners
         </Link>
       </div>
     );
@@ -192,7 +204,7 @@ export default function StudioDetailPage() {
         className="inline-flex items-center gap-2 text-sm text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Studios
+        Back to Partners
       </Link>
 
       {/* Page Header */}
@@ -219,7 +231,7 @@ export default function StudioDetailPage() {
             rel="noopener noreferrer"
           >
             <Button variant="outline" size="sm" leftIcon={<ExternalLink className="h-4 w-4" />}>
-              Public Page
+              Partner Profile
             </Button>
           </a>
           {studio.status === 'ACTIVE' || studio.status === 'TRIAL' ? (
@@ -255,7 +267,7 @@ export default function StudioDetailPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Staff Users', value: studio.users?.length || 0, icon: Users, color: 'text-[var(--primary)]', bg: 'bg-[var(--primary-light)]' },
+          { label: 'Staff Users', value: studio._count?.users || 0, icon: Users, color: 'text-[var(--primary)]', bg: 'bg-[var(--primary-light)]' },
           { label: 'Services', value: studio._count?.services || 0, icon: Layers, color: 'text-[var(--accent)]', bg: 'bg-[var(--accent-light)]' },
           { label: 'Bookings', value: studio._count?.bookings || 0, icon: Calendar, color: 'text-[var(--success)]', bg: 'bg-[var(--success-light)]' },
           { label: 'Invoices', value: studio._count?.invoices || 0, icon: FileText, color: 'text-[var(--warning)]', bg: 'bg-[var(--warning-light)]' },
@@ -283,7 +295,7 @@ export default function StudioDetailPage() {
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Building2 className="h-5 w-5 text-[var(--foreground-secondary)]" />
-                Studio Details
+                Partner Details
               </CardTitle>
               <CardDescription>Created on {formatDate(studio.createdAt)}</CardDescription>
             </div>
@@ -305,10 +317,10 @@ export default function StudioDetailPage() {
         </CardHeader>
         <CardContent>
           {editMode ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Studio Name"
+                  label="Partner Name"
                   value={editData.name}
                   onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
                 />
@@ -317,13 +329,48 @@ export default function StudioDetailPage() {
                   value={editData.subscriptionTier}
                   onChange={(e) => setEditData((p) => ({ ...p, subscriptionTier: e.target.value }))}
                   options={[
-                    { value: 'STARTER', label: 'Starter' },
-                    { value: 'PROFESSIONAL', label: 'Professional' },
-                    { value: 'STUDIO', label: 'Studio' },
-                    { value: 'ENTERPRISE', label: 'Enterprise' },
+                    { value: 'PRO', label: 'Pro Plan' },
                   ]}
                 />
               </div>
+              
+              <div className="p-4 rounded-xl bg-[var(--primary-light)] border border-[var(--primary)]/20 space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-[var(--primary)] uppercase tracking-widest mb-2 block">Quick Duration Renewal</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: '+30 Days', days: 30 },
+                      { label: '+90 Days', days: 90 },
+                      { label: '+1 Year', days: 365 },
+                      { label: '+2 Years', days: 730 },
+                    ].map((opt) => (
+                      <Button
+                        key={opt.label}
+                        variant="outline"
+                        size="xs"
+                        className="bg-white border-[var(--primary)]/30 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white"
+                        onClick={() => {
+                          const base = editData.subscriptionExpiresAt 
+                            ? new Date(editData.subscriptionExpiresAt) 
+                            : new Date();
+                          const next = new Date(base.getTime() + opt.days * 24 * 60 * 60 * 1000);
+                          setEditData(p => ({ ...p, subscriptionExpiresAt: next.toISOString().split('T')[0] }));
+                        }}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <Input
+                  label="Subscription Expiry Date"
+                  type="date"
+                  className="bg-white"
+                  value={editData.subscriptionExpiresAt}
+                  onChange={(e) => setEditData((p) => ({ ...p, subscriptionExpiresAt: e.target.value }))}
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label="Email"
@@ -337,6 +384,12 @@ export default function StudioDetailPage() {
                   onChange={(e) => setEditData((p) => ({ ...p, phone: e.target.value }))}
                 />
               </div>
+              <Input
+                label="URL Slug"
+                value={editData.slug}
+                onChange={(e) => setEditData((p) => ({ ...p, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') }))}
+                placeholder="my-awesome-partner"
+              />
               <Textarea
                 label="Default Terms & Conditions"
                 value={editData.defaultTerms}
@@ -352,7 +405,7 @@ export default function StudioDetailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-[var(--foreground-tertiary)] uppercase tracking-wider">Slug</p>
-                <p className="mt-0.5 text-sm text-[var(--foreground)]">{studio.slug}</p>
+                <p className="mt-0.5 text-sm text-[var(--foreground)] text-[var(--primary)] font-mono">{studio.slug}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-[var(--foreground-tertiary)] uppercase tracking-wider">Email</p>
@@ -364,18 +417,21 @@ export default function StudioDetailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-[var(--foreground-tertiary)] uppercase tracking-wider">Subscription Tier</p>
-                <p className="mt-0.5 text-sm text-[var(--foreground)]">{studio.subscriptionTier}</p>
+                <Badge variant="info">Pro Plan</Badge>
               </div>
               <div>
                 <p className="text-xs font-medium text-[var(--foreground-tertiary)] uppercase tracking-wider">Subscription Expires</p>
-                <p className="mt-0.5 text-sm text-[var(--foreground)]">
-                  {studio.subscriptionExpiresAt ? formatDate(studio.subscriptionExpiresAt) : 'N/A'}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Calendar className="h-3.5 w-3.5 text-[var(--foreground-tertiary)]" />
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    {studio.subscriptionExpiresAt ? formatDate(studio.subscriptionExpiresAt) : 'N/A'}
+                  </p>
+                </div>
               </div>
               {studio.defaultTerms && (
                 <div className="sm:col-span-2">
                   <p className="text-xs font-medium text-[var(--foreground-tertiary)] uppercase tracking-wider">Default Terms</p>
-                  <p className="mt-0.5 text-sm text-[var(--foreground)] whitespace-pre-wrap">{studio.defaultTerms}</p>
+                  <p className="mt-0.5 text-sm text-[var(--foreground)] whitespace-pre-wrap line-clamp-3 overflow-hidden">{studio.defaultTerms}</p>
                 </div>
               )}
             </div>
@@ -383,12 +439,52 @@ export default function StudioDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Recommended Toggle */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Star className="h-5 w-5 text-yellow-500" />
+                Featured on Homepage
+              </CardTitle>
+              <CardDescription>
+                When enabled, this partner appears in the &quot;Recommended Partners&quot; section on the homepage.
+              </CardDescription>
+            </div>
+            <button
+              onClick={async () => {
+                const newVal = !(studio.isRecommended);
+                try {
+                  await adminApi.updatePartner(studioId, { isRecommended: newVal });
+                  addToast('success', newVal ? 'Partner marked as recommended' : 'Partner removed from recommended');
+                  loadStudio();
+                } catch {
+                  addToast('error', 'Failed to update recommendation status');
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full border-2 transition-colors ${
+                studio.isRecommended
+                  ? 'bg-yellow-500 border-yellow-500'
+                  : 'bg-foreground/10 border-transparent'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  studio.isRecommended ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </CardHeader>
+      </Card>
+
       {/* Team Members */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-5 w-5 text-[var(--foreground-secondary)]" />
-            Team Members ({studio.users?.length || 0})
+            Team Members ({studio._count?.users || 0})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -421,10 +517,10 @@ export default function StudioDetailPage() {
         onClose={() => setConfirmModal({ open: false, action: 'suspend' })}
         title={
           confirmModal.action === 'delete'
-            ? 'Delete Studio'
+            ? 'Delete Partner'
             : confirmModal.action === 'suspend'
-              ? 'Suspend Studio'
-              : 'Activate Studio'
+              ? 'Suspend Partner'
+              : 'Activate Partner'
         }
         description={
           confirmModal.action === 'delete'

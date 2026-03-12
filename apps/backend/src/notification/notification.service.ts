@@ -50,7 +50,12 @@ interface PaymentReminderData {
   status: string;
   payments: Array<{ amount: unknown }>;
   customer: { name: string; email: string | null };
-  studio: { name: string; email: string; phone: string | null; currency?: string | null };
+  studio: {
+    name: string;
+    email: string;
+    phone: string | null;
+    currency?: string | null;
+  };
 }
 
 interface FollowUpEmailData {
@@ -356,7 +361,9 @@ export class NotificationService {
 
     const frontendUrl = this.configService.get<string>("FRONTEND_URL");
     if (!frontendUrl) {
-      this.logger.error("FRONTEND_URL env var is not set — cannot build email links");
+      this.logger.error(
+        "FRONTEND_URL env var is not set — cannot build email links",
+      );
     }
     const baseUrl = frontendUrl ?? "";
 
@@ -518,7 +525,9 @@ export class NotificationService {
 
     const frontendUrl = this.configService.get<string>("FRONTEND_URL");
     if (!frontendUrl) {
-      this.logger.error("FRONTEND_URL env var is not set — cannot build email links");
+      this.logger.error(
+        "FRONTEND_URL env var is not set — cannot build email links",
+      );
     }
     const baseUrl = frontendUrl ?? "";
 
@@ -539,7 +548,8 @@ export class NotificationService {
         : "Not specified";
 
       const paidAmount = invoice.payments.reduce(
-        (sum: number, payment: { amount: unknown }) => sum + Number(payment.amount),
+        (sum: number, payment: { amount: unknown }) =>
+          sum + Number(payment.amount),
         0,
       );
       const remainingAmount = Number(invoice.total) - paidAmount;
@@ -622,7 +632,9 @@ export class NotificationService {
 
     const frontendUrl = this.configService.get<string>("FRONTEND_URL");
     if (!frontendUrl) {
-      this.logger.error("FRONTEND_URL env var is not set — cannot build email links");
+      this.logger.error(
+        "FRONTEND_URL env var is not set — cannot build email links",
+      );
     }
     const baseUrl = frontendUrl ?? "";
 

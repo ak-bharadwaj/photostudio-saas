@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Studio booking page";
+export const alt = "Partner booking page";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -42,9 +42,9 @@ export default async function Image({
   const { slug } = await params;
   const studio = await fetchStudio(slug);
 
-  const studioName = studio?.name ?? "Photography Studio";
+  const studioName = studio?.name ?? "Partner Experience";
   const tagline =
-    studio?.brandingConfig?.tagline ?? "Premium Photography Services";
+    studio?.brandingConfig?.tagline ?? "Premium Partner Services";
   const location =
     studio?.brandingConfig?.city && studio?.brandingConfig?.state
       ? `${studio.brandingConfig.city}, ${studio.brandingConfig.state}`

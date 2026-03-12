@@ -67,7 +67,7 @@ export class QueueService {
 
     try {
       const now = new Date();
-      const windowStart = addDays(now, 1);   // 24 h from now
+      const windowStart = addDays(now, 1); // 24 h from now
       const windowEnd = new Date(windowStart.getTime() + 60 * 60 * 1000); // +1 h
 
       const bookings = await this.prisma.booking.findMany({
@@ -85,7 +85,9 @@ export class QueueService {
           const idempotencyKey = `reminder_sent:booking:${booking.id}`;
           const alreadySent = await this.cacheService.get(idempotencyKey);
           if (alreadySent) {
-            this.logger.log(`Reminder already sent for booking ${booking.id}, skipping`);
+            this.logger.log(
+              `Reminder already sent for booking ${booking.id}, skipping`,
+            );
             continue;
           }
           await this.notificationService.sendBookingReminder(booking);
@@ -98,7 +100,10 @@ export class QueueService {
         }
       }
     } catch (error: unknown) {
-      this.logger.error(`checkUpcomingBookings failed: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `checkUpcomingBookings failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 
@@ -134,7 +139,9 @@ export class QueueService {
           const idempotencyKey = `reminder_sent:invoice:${invoice.id}:${dateKey}`;
           const alreadySent = await this.cacheService.get(idempotencyKey);
           if (alreadySent) {
-            this.logger.log(`Payment reminder already sent for invoice ${invoice.id} today, skipping`);
+            this.logger.log(
+              `Payment reminder already sent for invoice ${invoice.id} today, skipping`,
+            );
             continue;
           }
           await this.notificationService.sendPaymentReminder(invoice);
@@ -147,7 +154,10 @@ export class QueueService {
         }
       }
     } catch (error: unknown) {
-      this.logger.error(`checkOverdueInvoices failed: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `checkOverdueInvoices failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 
@@ -156,7 +166,9 @@ export class QueueService {
    */
   @Cron(CronExpression.EVERY_DAY_AT_10AM)
   async checkCompletedBookings() {
-    this.logger.log("Cron: checking recently completed bookings for follow-ups…");
+    this.logger.log(
+      "Cron: checking recently completed bookings for follow-ups…",
+    );
 
     try {
       const completedBookings = await this.prisma.booking.findMany({
@@ -179,7 +191,9 @@ export class QueueService {
           const idempotencyKey = `followup_sent:booking:${booking.id}`;
           const alreadySent = await this.cacheService.get(idempotencyKey);
           if (alreadySent) {
-            this.logger.log(`Follow-up already sent for booking ${booking.id}, skipping`);
+            this.logger.log(
+              `Follow-up already sent for booking ${booking.id}, skipping`,
+            );
             continue;
           }
           await this.notificationService.sendFollowUpEmail(booking);
@@ -192,7 +206,10 @@ export class QueueService {
         }
       }
     } catch (error: unknown) {
-      this.logger.error(`checkCompletedBookings failed: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `checkCompletedBookings failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 }

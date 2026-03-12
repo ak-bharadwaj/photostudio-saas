@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LogOut, ChevronLeft, Camera } from 'lucide-react';
+import { LogOut, ChevronLeft, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from './sidebar-context';
@@ -31,7 +31,9 @@ export const Sidebar: React.FC = () => {
   };
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
+    if (href === '/dashboard' || href === '/') {
+      return pathname === '/dashboard' || pathname === '/';
+    }
     return pathname === href || pathname?.startsWith(href + '/');
   };
 
@@ -52,8 +54,8 @@ export const Sidebar: React.FC = () => {
         isMobile
           ? 'w-[var(--sidebar-width)]'
           : isCollapsed
-          ? 'w-[var(--sidebar-collapsed-width)]'
-          : 'w-[var(--sidebar-width)]',
+            ? 'w-[var(--sidebar-collapsed-width)]'
+            : 'w-[var(--sidebar-width)]',
       )}
     >
       {/* ---- Logo / Studio Name ---- */}
@@ -80,7 +82,7 @@ export const Sidebar: React.FC = () => {
             {logoUrl ? (
               <Image
                 src={logoUrl}
-                alt={user?.studio?.name || 'Studio logo'}
+                alt={user?.studio?.name || 'Partner logo'}
                 width={36}
                 height={36}
                 className="h-full w-full object-cover"
@@ -89,7 +91,7 @@ export const Sidebar: React.FC = () => {
                 }}
               />
             ) : (
-              <Camera className="h-5 w-5 text-white" />
+              <MessageSquare className="h-5 w-5 text-white" />
             )}
           </div>
 
@@ -99,7 +101,7 @@ export const Sidebar: React.FC = () => {
               className="text-[15px] font-bold tracking-tight truncate font-heading"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
-              {user?.studio?.name || 'PhotoStudio'}
+              {user?.studio?.name || 'ReviewsFeedback'}
             </span>
           )}
         </Link>
@@ -113,7 +115,7 @@ export const Sidebar: React.FC = () => {
               'text-[var(--sidebar-text)] hover:bg-white/10 hover:text-white',
               'transition-all duration-200',
               isCollapsed &&
-                'absolute -right-3 top-4 bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] shadow-[var(--shadow-md)] z-10',
+              'absolute -right-3 top-4 bg-[var(--sidebar-bg)] border border-[var(--sidebar-border)] shadow-[var(--shadow-md)] z-10',
             )}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -150,16 +152,16 @@ export const Sidebar: React.FC = () => {
                     : 'px-3 py-2.5',
                   active
                     ? [
-                        'bg-gradient-to-r from-white/10 to-white/5',
-                        'text-white',
-                        'before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2',
-                        'before:w-0.5 before:h-5 before:rounded-full',
-                        'before:bg-gradient-to-b before:from-[var(--primary)] before:to-[var(--accent)]',
-                      ].join(' ')
+                      'bg-gradient-to-r from-white/10 to-white/5',
+                      'text-white',
+                      'before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2',
+                      'before:w-0.5 before:h-5 before:rounded-full',
+                      'before:bg-gradient-to-b before:from-[var(--primary)] before:to-[var(--accent)]',
+                    ].join(' ')
                     : [
-                        'text-[var(--sidebar-text)]',
-                        'hover:bg-white/5 hover:text-white',
-                      ].join(' '),
+                      'text-[var(--sidebar-text)]',
+                      'hover:bg-white/5 hover:text-white',
+                    ].join(' '),
                 )}
               >
                 {/* Icon with gradient bg when active */}

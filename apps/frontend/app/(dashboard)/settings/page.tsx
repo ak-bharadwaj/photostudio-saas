@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
-import { studiosApi, authApi } from '@/lib/api';
+import { partnersApi, authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { Save, Building2, User, Sparkles, Lock, Wand2, Copy, ExternalLink, CheckCircle2, AlertCircle, Globe } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
@@ -130,7 +130,7 @@ export default function SettingsPage() {
       const userData = response.data.user;
 
       if (userData.studioId) {
-        const studioResponse = await studiosApi.getOne(userData.studioId);
+        const studioResponse = await partnersApi.getOne(userData.studioId);
         const studioData = studioResponse.data;
         setStudio(studioData);
 
@@ -162,7 +162,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       if ((error as { name?: string }).name === 'CanceledError') return;
-      addToast('error', 'Failed to load studio settings');
+      addToast('error', 'Failed to load partner settings');
     } finally {
       if (!abortRef.current?.signal.aborted) setIsLoading(false);
     }
@@ -188,7 +188,7 @@ export default function SettingsPage() {
     }
 
     if (!profileForm.name.trim()) {
-      addToast('error', 'Studio name is required');
+      addToast('error', 'Partner name is required');
       return;
     }
 
@@ -198,12 +198,12 @@ export default function SettingsPage() {
     }
 
     if (profileForm.slug.length < 3) {
-      addToast('error', 'Studio slug must be at least 3 characters');
+      addToast('error', 'Partner slug must be at least 3 characters');
       return;
     }
 
     if (profileForm.slug.length > 50) {
-      addToast('error', 'Studio slug must be 50 characters or fewer');
+      addToast('error', 'Partner slug must be 50 characters or fewer');
       return;
     }
 
@@ -212,7 +212,7 @@ export default function SettingsPage() {
 
       const slugDidChange = profileForm.slug !== studio.slug;
 
-      await studiosApi.update(studio.id, {
+      await partnersApi.update(studio.id, {
         name: profileForm.name,
         email: profileForm.email,
         phone: profileForm.phone,
@@ -226,13 +226,13 @@ export default function SettingsPage() {
       });
 
       await loadStudio();
-      addToast('success', 'Studio profile saved successfully');
+      addToast('success', 'Partner profile saved successfully');
       if (slugDidChange) {
         addToast('warning', 'Booking URL changed — old links and QR codes are now invalid.');
       }
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      addToast('error', error.response?.data?.message || 'Failed to save studio profile');
+      addToast('error', error.response?.data?.message || 'Failed to save partner profile');
     } finally {
       setIsSavingProfile(false);
     }
@@ -250,7 +250,7 @@ export default function SettingsPage() {
     try {
       setIsSavingBranding(true);
 
-      await studiosApi.update(studio.id, {
+      await partnersApi.update(studio.id, {
         brandingConfig: {
           primaryColor: brandingForm.primaryColor,
           secondaryColor: brandingForm.secondaryColor,
@@ -319,8 +319,8 @@ export default function SettingsPage() {
     return (
       <div className="text-center py-12">
         <Building2 className="mx-auto h-12 w-12 text-[var(--foreground-tertiary)]" />
-        <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">Studio not found</h3>
-        <p className="mt-1 text-sm text-[var(--foreground-secondary)]">Unable to load studio settings.</p>
+        <h3 className="mt-2 text-sm font-semibold text-[var(--foreground)]">Partner not found</h3>
+        <p className="mt-1 text-sm text-[var(--foreground-secondary)]">Unable to load partner settings.</p>
       </div>
     );
   }
@@ -329,8 +329,8 @@ export default function SettingsPage() {
     <div className="space-y-8 max-w-4xl page-enter pb-12">
       <PageHeader
         eyebrow="Configuration"
-        title="Studio Settings"
-        subtitle="Manage your studio profile and premium preferences."
+        title="Partner Settings"
+        subtitle="Manage your partner profile and premium preferences."
         accentColor="violet"
       />
 
@@ -347,7 +347,7 @@ export default function SettingsPage() {
             <div className="p-4 rounded-xl bg-[var(--surface-1)] border border-[var(--border)]">
               <p className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Current Plan</p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)] capitalize">
-                {studio.subscriptionTier.toLowerCase().replace('_', ' ')}
+                Pro Plan
               </p>
             </div>
             <div className="p-4 rounded-xl bg-[var(--surface-1)] border border-[var(--border)]">
@@ -377,14 +377,14 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <User className="mr-2 h-5 w-5 text-[var(--primary)]" />
-              Studio Identity
+              Partner Identity
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-8">
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
-                label="Studio Name"
+                label="Partner Name"
                 id="name"
                 name="name"
                 type="text"
@@ -425,7 +425,7 @@ export default function SettingsPage() {
                   {/* Prefix */}
                   <div className="flex items-center gap-1.5 pl-4 pr-3 bg-[var(--surface-1)] border-r border-[var(--border)] shrink-0 select-none">
                     <Globe className="h-3.5 w-3.5 text-[var(--foreground-tertiary)]" />
-                    <span className="text-sm font-mono text-[var(--foreground-tertiary)] whitespace-nowrap">/studio/</span>
+                    <span className="text-sm font-mono text-[var(--foreground-tertiary)] whitespace-nowrap">/partner/</span>
                   </div>
 
                   {/* Editable slug */}
@@ -439,7 +439,7 @@ export default function SettingsPage() {
                       setSlugChanged(value !== (studio?.slug || ''));
                     }}
                     className="flex-1 min-w-0 bg-transparent px-3 text-[15px] font-mono font-medium text-[var(--foreground)] outline-none placeholder:text-[var(--foreground-tertiary)]/60"
-                    placeholder="my-studio"
+                    placeholder="my-business"
                     spellCheck={false}
                     autoComplete="off"
                   />
@@ -493,9 +493,9 @@ export default function SettingsPage() {
                   <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--foreground-tertiary)] mb-1.5">Your public booking link</p>
                   <p className="text-sm font-mono leading-relaxed break-all">
                     <span className="text-[var(--foreground-tertiary)]">
-                      {typeof window !== 'undefined' ? window.location.origin : 'https://photostudio-saas-frontend.vercel.app'}
+                      {typeof window !== 'undefined' ? window.location.origin : 'https://reviewsfeedback-saas-frontend.vercel.app'}
                     </span>
-                    <span className="text-[var(--primary)] font-bold">/studio/</span>
+                    <span className="text-[var(--primary)] font-bold">/partner/</span>
                     <span className="text-[var(--foreground)] font-bold">{profileForm.slug || <span className="text-[var(--foreground-tertiary)] font-normal italic">your-slug</span>}</span>
                   </p>
                 </div>
@@ -603,9 +603,9 @@ export default function SettingsPage() {
               <Textarea
                 id="description"
                 name="description"
-                label="Studio Story / About"
+                label="Partner Story / About"
                 rows={4}
-                placeholder="Tell customers about your unique photography style, experience, and what makes your studio special..."
+                placeholder="Tell customers about your unique business approach, experience, and what makes your reviews special..."
                 value={profileForm.description}
                 onChange={handleProfileChange}
               />
@@ -782,7 +782,7 @@ export default function SettingsPage() {
                   placeholder="e.g. Capture Your Eternal Story"
                   value={brandingForm.headerText}
                   onChange={(e) => setBrandingForm(prev => ({ ...prev, headerText: e.target.value }))}
-                  helperText="Defaults to your Studio Name if empty."
+                  helperText="Defaults to your Partner Name if empty."
                 />
                 <Input
                   label="Emotional Tagline"

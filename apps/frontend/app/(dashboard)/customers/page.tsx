@@ -23,7 +23,10 @@ interface Customer {
   name: string;
   email: string;
   phone?: string;
-  address?: string;
+  metadata?: {
+    address?: string;
+    notes?: string;
+  };
   createdAt: string;
 }
 
@@ -38,8 +41,8 @@ const CUSTOMERS_PAGE_SIZE = 20;
 
 const customerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  phone: z.string().optional(),
+  email: z.union([z.literal(''), z.string().email('Please enter a valid email address')]).optional(),
+  phone: z.string().min(1, 'Phone is required').regex(/^\+?[\d\s\-().]{7,20}$/, 'Invalid phone format'),
   address: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -132,7 +135,20 @@ function CustomersPage() {
   const onCreateCustomer = async (data: CustomerFormData) => {
     try {
       setIsSubmitting(true);
-      await customersApi.create(data);
+      const payload: any = {
+        name: data.name,
+        phone: data.phone,
+      };
+      if (data.email) payload.email = data.email;
+      
+      const metadata: any = {};
+      if (data.address) metadata.address = data.address;
+      if (data.notes) metadata.notes = data.notes;
+      if (Object.keys(metadata).length > 0) {
+        payload.metadata = metadata;
+      }
+
+      await customersApi.create(payload);
 
       addToast('success', 'Customer created successfully');
       setIsCreateModalOpen(false);
@@ -199,57 +215,107 @@ function CustomersPage() {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customers.map((customer: Customer) => (
-                  <TableRow key={customer.id}>
-                    <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-[var(--foreground-tertiary)]" />
-                        <a
-                          href={`mailto:${customer.email}`}
-                          className="text-[var(--primary)] hover:underline"
-                        >
-                          {customer.email}
-                        </a>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {customer.phone ? (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-[var(--foreground-tertiary)]" />
-                          <a
-                            href={`tel:${customer.phone}`}
-                            className="text-[var(--primary)] hover:underline"
-                          >
-                            {formatPhoneNumber(customer.phone)}
-                          </a>
+            <>
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {customers.map((customer: Customer) => (
+                      <TableRow key={customer.id}>
+                        <TableCell className="font-medium">{customer.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-[var(--foreground-tertiary)]" />
+                            <a
+                              href={`mailto:${customer.email}`}
+                              className="text-[var(--primary)] hover:underline"
+                            >
+                              {customer.email}
+                            </a>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {customer.phone ? (
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-[var(--foreground-tertiary)]" />
+                              <a
+                                href={`tel:${customer.phone}`}
+                                className="text-[var(--primary)] hover:underline"
+                              >
+                                {formatPhoneNumber(customer.phone)}
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-[var(--foreground-tertiary)]">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Link href={`/customers/${customer.id}`}>
+                            <Button variant="ghost" size="sm">
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List (Visible on mobile) */}
+              <div className="sm:hidden grid grid-cols-1 gap-4">
+                {customers.map((customer) => (
+                  <div key={customer.id} className="border border-border/40 rounded-2xl overflow-hidden bg-surface-0 shadow-sm">
+                    <div className="p-4 flex items-center justify-between border-b border-border/10 bg-surface-1/30">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">
+                          {customer.name[0].toUpperCase()}
                         </div>
-                      ) : (
-                        <span className="text-[var(--foreground-tertiary)]">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
+                        <div>
+                          <p className="font-bold text-sm tracking-tight">{customer.name}</p>
+                          <p className="text-[9px] text-foreground-tertiary font-black uppercase tracking-widest truncate">
+                            {customer.email}
+                          </p>
+                        </div>
+                      </div>
                       <Link href={`/customers/${customer.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                        <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0">
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </Link>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                    <div className="px-4 py-3 flex gap-4">
+                      <div className="flex flex-1 items-center gap-2 text-[10px] font-bold text-foreground-tertiary">
+                        <Mail className="h-3 w-3 opacity-40 text-primary" /> EMAIL
+                      </div>
+                      <div className="flex flex-1 items-center gap-2 text-[10px] font-bold text-foreground-tertiary">
+                        <Phone className="h-3 w-3 opacity-40 text-primary" /> PHONE
+                      </div>
+                    </div>
+                    <div className="px-4 pb-4 flex gap-4">
+                      <div className="flex-1 min-w-0">
+                        <a href={`mailto:${customer.email}`} className="text-xs font-bold text-primary truncate block hover:underline">
+                          {customer.email.split('@')[0]}...
+                        </a>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <a href={`tel:${customer.phone}`} className="text-xs font-bold text-primary truncate block hover:underline">
+                          {customer.phone ? formatPhoneNumber(customer.phone) : '—'}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}

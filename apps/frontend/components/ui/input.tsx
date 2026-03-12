@@ -62,12 +62,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             aria-invalid={error ? 'true' : undefined}
             aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
+            suppressHydrationWarning
             {...props}
           />
           {rightIcon && (
             <div
               className={cn(
-                'absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none',
+                'absolute inset-y-0 right-0 flex items-center pr-3',
                 'text-[var(--foreground-tertiary)] transition-colors duration-150',
                 'group-focus-within:text-[var(--primary)]',
               )}
@@ -140,6 +141,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           aria-invalid={error ? 'true' : undefined}
           aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
+          suppressHydrationWarning
           {...props}
         />
         {error && (
@@ -205,6 +207,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           )}
           ref={ref}
           aria-invalid={error ? 'true' : undefined}
+          suppressHydrationWarning
           {...props}
         >
           {placeholder && (

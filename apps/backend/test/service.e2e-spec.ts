@@ -32,7 +32,9 @@ describe("Service Flow (e2e)", () => {
     // Clean up created services
     const ids = [serviceId, serviceId2].filter(Boolean);
     if (ids.length) {
-      await prisma.service.deleteMany({ where: { id: { in: ids } } }).catch(() => {});
+      await prisma.service
+        .deleteMany({ where: { id: { in: ids } } })
+        .catch(() => {});
     }
     await app.close();
   });

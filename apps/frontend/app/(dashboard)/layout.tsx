@@ -9,6 +9,7 @@ import { BgMeshEngine } from '@/components/ui/bg-mesh-engine';
 import { useAuthStore } from '@/lib/auth-store';
 import { LoadingPage } from '@/components/ui/loading';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { SubscriptionWarning, SubscriptionExpiredBlock } from '@/components/dashboard/subscription-status';
 
 export default function DashboardLayout({
   children,
@@ -35,7 +36,7 @@ export default function DashboardLayout({
   }, [user, isLoading, loadUser, router]);
 
   if (!mounted || isLoading) {
-    return <LoadingPage message="Setting up your studio..." />;
+    return <LoadingPage message="Preparing your workspace..." />;
   }
 
   if (!user) {
@@ -47,6 +48,9 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="relative flex h-screen overflow-hidden">
+        {/* Subscription Lock Screen */}
+        {!isSimplified && <SubscriptionExpiredBlock />}
+
         {/* Dynamic Background */}
         <BgMeshEngine />
 
@@ -63,6 +67,9 @@ export default function DashboardLayout({
             {/* animate-luxury-in is keyed by pathname so it re-runs on route changes,
                 but NOT on the outer shell which would flicker the sidebar */}
             <div key={pathname} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8 animate-luxury-in">
+              {/* Expiry Warning Banner */}
+              {!isSimplified && <SubscriptionWarning />}
+              
               <ErrorBoundary>
                 {children}
               </ErrorBoundary>

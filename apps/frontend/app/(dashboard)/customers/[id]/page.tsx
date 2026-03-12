@@ -23,8 +23,10 @@ interface Customer {
   name: string;
   email: string;
   phone?: string;
-  address?: string;
-  notes?: string;
+  metadata?: {
+    address?: string;
+    notes?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -55,8 +57,8 @@ interface Invoice {
 
 const customerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  phone: z.string().optional(),
+  email: z.union([z.literal(''), z.string().email('Please enter a valid email address')]).optional(),
+  phone: z.string().min(1, 'Phone is required').regex(/^\+?[\d\s\-().]{7,20}$/, 'Invalid phone format'),
   address: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -109,8 +111,8 @@ export default function CustomerDetailsPage() {
         name: customerRes.data.name,
         email: customerRes.data.email,
         phone: customerRes.data.phone || '',
-        address: customerRes.data.address || '',
-        notes: customerRes.data.notes || '',
+        address: customerRes.data.metadata?.address || '',
+        notes: customerRes.data.metadata?.notes || '',
       });
     } catch (error) {
       if ((error as { name?: string }).name === 'CanceledError') return;
@@ -134,7 +136,17 @@ export default function CustomerDetailsPage() {
 
     try {
       setIsSubmitting(true);
-      await customersApi.update(customer.id.toString(), data);
+      const payload: any = {
+        name: data.name,
+        phone: data.phone,
+      };
+      if (data.email) payload.email = data.email;
+      const metadata: any = { ...(customer.metadata || {}) };
+      if (data.address) metadata.address = data.address; else delete metadata.address;
+      if (data.notes) metadata.notes = data.notes; else delete metadata.notes;
+      payload.metadata = metadata;
+
+      await customersApi.update(customer.id.toString(), payload);
 
       addToast('success', 'Customer updated successfully');
       setIsEditModalOpen(false);
@@ -335,12 +347,12 @@ export default function CustomerDetailsPage() {
                 </div>
               )}
 
-              {customer.address && (
+              {customer.metadata?.address && (
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-[var(--foreground-tertiary)] mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-[var(--foreground-secondary)]">Address</p>
-                    <p className="text-base text-[var(--foreground)]">{customer.address}</p>
+                    <p className="text-base text-[var(--foreground)]">{customer.metadata.address}</p>
                   </div>
                 </div>
               )}
@@ -348,13 +360,13 @@ export default function CustomerDetailsPage() {
           </Card>
 
           {/* Notes */}
-          {customer.notes && (
+          {customer.metadata?.notes && (
             <Card>
               <CardHeader>
                 <CardTitle>Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap">{customer.notes}</p>
+                <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap">{customer.metadata.notes}</p>
               </CardContent>
             </Card>
           )}

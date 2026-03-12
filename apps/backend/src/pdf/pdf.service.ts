@@ -92,7 +92,9 @@ export class PdfService {
 
         // Clean up on unexpected disconnect
         browser.on("disconnected", () => {
-          this.logger.warn("Puppeteer browser disconnected; will reconnect on next request");
+          this.logger.warn(
+            "Puppeteer browser disconnected; will reconnect on next request",
+          );
           this.browser = null;
         });
 
@@ -126,11 +128,16 @@ export class PdfService {
       this.logger.log(`Generated PDF for invoice ${data.invoiceNumber}`);
       return Buffer.from(pdf);
     } catch (error: unknown) {
-      this.logger.error("Failed to generate invoice PDF", error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        "Failed to generate invoice PDF",
+        error instanceof Error ? error.stack : String(error),
+      );
       throw error;
     } finally {
       if (page) {
-        await page.close().catch(() => {/* page already closed */});
+        await page.close().catch(() => {
+          /* page already closed */
+        });
       }
     }
   }
@@ -158,11 +165,16 @@ export class PdfService {
       this.logger.log(`Generated contract PDF for booking ${data.bookingId}`);
       return Buffer.from(pdf);
     } catch (error: unknown) {
-      this.logger.error("Failed to generate contract PDF", error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        "Failed to generate contract PDF",
+        error instanceof Error ? error.stack : String(error),
+      );
       throw error;
     } finally {
       if (page) {
-        await page.close().catch(() => {/* page already closed */});
+        await page.close().catch(() => {
+          /* page already closed */
+        });
       }
     }
   }
@@ -450,7 +462,9 @@ export class PdfService {
 
     const primaryColor = data.primaryColor || "#3498db";
     // Validate primaryColor is a safe CSS color value (hex only) to prevent CSS injection
-    const safePrimaryColor = /^#[0-9a-fA-F]{3,6}$/.test(primaryColor) ? primaryColor : "#3498db";
+    const safePrimaryColor = /^#[0-9a-fA-F]{3,6}$/.test(primaryColor)
+      ? primaryColor
+      : "#3498db";
 
     const e = this.esc.bind(this);
 

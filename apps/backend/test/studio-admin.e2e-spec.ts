@@ -25,7 +25,7 @@ describe("Admin Studio Management (e2e)", () => {
     // Admin token
     const adminRes = await request(app.getHttpServer())
       .post("/auth/admin/login")
-      .send({ email: "admin@photostudio.com", password: "Admin@123" });
+      .send({ email: "admin@reviewsfeedback.com", password: "Admin@123" });
     adminToken = adminRes.body.accessToken;
 
     // Owner token (non-admin)
@@ -38,7 +38,9 @@ describe("Admin Studio Management (e2e)", () => {
   afterAll(async () => {
     // Clean up created studio (cascades to owner user)
     if (createdStudioId) {
-      await prisma.studio.deleteMany({ where: { id: createdStudioId } }).catch(() => {});
+      await prisma.studio
+        .deleteMany({ where: { id: createdStudioId } })
+        .catch(() => {});
     }
     await app.close();
   });

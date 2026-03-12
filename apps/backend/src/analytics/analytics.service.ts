@@ -77,10 +77,12 @@ export class AnalyticsService {
       },
     });
 
-    return bookings.map((item: { status: string; _count: { status: number } }) => ({
-      status: item.status,
-      count: item._count.status,
-    }));
+    return bookings.map(
+      (item: { status: string; _count: { status: number } }) => ({
+        status: item.status,
+        count: item._count.status,
+      }),
+    );
   }
 
   /**
@@ -92,7 +94,10 @@ export class AnalyticsService {
     endDate: Date,
   ) {
     const cacheKey = `analytics:service-perf:${studioId}:${startDate.toISOString()}:${endDate.toISOString()}`;
-    const cached = await this.cacheService.get<Array<{ name: string; bookings: number; revenue: number }>>(cacheKey);
+    const cached =
+      await this.cacheService.get<
+        Array<{ name: string; bookings: number; revenue: number }>
+      >(cacheKey);
     if (cached) return cached;
 
     const bookings = await this.prisma.booking.findMany({
@@ -122,27 +127,35 @@ export class AnalyticsService {
       { name: string; bookings: number; revenue: number }
     >();
 
-    bookings.forEach((booking: {
-      service: { name: string } | null;
-      invoices: Array<{ payments: Array<{ amount: unknown }> }>;
-    }) => {
-      if (!booking.service) return;
-      const serviceName = booking.service.name;
+    bookings.forEach(
+      (booking: {
+        service: { name: string } | null;
+        invoices: Array<{ payments: Array<{ amount: unknown }> }>;
+      }) => {
+        if (!booking.service) return;
+        const serviceName = booking.service.name;
 
-      if (!serviceMap.has(serviceName)) {
-        serviceMap.set(serviceName, { name: serviceName, bookings: 0, revenue: 0 });
-      }
-
-      const serviceData = serviceMap.get(serviceName);
-      if (serviceData) {
-        serviceData.bookings += 1;
-        booking.invoices.forEach((invoice: { payments: Array<{ amount: unknown }> }) => {
-          invoice.payments.forEach((payment: { amount: unknown }) => {
-            serviceData.revenue += Number(payment.amount);
+        if (!serviceMap.has(serviceName)) {
+          serviceMap.set(serviceName, {
+            name: serviceName,
+            bookings: 0,
+            revenue: 0,
           });
-        });
-      }
-    });
+        }
+
+        const serviceData = serviceMap.get(serviceName);
+        if (serviceData) {
+          serviceData.bookings += 1;
+          booking.invoices.forEach(
+            (invoice: { payments: Array<{ amount: unknown }> }) => {
+              invoice.payments.forEach((payment: { amount: unknown }) => {
+                serviceData.revenue += Number(payment.amount);
+              });
+            },
+          );
+        }
+      },
+    );
 
     const result = Array.from(serviceMap.values()).map((item) => ({
       ...item,
@@ -218,7 +231,8 @@ export class AnalyticsService {
     });
 
     const totalRevenue = payments.reduce(
-      (sum: number, payment: { amount: unknown }) => sum + Number(payment.amount),
+      (sum: number, payment: { amount: unknown }) =>
+        sum + Number(payment.amount),
       0,
     );
 

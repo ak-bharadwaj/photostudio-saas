@@ -82,11 +82,12 @@ export default function AdminStudiosPage() {
   const loadStudios = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await adminApi.getStudios({
+      const res = await adminApi.getPartners({
         page,
         limit: 20,
         status: statusFilter || undefined,
         tier: tierFilter || undefined,
+        search: searchQuery || undefined,
       });
       setStudios(Array.isArray(res.data.data) ? res.data.data : []);
       setMeta(res.data.meta);
@@ -96,7 +97,7 @@ export default function AdminStudiosPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, tierFilter, addToast]);
+  }, [page, statusFilter, tierFilter, searchQuery, addToast]);
 
   useEffect(() => {
     loadStudios();
@@ -108,13 +109,13 @@ export default function AdminStudiosPage() {
     setActionLoading(true);
     try {
       if (confirmModal.action === 'suspend') {
-        await adminApi.suspendStudio(confirmModal.studio.id);
+        await adminApi.suspendPartner(confirmModal.studio.id);
         addToast('success', `${confirmModal.studio.name} has been suspended`);
       } else if (confirmModal.action === 'activate') {
-        await adminApi.activateStudio(confirmModal.studio.id);
+        await adminApi.activatePartner(confirmModal.studio.id);
         addToast('success', `${confirmModal.studio.name} has been activated`);
       } else if (confirmModal.action === 'delete') {
-        await adminApi.deleteStudio(confirmModal.studio.id);
+        await adminApi.deletePartner(confirmModal.studio.id);
         addToast('success', `${confirmModal.studio.name} has been deleted`);
       }
       setConfirmModal({ open: false, action: 'suspend', studio: null });
@@ -137,22 +138,15 @@ export default function AdminStudiosPage() {
     }
   };
 
-  const filteredStudios = searchQuery
-    ? studios.filter(
-        (s) =>
-          (s.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (s.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (s.slug ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : studios;
+
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
         eyebrow="Admin"
-        title="Studios"
-        subtitle="Manage all photography studios on the platform"
+        title="Partners"
+        subtitle="Manage all professional partners on the platform"
         accentColor="violet"
         actions={
           <button
@@ -161,7 +155,7 @@ export default function AdminStudiosPage() {
             onClick={() => router.push('/admin/studios/new')}
           >
             <Plus className="h-4 w-4" />
-            Create Studio
+            Create Partner
           </button>
         }
       />
@@ -171,9 +165,9 @@ export default function AdminStudiosPage() {
         <div className="p-4 flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[200px]">
             <Input
-              placeholder="Search studios..."
+              placeholder="Search by name, email or slug..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               leftIcon={<Search className="h-4 w-4" />}
             />
           </div>
@@ -195,10 +189,7 @@ export default function AdminStudiosPage() {
               value={tierFilter}
               onChange={(e) => { setTierFilter(e.target.value); setPage(1); }}
               options={[
-                { value: 'STARTER', label: 'Starter' },
-                { value: 'PROFESSIONAL', label: 'Professional' },
-                { value: 'STUDIO', label: 'Studio' },
-                { value: 'ENTERPRISE', label: 'Enterprise' },
+                { value: 'PRO', label: 'Pro' },
               ]}
               placeholder="All Tiers"
             />
@@ -218,7 +209,7 @@ export default function AdminStudiosPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Studio</TableHead>
+                <TableHead>Partner</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Tier</TableHead>
                 <TableHead>Users</TableHead>
@@ -229,22 +220,22 @@ export default function AdminStudiosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudios.length === 0 ? (
+              {studios.length === 0 ? (
                 <TableEmpty
                   icon={<Building2 className="h-6 w-6" />}
-                  title="No studios found"
-                  description={searchQuery ? 'Try adjusting your search' : 'Create your first studio to get started'}
+                  title="No partners found"
+                  description={searchQuery ? 'Try adjusting your search' : 'Create your first partner to get started'}
                   colSpan={8}
                   action={
                     !searchQuery && (
                       <Button size="sm" onClick={() => router.push('/admin/studios/new')}>
-                        Create Studio
+                        Create Partner
                       </Button>
                     )
                   }
                 />
               ) : (
-                filteredStudios.map((studio) => (
+                studios.map((studio) => (
                   <TableRow key={studio.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -259,7 +250,7 @@ export default function AdminStudiosPage() {
                     </TableCell>
                     <TableCell>{getStatusBadge(studio.status)}</TableCell>
                     <TableCell>
-                      <span className="text-xs font-medium text-[var(--foreground-secondary)]">{studio.subscriptionTier}</span>
+                      <span className="text-xs font-medium text-[var(--foreground-secondary)]">Pro Plan</span>
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1 text-sm">
@@ -301,7 +292,7 @@ export default function AdminStudiosPage() {
                             variant="ghost"
                             size="xs"
                             onClick={() => setConfirmModal({ open: true, action: 'suspend', studio })}
-                            aria-label="Suspend studio"
+                            aria-label="Suspend partner"
                           >
                             <Pause className="h-4 w-4 text-[var(--warning)]" />
                           </Button>
@@ -310,7 +301,7 @@ export default function AdminStudiosPage() {
                             variant="ghost"
                             size="xs"
                             onClick={() => setConfirmModal({ open: true, action: 'activate', studio })}
-                            aria-label="Activate studio"
+                            aria-label="Activate partner"
                           >
                             <Play className="h-4 w-4 text-[var(--success)]" />
                           </Button>
@@ -319,7 +310,7 @@ export default function AdminStudiosPage() {
                           variant="ghost"
                           size="xs"
                           onClick={() => setConfirmModal({ open: true, action: 'delete', studio })}
-                          aria-label="Delete studio"
+                          aria-label="Delete partner"
                         >
                           <Trash2 className="h-4 w-4 text-[var(--danger)]" />
                         </Button>
@@ -366,16 +357,16 @@ export default function AdminStudiosPage() {
         onClose={() => setConfirmModal({ open: false, action: 'suspend', studio: null })}
         title={
           confirmModal.action === 'delete'
-            ? 'Delete Studio'
+            ? 'Delete Partner'
             : confirmModal.action === 'suspend'
-              ? 'Suspend Studio'
-              : 'Activate Studio'
+              ? 'Suspend Partner'
+              : 'Activate Partner'
         }
         description={
           confirmModal.action === 'delete'
             ? `Are you sure you want to permanently delete "${confirmModal.studio?.name}"? This action cannot be undone.`
             : confirmModal.action === 'suspend'
-              ? `Are you sure you want to suspend "${confirmModal.studio?.name}"? Users will not be able to access this studio.`
+              ? `Are you sure you want to suspend "${confirmModal.studio?.name}"? Users will not be able to access this partner.`
               : `Are you sure you want to activate "${confirmModal.studio?.name}"?`
         }
         size="sm"

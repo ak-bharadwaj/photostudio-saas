@@ -132,3 +132,9 @@ export class AcceptQuoteDto {
   @IsOptional()
   notes?: string;
 }
+
+export class RejectQuoteDto {
+  @IsString()
+  @IsNotEmpty()
+  notes: string; // Required for bargaining/feedback
+}

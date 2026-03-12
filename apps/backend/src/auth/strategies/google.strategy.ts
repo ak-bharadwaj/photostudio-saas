@@ -25,9 +25,7 @@ export class GoogleStrategy
     super({
       clientID: clientID || "google-oauth-not-configured",
       clientSecret: clientSecret || "google-oauth-not-configured",
-      callbackURL:
-        callbackURL ||
-        "http://localhost:3000/auth/google/callback",
+      callbackURL: callbackURL || "http://localhost:3000/auth/google/callback",
       scope: ["email", "profile"],
       passReqToCallback: false,
     });

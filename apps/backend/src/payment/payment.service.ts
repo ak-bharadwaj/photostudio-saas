@@ -35,7 +35,8 @@ export class PaymentService {
 
     // Calculate total paid so far
     const totalPaid = invoice.payments.reduce(
-      (sum: number, payment: { amount: unknown }) => sum + Number(payment.amount),
+      (sum: number, payment: { amount: unknown }) =>
+        sum + Number(payment.amount),
       0,
     );
 
@@ -48,76 +49,78 @@ export class PaymentService {
     }
 
     // Create payment and update invoice status in transaction
-    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const payment = await tx.payment.create({
-        data: {
-          invoiceId: dto.invoiceId,
-          amount: new Decimal(dto.amount),
-          paymentMethod: dto.paymentMethod,
-          transactionId: dto.transactionId,
-          notes: dto.notes,
-        },
-      });
-
-      // Calculate new total paid
-      const newTotalPaid = totalPaid + dto.amount;
-      const invoiceTotal = Number(invoice.total);
-
-      // Update invoice status
-      let newStatus = invoice.status;
-      if (newTotalPaid >= invoiceTotal) {
-        newStatus = "PAID";
-      } else if (newTotalPaid > 0) {
-        newStatus = "PARTIALLY_PAID";
-      }
-
-      await tx.invoice.update({
-        where: { id: dto.invoiceId },
-        data: { status: newStatus },
-      });
-
-      // Handle Commission calculation if the invoice is now PAID
-      if (newStatus === "PAID") {
-        const studio = await tx.studio.findUnique({
-          where: { id: studioId },
-          select: {
-            id: true,
-            billingModel: true,
-            commissionRate: true,
-            commissionType: true,
+    const result = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const payment = await tx.payment.create({
+          data: {
+            invoiceId: dto.invoiceId,
+            amount: new Decimal(dto.amount),
+            paymentMethod: dto.paymentMethod,
+            transactionId: dto.transactionId,
+            notes: dto.notes,
           },
         });
 
-        if (
-          studio &&
-          studio.billingModel === "COMMISSION" &&
-          studio.commissionRate
-        ) {
-          let commissionAmount = 0;
-          if (studio.commissionType === "PERCENTAGE") {
-            commissionAmount =
-              (Number(invoice.total) * Number(studio.commissionRate)) / 100;
-          } else {
-            commissionAmount = Number(studio.commissionRate);
-          }
+        // Calculate new total paid
+        const newTotalPaid = totalPaid + dto.amount;
+        const invoiceTotal = Number(invoice.total);
 
-          if (commissionAmount > 0) {
-            await tx.commission.create({
-              data: {
-                studioId,
-                invoiceId: dto.invoiceId,
-                bookingId: invoice.bookingId ?? undefined,
-                amount: new Decimal(commissionAmount),
-                status: "PENDING",
-                notes: `Commission calculated for ${studio.commissionType === "PERCENTAGE" ? studio.commissionRate + "%" : studio.commissionRate} rate`,
-              },
-            });
+        // Update invoice status
+        let newStatus = invoice.status;
+        if (newTotalPaid >= invoiceTotal) {
+          newStatus = "PAID";
+        } else if (newTotalPaid > 0) {
+          newStatus = "PARTIALLY_PAID";
+        }
+
+        await tx.invoice.update({
+          where: { id: dto.invoiceId },
+          data: { status: newStatus },
+        });
+
+        // Handle Commission calculation if the invoice is now PAID
+        if (newStatus === "PAID") {
+          const studio = await tx.studio.findUnique({
+            where: { id: studioId },
+            select: {
+              id: true,
+              billingModel: true,
+              commissionRate: true,
+              commissionType: true,
+            },
+          });
+
+          if (
+            studio &&
+            studio.billingModel === "COMMISSION" &&
+            studio.commissionRate
+          ) {
+            let commissionAmount = 0;
+            if (studio.commissionType === "PERCENTAGE") {
+              commissionAmount =
+                (Number(invoice.total) * Number(studio.commissionRate)) / 100;
+            } else {
+              commissionAmount = Number(studio.commissionRate);
+            }
+
+            if (commissionAmount > 0) {
+              await tx.commission.create({
+                data: {
+                  studioId,
+                  invoiceId: dto.invoiceId,
+                  bookingId: invoice.bookingId ?? undefined,
+                  amount: new Decimal(commissionAmount),
+                  status: "PENDING",
+                  notes: `Commission calculated for ${studio.commissionType === "PERCENTAGE" ? studio.commissionRate + "%" : studio.commissionRate} rate`,
+                },
+              });
+            }
           }
         }
-      }
 
-      return payment;
-    });
+        return payment;
+      },
+    );
 
     return result;
   }
@@ -180,7 +183,7 @@ export class PaymentService {
   async remove(id: string, studioId: string) {
     const payment = await this.findOne(id, studioId);
     // Capture original invoice status before any changes
-    const originalInvoiceStatus = payment.invoice.status as InvoiceStatus;
+    const originalInvoiceStatus = payment.invoice.status;
 
     // Recalculate invoice status after removing payment
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -227,7 +230,12 @@ export class PaymentService {
 
   async findAll(
     studioId: string,
-    params?: { page?: number; limit?: number; paymentMethod?: string; search?: string },
+    params?: {
+      page?: number;
+      limit?: number;
+      paymentMethod?: string;
+      search?: string;
+    },
   ) {
     const page = params?.page ?? 1;
     const limit = Math.min(params?.limit ?? 20, 100);
@@ -246,10 +254,34 @@ export class PaymentService {
             baseWhere,
             {
               OR: [
-                { transactionId: { contains: params.search, mode: 'insensitive' } },
-                { invoice: { invoiceNumber: { contains: params.search, mode: 'insensitive' } } },
-                { invoice: { customer: { name: { contains: params.search, mode: 'insensitive' } } } },
-                { invoice: { customer: { email: { contains: params.search, mode: 'insensitive' } } } },
+                {
+                  transactionId: {
+                    contains: params.search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  invoice: {
+                    invoiceNumber: {
+                      contains: params.search,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+                {
+                  invoice: {
+                    customer: {
+                      name: { contains: params.search, mode: "insensitive" },
+                    },
+                  },
+                },
+                {
+                  invoice: {
+                    customer: {
+                      email: { contains: params.search, mode: "insensitive" },
+                    },
+                  },
+                },
               ],
             },
           ],

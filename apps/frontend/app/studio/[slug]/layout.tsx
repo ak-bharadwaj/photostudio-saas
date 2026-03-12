@@ -42,8 +42,8 @@ export async function generateMetadata({
 
   if (!studio) {
     return {
-      title: "Studio Not Found",
-      description: "This photography studio could not be found.",
+      title: "Partner Not Found",
+      description: "This partner could not be found.",
     };
   }
 

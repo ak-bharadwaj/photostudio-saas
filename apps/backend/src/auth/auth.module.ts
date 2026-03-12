@@ -19,7 +19,8 @@ import { RolesGuard } from "./guards/roles.guard";
         secret: configService.get<string>("jwt.secret"),
         signOptions: {
           // expiresIn expects StringValue (branded ms type); cast is safe — value is always a valid ms duration string
-          expiresIn: (configService.get<string>("jwt.expiresIn") ?? "15m") as unknown as number,
+          expiresIn: (configService.get<string>("jwt.expiresIn") ??
+            "15m") as unknown as number,
         },
       }),
     }),

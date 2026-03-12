@@ -42,12 +42,12 @@ const bookingSchema = z.object({
 type BookingFormData = z.infer<typeof bookingSchema>;
 
 const STATUS_FLOW = [
-  { value: 'INQUIRY',     label: 'Inquiry',     color: 'bg-[var(--surface-2)] text-[var(--foreground-secondary)] border-[var(--border)]' },
-  { value: 'QUOTED',      label: 'Quoted',      color: 'bg-[var(--primary-light)] text-[var(--primary)] border-[var(--primary)]/30' },
-  { value: 'CONFIRMED',   label: 'Confirmed',   color: 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/30' },
+  { value: 'INQUIRY', label: 'Inquiry', color: 'bg-[var(--surface-2)] text-[var(--foreground-secondary)] border-[var(--border)]' },
+  { value: 'QUOTED', label: 'Quoted', color: 'bg-[var(--primary-light)] text-[var(--primary)] border-[var(--primary)]/30' },
+  { value: 'CONFIRMED', label: 'Confirmed', color: 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/30' },
   { value: 'IN_PROGRESS', label: 'In Progress', color: 'bg-[var(--info)]/10 text-[var(--info)] border-[var(--info)]/30' },
-  { value: 'COMPLETED',   label: 'Completed',   color: 'bg-[var(--foreground)] text-[var(--background)] border-[var(--foreground)]' },
-  { value: 'CANCELLED',   label: 'Cancelled',   color: 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/30' },
+  { value: 'COMPLETED', label: 'Completed', color: 'bg-[var(--foreground)] text-[var(--background)] border-[var(--foreground)]' },
+  { value: 'CANCELLED', label: 'Cancelled', color: 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/30' },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -281,9 +281,9 @@ function BookingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Studio Management"
+        eyebrow="Partner Management"
         title="Bookings"
-        subtitle="Manage your studio schedule and client inquiries with precision."
+        subtitle="Manage your business schedule and client inquiries with precision."
         accentColor="violet"
         actions={
           <>
@@ -327,9 +327,9 @@ function BookingsPage() {
 
       {/* Table Section */}
       <Card className="overflow-hidden">
-        <div className="px-6 py-5 border-b border-[var(--border-light)] flex items-center justify-between">
-          <h2 className="text-xl font-bold text-[var(--foreground)] font-heading">Active Schedule</h2>
-          <span className="text-xs font-bold text-[var(--primary)] bg-[var(--primary-light)] px-2.5 py-1 rounded-full uppercase tracking-widest">{bookingMeta.total} Bookings Total</span>
+        <div className="px-4 sm:px-6 py-5 border-b border-[var(--border-light)] flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-[var(--foreground)] font-heading">Active Schedule</h2>
+          <span className="text-xs font-bold text-[var(--primary)] bg-[var(--primary-light)] px-2.5 py-1 rounded-full uppercase tracking-widest">{bookingMeta.total} Total</span>
         </div>
         <CardContent className="p-0">
           {isLoading ? (
@@ -352,79 +352,126 @@ function BookingsPage() {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bookings.map((booking: Booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell>
+                          <p className="font-medium text-[var(--foreground)]">{booking.customer.name}</p>
+                          <p className="text-xs text-[var(--foreground-secondary)]">{booking.customer.email}</p>
+                        </TableCell>
+                        <TableCell className="text-[var(--foreground)]">
+                          <p>{booking.service.name}</p>
+                          <p className="text-xs text-[var(--foreground-tertiary)]">{formatCurrency(booking.service.price)}</p>
+                        </TableCell>
+                        <TableCell className="text-sm text-[var(--foreground-secondary)]">
+                          {formatDate(booking.scheduledAt)}
+                        </TableCell>
+                        <TableCell>
+                          {/* ← Inline status change dropdown */}
+                          <StatusDropdown
+                            bookingId={booking.id}
+                            current={booking.status}
+                            onChanged={loadBookings}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Link href={`/bookings/${booking.id}`}>
+                              <Button variant="ghost" size="sm" aria-label={`View booking for ${booking.customer.name}`}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            {booking.status === 'INQUIRY' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:bg-[var(--primary-light)]"
+                                aria-label={`Send quote for ${booking.customer.name}`}
+                                onClick={() => {
+                                  setQuoteBooking(booking);
+                                  setQuoteAmount(Number(booking.service.price));
+                                  setQuoteNotes('');
+                                  setIsQuoteModalOpen(true);
+                                }}
+                              >
+                                <Send className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Generate invoice for ${booking.customer.name}`}
+                              disabled={generatingInvoice === booking.id}
+                              onClick={() => handleGenerateInvoice(booking)}
+                              className="text-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/10"
+                            >
+                              {generatingInvoice === booking.id
+                                ? <LoadingSpinner className="h-4 w-4" />
+                                : <FileText className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="sm:hidden divide-y divide-[var(--border)]">
                 {bookings.map((booking: Booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell>
-                      <p className="font-medium text-[var(--foreground)]">{booking.customer.name}</p>
-                      <p className="text-xs text-[var(--foreground-secondary)]">{booking.customer.email}</p>
-                    </TableCell>
-                    <TableCell className="text-[var(--foreground)]">
-                      <p>{booking.service.name}</p>
-                      <p className="text-xs text-[var(--foreground-tertiary)]">{formatCurrency(booking.service.price)}</p>
-                    </TableCell>
-                    <TableCell className="text-sm text-[var(--foreground-secondary)]">
-                      {formatDate(booking.scheduledAt)}
-                    </TableCell>
-                    <TableCell>
-                      {/* ← Inline status change dropdown */}
+                  <div key={booking.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-[var(--foreground)] text-sm">{booking.customer.name}</p>
+                        <p className="text-xs text-[var(--foreground-secondary)] truncate max-w-[160px]">{booking.customer.email}</p>
+                      </div>
                       <StatusDropdown
                         bookingId={booking.id}
                         current={booking.status}
                         onChanged={loadBookings}
                       />
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-medium text-[var(--foreground)]">{booking.service.name}</p>
+                        <p className="text-[var(--foreground-tertiary)]">{formatCurrency(booking.service.price)} · {formatDate(booking.scheduledAt)}</p>
+                      </div>
                       <div className="flex items-center gap-1">
                         <Link href={`/bookings/${booking.id}`}>
-                          <Button variant="ghost" size="sm" aria-label={`View booking for ${booking.customer.name}`}>
+                          <Button variant="ghost" size="sm" aria-label="View">
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        {booking.status === 'INQUIRY' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:bg-[var(--primary-light)]"
-                            aria-label={`Send quote for ${booking.customer.name}`}
-                            onClick={() => {
-                              setQuoteBooking(booking);
-                              setQuoteAmount(Number(booking.service.price));
-                              setQuoteNotes('');
-                              setIsQuoteModalOpen(true);
-                            }}
-                          >
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          aria-label={`Generate invoice for ${booking.customer.name}`}
+                          aria-label="Invoice"
                           disabled={generatingInvoice === booking.id}
                           onClick={() => handleGenerateInvoice(booking)}
-                          className="text-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/10"
+                          className="text-[var(--success)]"
                         >
-                          {generatingInvoice === booking.id
-                            ? <LoadingSpinner className="h-4 w-4" />
-                            : <FileText className="h-4 w-4" />}
+                          {generatingInvoice === booking.id ? <LoadingSpinner className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
 
           {/* Pagination controls */}

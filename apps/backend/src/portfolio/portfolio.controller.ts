@@ -105,10 +105,7 @@ export class PortfolioController {
 
   @Post("reorder")
   @Roles("OWNER") // Only owners can reorder portfolio items
-  reorder(
-    @Body() dto: ReorderPortfolioDto,
-    @CurrentUser() user: UserPayload,
-  ) {
+  reorder(@Body() dto: ReorderPortfolioDto, @CurrentUser() user: UserPayload) {
     if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
     }

@@ -15,6 +15,7 @@ import {
   Palette,
   Share2,
   Globe,
+  Star,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
@@ -34,7 +35,7 @@ export interface NavItem {
 export const NAVIGATION: NavItem[] = [
   {
     name: 'Dashboard',
-    href: '/',
+    href: '/dashboard',
     icon: LayoutDashboard,
     gradient: 'linear-gradient(135deg,var(--primary),var(--accent))',
   },
@@ -75,25 +76,31 @@ export const NAVIGATION: NavItem[] = [
     gradient: 'linear-gradient(135deg,var(--danger),var(--accent))',
   },
   {
+    name: 'Reviews',
+    href: '/reviews',
+    icon: Star,
+    gradient: 'linear-gradient(135deg,#f59e0b,#f97316)',
+  },
+  {
     name: 'Branding',
     href: '/branding',
     icon: Palette,
     gradient: 'linear-gradient(135deg,var(--accent),var(--primary))',
-    roles: ['STUDIO_OWNER'],
+    roles: ['OWNER'],
   },
   {
-    name: 'My Studio Page',
+    name: 'Public Page',
     href: '/my-studio',
     icon: Globe,
     gradient: 'linear-gradient(135deg,var(--primary),var(--accent))',
-    roles: ['STUDIO_OWNER'],
+    roles: ['OWNER'],
   },
   {
     name: 'Share Links',
     href: '/share-links',
     icon: Share2,
     gradient: 'linear-gradient(135deg,var(--info),var(--primary))',
-    roles: ['STUDIO_OWNER'],
+    roles: ['OWNER'],
   },
   {
     name: 'Analytics',

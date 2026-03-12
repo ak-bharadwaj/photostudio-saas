@@ -73,6 +73,7 @@ export class AdminController {
     @Query("limit") limit?: string,
     @Query("status") status?: string,
     @Query("tier") tier?: string,
+    @Query("search") search?: string,
   ) {
     const parsedPage = page ? parseInt(page, 10) : 1;
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
@@ -81,6 +82,7 @@ export class AdminController {
       isNaN(parsedLimit) || parsedLimit < 1 ? 20 : Math.min(parsedLimit, 100),
       status,
       tier,
+      search,
     );
   }
 

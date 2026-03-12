@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Sparkles,
   ChevronRight,
+  Home
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -41,15 +42,15 @@ const safeRemoveItem = (key: string) => {
 };
 
 const navItems = [
-  { name: 'Overview',    href: '/portal',           icon: LayoutDashboard, description: 'Dashboard' },
-  { name: 'My Bookings', href: '/portal/bookings',  icon: Calendar,        description: 'Sessions' },
-  { name: 'Invoices',    href: '/portal/invoices',  icon: FileText,        description: 'Billing' },
-  { name: 'Account',     href: '/portal/account',   icon: User,            description: 'Profile' },
-  { name: 'Settings',    href: '/portal/settings',  icon: Settings,        description: 'Preferences' },
+  { name: 'Explore Home', href: '/',                icon: Home,            description: 'Marketplace' },
+  { name: 'Overview',     href: '/portal',          icon: LayoutDashboard, description: 'Dashboard' },
+  { name: 'My Bookings',  href: '/portal/bookings', icon: Calendar,        description: 'Sessions' },
+  { name: 'Invoices',     href: '/portal/invoices', icon: FileText,        description: 'Billing' },
+  { name: 'Account',      href: '/portal/account',  icon: User,            description: 'Profile' },
 ];
 
 /* Public routes that don't need auth guard */
-const PUBLIC_PORTAL_PATHS = ['/portal/login'];
+const PUBLIC_PORTAL_PATHS = ['/portal/login', '/portal/register'];
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -107,16 +108,16 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
     try {
       const urlToken = searchParams.get('token');
       if (urlToken) {
-        localStorage.setItem('customer_token', urlToken);
+        localStorage.setItem('accessToken', urlToken);
         const refreshToken = searchParams.get('refreshToken');
-        if (refreshToken) localStorage.setItem('customer_refresh_token', refreshToken);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         window.history.replaceState({}, '', pathname);
         setAuthState('authenticated');
         fetchDisplayName(urlToken);
         return;
       }
 
-      const token = safeGetItem('customer_token');
+      const token = safeGetItem('accessToken');
       const guestPhone = safeGetItem('customer_guest_phone');
       const guestName = safeGetItem('customer_guest_name');
       const cachedName = safeGetItem('customer_display_name');
@@ -143,7 +144,7 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => {
     [
-      'customer_token', 'customer_refresh_token', 'customer_guest_phone',
+      'accessToken', 'refreshToken', 'customer_guest_phone',
       'customer_guest_name', 'customer_display_name',
       'pref_email_notifications', 'pref_marketing_updates', 'pref_public_identity',
     ].forEach(safeRemoveItem);
@@ -237,8 +238,9 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
         )}
         aria-label="Portal navigation"
         style={{
-          background: 'linear-gradient(180deg, #0a0514 0%, #0e0820 50%, #080510 100%)',
-          borderRight: '1px solid rgba(124,58,237,0.15)',
+          background: 'linear-gradient(180deg, rgba(8,5,16,0.95) 0%, rgba(12,8,28,0.98) 50%, rgba(5,3,10,0.95) 100%)',
+          backdropFilter: 'blur(32px)',
+          borderRight: '1px solid rgba(124,58,237,0.1)',
         }}
       >
         {/* Ambient orbs */}
@@ -285,8 +287,8 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
         {/* User mini-profile */}
         <div className="px-4 pt-5 pb-3">
           <div
-            className="flex items-center gap-3 p-3 rounded-2xl"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+            className="flex items-center gap-3 p-3 rounded-2xl transition-all hover:bg-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
           >
             <div
               className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-sm font-black shrink-0 shadow-lg"
@@ -411,7 +413,7 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
         <header
           className="h-[72px] flex items-center justify-between px-5 lg:px-8 shrink-0 sticky top-0 z-30"
           style={{
-            background: 'rgba(var(--surface-0-rgb, 255,255,255), 0.85)',
+            background: 'color-mix(in srgb, var(--surface-1, var(--background)) 85%, transparent)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
             borderBottom: '1px solid var(--border)',
