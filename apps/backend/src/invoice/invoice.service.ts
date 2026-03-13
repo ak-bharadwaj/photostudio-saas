@@ -11,9 +11,8 @@ import { PdfService } from "../pdf/pdf.service";
 import { NotificationService } from "../notification/notification.service";
 import { QueueService } from "../queue/queue.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
-import { InvoiceStatus } from '../../prisma/generated-client';
-import { Decimal } from "@prismaclient/runtime/client";
-import { Prisma } from '../../prisma/generated-client';
+import { InvoiceStatus, Prisma } from '@prismaclient';
+import { Decimal } from "../prisma/generated-client/runtime/client";
 
 /** Shape of a single invoice line item stored in the JSON column. */
 interface InvoiceLineItem {
@@ -461,7 +460,7 @@ export class InvoiceService {
             },
           },
         });
-      } catch (err: unknown) {
+      } catch (err: any) {
         if (
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === "P2002"

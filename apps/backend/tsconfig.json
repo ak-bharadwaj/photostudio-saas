@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "isolatedModules": true,
     "declaration": true,
@@ -15,7 +14,8 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@prismaclient": ["src/generated/prisma-client"]
+      "@prismaclient": ["src/prisma/generated-client"],
+      "@prismaclient/*": ["src/prisma/generated-client/*"]
     },
     "incremental": true,
     "skipLibCheck": true,

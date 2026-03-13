@@ -17,8 +17,8 @@ import {
   CreateInternalBookingDto,
   SendQuoteDto,
 } from "./dto/booking.dto";
-import { BookingStatus } from '../../prisma/generated-client';
-import { Prisma } from '../../prisma/generated-client';
+import { BookingStatus } from '@prismaclient';
+import { Prisma } from '@prismaclient';
 
 import { PdfService } from "../pdf/pdf.service";
 import { UploadService } from "../upload/upload.service";

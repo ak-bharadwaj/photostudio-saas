@@ -9,7 +9,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationService } from "../notification/notification.service";
 import { CreateStudioDto, UpdateStudioDto } from "./dto/studio.dto";
-import { StudioStatus, Prisma, SubscriptionTier } from '../../prisma/generated-client';
+import { StudioStatus, Prisma, SubscriptionTier } from '@prismaclient';
 import * as bcrypt from "bcrypt";
 
 @Injectable()

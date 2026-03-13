@@ -7,7 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { Prisma } from '../../generated/prisma-client';
+import { Prisma } from "../../prisma/generated-client";
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -46,13 +46,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     }
-    // Handle Prisma errors
+    // Handle Prisma Known Request Errors
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      const prismaErr = exception as Prisma.PrismaClientKnownRequestError;
       status = HttpStatus.BAD_REQUEST;
       error = "Database Error";
 
-      // Handle specific Prisma error codes
-      switch (exception.code) {
+      switch (prismaErr.code) {
         case "P2002":
           message = "A record with this value already exists";
           status = HttpStatus.CONFLICT;
@@ -78,18 +78,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
 
       this.logger.error(
-        `Prisma error ${exception.code}: ${exception.message}`,
-        exception.stack,
+        `Prisma error ${prismaErr.code}: ${prismaErr.message}`,
+        prismaErr.stack,
       );
     }
     // Handle Prisma validation errors
     else if (exception instanceof Prisma.PrismaClientValidationError) {
+      const prismaErr = exception as Prisma.PrismaClientValidationError;
       status = HttpStatus.BAD_REQUEST;
       error = "Validation Error";
       message = "Invalid data provided";
       this.logger.error(
-        `Prisma validation error: ${exception.message}`,
-        exception.stack,
+        `Prisma validation error: ${prismaErr.message}`,
+        prismaErr.stack,
       );
     }
     // Handle unknown errors
@@ -122,11 +123,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message,
     };
 
-    if (process.env.NODE_ENV !== 'production' && exception instanceof Error) {
-        errorResponse.debugMessage = exception.message;
-        if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-            errorResponse.prismaCode = exception.code;
-        }
+    if (process.env.NODE_ENV !== "production" && exception instanceof Error) {
+      errorResponse.debugMessage = exception.message;
+      if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+        errorResponse.prismaCode = (exception as Prisma.PrismaClientKnownRequestError).code;
+      }
     }
 
     // Log the error in non-production environments with full details

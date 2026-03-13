@@ -48,12 +48,14 @@ export class PdfService {
   private readonly logger = new Logger(PdfService.name);
   private browser: Browser | null = null;
   private browserLaunchPromise: Promise<Browser> | null = null;
+  private isShuttingDown = false;
 
   async onModuleInit() {
     await this.ensureBrowser();
   }
 
   async onModuleDestroy() {
+    this.isShuttingDown = true;
     if (this.browser) {
       try {
         await this.browser.close();
@@ -92,9 +94,11 @@ export class PdfService {
 
         // Clean up on unexpected disconnect
         browser.on("disconnected", () => {
-          this.logger.warn(
-            "Puppeteer browser disconnected; will reconnect on next request",
-          );
+          if (!this.isShuttingDown) {
+            this.logger.warn(
+              "Puppeteer browser disconnected; will reconnect on next request",
+            );
+          }
           this.browser = null;
         });
 
