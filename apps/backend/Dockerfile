@@ -1,42 +1,40 @@
+# --- Builder Stage ---
 FROM node:20-slim AS builder
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
+
 WORKDIR /app
 
-# Install system dependencies for Prisma
-RUN apt-get update && apt-get install -y openssl --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# Install system dependencies for node-gyp and Prisma
+RUN apt-get update && apt-get install -y openssl python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Copy workspace meta-files
+# Copy lockfile and workspace config
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 # Copy backend package.json
 COPY apps/backend/package.json ./apps/backend/
 
-# Install ALL dependencies for building
+# Install dependencies (all)
 RUN pnpm install --frozen-lockfile
 
-# Copy backend source
+# Copy backend source code
 COPY apps/backend ./apps/backend
 
-# Generate Prisma Client (uses default node_modules location)
+# Generate Prisma Client
 RUN cd apps/backend && npx prisma generate
 
-# Build the NestJS application
+# Build the application
 RUN pnpm --filter backend build
 
-# Use pnpm deploy to create a standalone production bundle in /deploy
-# This solves the "Cannot find module" error by resolving symlinks
-RUN pnpm --filter=backend --prod deploy /deploy
-
-# Copy built artifacts into the deploy folder
-RUN cp -r apps/backend/dist /deploy/dist && \
-    cp -r apps/backend/prisma /deploy/prisma
-
-# Production Stage
+# --- Runner Stage ---
 FROM node:20-slim AS runner
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies for Prisma and Puppeteer
 RUN apt-get update && apt-get install -y \
     openssl \
     chromium \
@@ -47,13 +45,27 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Copy the isolated/standalone package from builder
-COPY --from=builder /deploy /app
+# IMPORTANT: To avoid pnpm symlink issues in Docker monorepos on Render:
+# 1. Copy the lockfile and the backend package.json
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/backend/package.json ./apps/backend/
+
+# 2. Install only production dependencies
+# This creates a reliable node_modules structure in the runner
+RUN pnpm install --prod --frozen-lockfile
+
+# 3. Copy built files and prisma schema
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+
+# 4. Generate Prisma Client again in the runner to ensure it's matched with the prod node_modules
+RUN cd apps/backend && npx prisma generate
 
 ENV NODE_ENV=production
-RUN mkdir -p public/uploads
+RUN mkdir -p apps/backend/public/uploads
 
+WORKDIR /app/apps/backend
 EXPOSE 3001
 
-# Run the app from the standalone dist
+# Run the app
 CMD ["node", "dist/main"]
