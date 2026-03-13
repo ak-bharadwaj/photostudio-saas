@@ -28,6 +28,7 @@ export class GoogleStrategy
       callbackURL: callbackURL || "http://localhost:3000/auth/google/callback",
       scope: ["email", "profile"],
       passReqToCallback: false,
+      proxy: true,
     });
   }
 

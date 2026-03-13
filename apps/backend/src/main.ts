@@ -16,6 +16,9 @@ async function bootstrap() {
     logger: ["error", "warn", "log", "debug", "verbose"],
   });
 
+  // Enable trust proxy for Render/Vercel
+  (app.getHttpAdapter().getInstance() as any).set("trust proxy", 1);
+
   const configService = app.get(ConfigService);
   const port = configService.get("PORT") || 3001;
   const frontendUrl =

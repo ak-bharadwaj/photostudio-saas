@@ -44,7 +44,7 @@ export class KeepAliveService implements OnModuleInit {
     try {
       const response = await fetch(pingUrl);
       if (response.ok) {
-        this.logger.debug(`Keep-alive ping successful: ${pingUrl}`);
+        this.logger.log(`Keep-alive ping successful: ${pingUrl}`);
       } else {
         this.logger.warn(`Keep-alive ping returned status: ${response.status}`);
       }
