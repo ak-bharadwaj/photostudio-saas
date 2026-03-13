@@ -86,7 +86,7 @@ export class PdfService {
           "--disable-dev-shm-usage", // Prevents OOM in containers
         ],
       })
-      .then((browser) => {
+      .then((browser: any) => {
         this.browser = browser;
         this.browserLaunchPromise = null;
 
@@ -101,7 +101,7 @@ export class PdfService {
         this.logger.log("Puppeteer browser initialized");
         return browser;
       })
-      .catch((err) => {
+      .catch((err: any) => {
         this.browserLaunchPromise = null;
         this.logger.error("Failed to launch Puppeteer browser", err.stack);
         throw err;
@@ -372,7 +372,7 @@ export class PdfService {
               <tbody>
                 ${data.lineItems
                   .map(
-                    (item) => `
+                    (item: any) => `
                   <tr>
                     <td>${e(item.description)}</td>
                     <td class="text-right">${item.quantity}</td>

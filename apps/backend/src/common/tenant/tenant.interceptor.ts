@@ -36,11 +36,11 @@ export class TenantInterceptor implements NestInterceptor {
     };
 
     // Run the rest of the request within the tenant context
-    return new Observable((subscriber) => {
+    return new Observable((subscriber: any) => {
       tenantContext.run(tenantData, () => {
         next.handle().subscribe({
-          next: (value) => subscriber.next(value),
-          error: (err) => subscriber.error(err),
+          next: (value: any) => subscriber.next(value),
+          error: (err: any) => subscriber.error(err),
           complete: () => subscriber.complete(),
         });
       });

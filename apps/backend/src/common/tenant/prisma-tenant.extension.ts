@@ -32,19 +32,19 @@ function isTenantModel(model: string): model is TenantModel {
  * - Public routes (no tenant context) are not filtered (they must handle
  *   scoping explicitly)
  */
-export const tenantExtension = Prisma.defineExtension((client) => {
+export const tenantExtension = Prisma.defineExtension((client: any) => {
   return client.$extends({
     query: {
       $allModels: {
-        async findMany({ model, args, query }) {
+        async findMany({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async findFirst({ model, args, query }) {
+        async findFirst({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async findUnique({ model, args, query }) {
+        async findUnique({ model, args, query }: any) {
           const result = await query(args);
           if (result && isTenantModel(model)) {
             const studioId = getCurrentStudioId();
@@ -64,23 +64,23 @@ export const tenantExtension = Prisma.defineExtension((client) => {
           }
           return result;
         },
-        async count({ model, args, query }) {
+        async count({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async aggregate({ model, args, query }) {
+        async aggregate({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async groupBy({ model, args, query }) {
+        async groupBy({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async create({ model, args, query }) {
+        async create({ model, args, query }: any) {
           injectTenantOnCreate(model, args);
           return query(args);
         },
-        async createMany({ model, args, query }) {
+        async createMany({ model, args, query }: any) {
           // For createMany, inject studioId into each record
           const studioId = getCurrentStudioId();
           if (studioId && isTenantModel(model)) {
@@ -96,23 +96,23 @@ export const tenantExtension = Prisma.defineExtension((client) => {
           }
           return query(args);
         },
-        async update({ model, args, query }) {
+        async update({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async updateMany({ model, args, query }) {
+        async updateMany({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async delete({ model, args, query }) {
+        async delete({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async deleteMany({ model, args, query }) {
+        async deleteMany({ model, args, query }: any) {
           injectTenantFilter(model, args);
           return query(args);
         },
-        async upsert({ model, args, query }) {
+        async upsert({ model, args, query }: any) {
           injectTenantFilter(model, args);
           injectTenantOnCreate(model, { data: args.create });
           return query(args);

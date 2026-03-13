@@ -42,12 +42,12 @@ export class ReviewService {
     });
     const avgRating =
       allReviews.length > 0
-        ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+        ? allReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / allReviews.length
         : 0;
 
-    const dist = [5, 4, 3, 2, 1].map((star) => ({
+    const dist = [5, 4, 3, 2, 1].map((star: number) => ({
       star,
-      count: allReviews.filter((r) => r.rating === star).length,
+      count: allReviews.filter((r: any) => r.rating === star).length,
     }));
 
     return {
