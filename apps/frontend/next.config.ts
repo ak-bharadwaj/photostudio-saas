@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   images: {
     // Disable Vercel's default API image optimization to dramatically reduce cost/usage limits.
     // Instead, we will directly serve them or rely on an external CDN (e.g. Cloudflare Images/R2)
-    unoptimized: true,
+    unoptimized: false,
     // Cache optimised images for 24 h — critical to stay within Vercel's 1,000/month limit
     minimumCacheTTL: 86400,
     // Prefer AVIF, fall back to WebP

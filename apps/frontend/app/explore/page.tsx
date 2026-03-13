@@ -108,7 +108,7 @@ function ExploreContent() {
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search partners, services, or outcomes..."
-                            className="w-full bg-foreground/5 border border-foreground/10 rounded-xl py-3 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-foreground/30"
+                            className="w-full bg-foreground/10 border border-foreground/20 rounded-xl py-3 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-foreground/50 text-foreground font-medium"
                         />
                     </div>
 
@@ -126,7 +126,7 @@ function ExploreContent() {
                     <div className="relative">
                         <button
                             onClick={() => { setShowCatMenu(!showCatMenu); setShowLocMenu(false); }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${selectedCategory ? 'bg-primary text-white border-primary' : 'bg-foreground/5 border-foreground/10 text-foreground/60 hover:border-foreground/30 hover:text-foreground'}`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${selectedCategory ? 'bg-primary text-background border-primary shadow-glow-primary' : 'bg-foreground/5 border-foreground/15 text-foreground/70 hover:border-foreground/40 hover:text-foreground'}`}
                         >
                             <span>{selectedCategory ? (categories.find(c => c.id === selectedCategory)?.name || 'Category') : 'All Services'}</span>
                             <ChevronDown className="h-3 w-3" />
@@ -156,7 +156,7 @@ function ExploreContent() {
                     <div className="relative">
                         <button
                             onClick={() => { setShowLocMenu(!showLocMenu); setShowCatMenu(false); }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${selectedLocation ? 'bg-primary text-white border-primary' : 'bg-foreground/5 border-foreground/10 text-foreground/60 hover:border-foreground/30 hover:text-foreground'}`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${selectedLocation ? 'bg-primary text-background border-primary shadow-glow-primary' : 'bg-foreground/5 border-foreground/15 text-foreground/70 hover:border-foreground/40 hover:text-foreground'}`}
                         >
                             <MapPin className="h-3 w-3" />
                             <span>{selectedLocation || 'All Locations'}</span>
@@ -190,7 +190,7 @@ function ExploreContent() {
                     {activeFiltersCount > 0 && (
                         <button
                             onClick={clearFilters}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-foreground/40 hover:text-foreground transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-foreground/60 hover:text-foreground transition-colors bg-foreground/5 hover:bg-foreground/10"
                         >
                             <X className="h-3 w-3" /> Clear filters
                         </button>
@@ -207,7 +207,7 @@ function ExploreContent() {
                 {/* Results header */}
                 <div className="flex items-end justify-between mb-8">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-foreground/30 mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/60 mb-2">
                             {isLoading ? 'Searching...' : `${results.length} results`}
                             {selectedLocation && ` in ${selectedLocation}`}
                         </p>

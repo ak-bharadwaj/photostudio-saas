@@ -163,7 +163,7 @@ const Navbar = () => {
                     >
                         <X size={28} />
                     </button>
-                    <nav className="flex flex-col gap-8">
+                    <nav className="flex flex-col gap-6">
                         {[
                             { name: 'Partners', id: 'studios' },
                             { name: 'Explore', id: 'discover' },
@@ -172,7 +172,7 @@ const Navbar = () => {
                             <Link
                                 key={item.name}
                                 href={`/#${item.id}`}
-                                className="text-4xl font-light tracking-tight text-white border-b border-white/10 pb-6 hover:text-amber-400 transition-colors"
+                                className="text-3xl font-light tracking-tight text-foreground border-b border-foreground/5 pb-4 hover:text-amber-500 transition-colors"
                                 style={{ fontFamily: 'var(--font-serif)' }}
                                 onClick={() => setMobileMenuOpen(false)}
                             >
@@ -181,19 +181,67 @@ const Navbar = () => {
                         ))}
                     </nav>
                     <div className="mt-auto flex flex-col gap-4">
-                        <Button
-                            onClick={() => { router.push('/portal/login'); setMobileMenuOpen(false); }}
-                            className="w-full h-14 text-xs font-bold uppercase tracking-widest rounded-none bg-foreground text-background"
-                        >
-                            Sign In
-                        </Button>
-                        <Button
-                            onClick={() => { router.push('/portal/register'); setMobileMenuOpen(false); }}
-                            variant="outline"
-                            className="w-full h-14 text-xs font-bold uppercase tracking-widest rounded-none border-foreground/20 text-foreground hover:bg-foreground/5"
-                        >
-                            Register Your Business
-                        </Button>
+                        {authUser ? (
+                            <div className="flex flex-col gap-4 border-t border-foreground/10 pt-8">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="h-14 w-14 rounded-full bg-foreground text-background flex items-center justify-center text-xl font-black shadow-xl">
+                                        {authUser.name?.charAt(0).toUpperCase() || '?'}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-widest text-foreground">{authUser.name}</p>
+                                        <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Logged In Account</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Link 
+                                        href="/portal/bookings" 
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center justify-center h-12 bg-foreground/5 text-[10px] font-black uppercase tracking-widest text-foreground rounded-xl"
+                                    >
+                                        My Bookings
+                                    </Link>
+                                    <Link 
+                                        href="/portal/invoices" 
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center justify-center h-12 bg-foreground/5 text-[10px] font-black uppercase tracking-widest text-foreground rounded-xl"
+                                    >
+                                        Statements
+                                    </Link>
+                                </div>
+                                <Button
+                                    onClick={() => { router.push('/portal'); setMobileMenuOpen(false); }}
+                                    className="w-full h-14 text-xs font-bold uppercase tracking-widest rounded-xl bg-foreground text-background"
+                                >
+                                    Dashboard
+                                </Button>
+                                <button 
+                                    onClick={() => {
+                                        localStorage.removeItem('accessToken');
+                                        localStorage.removeItem('refreshToken');
+                                        window.location.reload();
+                                    }}
+                                    className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500/60 mt-2"
+                                >
+                                    Sign Out of Account
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <Button
+                                    onClick={() => { router.push('/portal/login'); setMobileMenuOpen(false); }}
+                                    className="w-full h-14 text-xs font-bold uppercase tracking-widest rounded-xl bg-foreground text-background"
+                                >
+                                    Sign In
+                                </Button>
+                                <Button
+                                    onClick={() => { router.push('/portal/register'); setMobileMenuOpen(false); }}
+                                    variant="outline"
+                                    className="w-full h-14 text-xs font-bold uppercase tracking-widest rounded-xl border-foreground/20 text-foreground hover:bg-foreground/5"
+                                >
+                                    Create Membership
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
