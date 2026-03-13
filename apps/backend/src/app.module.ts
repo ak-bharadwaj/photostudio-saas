@@ -33,6 +33,7 @@ import { GlobalExceptionFilter } from "./common/filters/global-exception.filter"
 import configuration from "./config/configuration";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import * as path from "path";
+import { KeepAliveService } from "./common/services/keep-alive.service";
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import * as path from "path";
       provide: APP_INTERCEPTOR,
       useClass: TenantInterceptor,
     },
+    KeepAliveService,
   ],
 })
 export class AppModule implements NestModule {

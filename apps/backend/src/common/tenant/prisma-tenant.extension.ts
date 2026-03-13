@@ -1,4 +1,4 @@
-import { Prisma } from '@prismaclient';
+import { Prisma } from '@prisma/client';
 import { getCurrentStudioId, isCurrentUserAdmin } from "./tenant-context";
 
 /**

@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 // Use a shorter timeout during build phase if the API is likely unreachable (localhost)
 // to prevent long build delays on Vercel.
 const isBuildPhase = typeof window === 'undefined' && process.env.NODE_ENV === 'production';
-const apiTimeout = (isBuildPhase && API_URL.includes('localhost')) ? 2000 : 15000;
+const apiTimeout = isBuildPhase ? 1000 : 15000;
 
 export const api = axios.create({
   baseURL: API_URL,

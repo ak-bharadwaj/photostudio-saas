@@ -11,8 +11,8 @@ import { PdfService } from "../pdf/pdf.service";
 import { NotificationService } from "../notification/notification.service";
 import { QueueService } from "../queue/queue.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
-import { InvoiceStatus, Prisma } from '@prismaclient';
-import { Decimal } from "../prisma/generated-client/runtime/client";
+import { InvoiceStatus, Prisma } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 /** Shape of a single invoice line item stored in the JSON column. */
 interface InvoiceLineItem {

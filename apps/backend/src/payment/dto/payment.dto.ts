@@ -6,7 +6,7 @@ import {
   IsNotEmpty,
   Min,
 } from "class-validator";
-import { PaymentMethod } from '@prismaclient';
+import { PaymentMethod } from '@prisma/client';
 
 export class CreatePaymentDto {
   @IsString()

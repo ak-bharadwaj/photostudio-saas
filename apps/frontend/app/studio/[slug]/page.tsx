@@ -14,9 +14,9 @@ export default async function StudioPage({ params }: { params: Promise<{ slug: s
   try {
     const res = await publicApi.getStudio(slug);
     studio = res.data;
-  } catch (error) {
-    console.error('Error fetching studio:', error);
-    // If it's a 404, we can trigger notFound()
+  } catch (error: any) {
+    // Gracefully handle build-time unavailability
+    console.warn(`Studio pre-fetch skipped for slug "${slug}": Backend unreachable.`, error.message);
   }
 
   if (!studio) {

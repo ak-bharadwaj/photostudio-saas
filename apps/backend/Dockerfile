@@ -4,31 +4,39 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
 
-# Install system deps for Prisma
+# Install system dependencies for Prisma
 RUN apt-get update && apt-get install -y openssl --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Copy root lockfile and workspace config
+# Copy workspace meta-files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 # Copy backend package.json
 COPY apps/backend/package.json ./apps/backend/
 
-# Install ALL dependencies to build
-RUN pnpm install
+# Install ALL dependencies for building
+RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy backend source
 COPY apps/backend ./apps/backend
 
-# IMPORTANT: Generate Prisma Client into the source folder
+# Generate Prisma Client (uses default node_modules location)
 RUN cd apps/backend && npx prisma generate
 
-# Build the app to dist/
+# Build the NestJS application
 RUN pnpm --filter backend build
+
+# Use pnpm deploy to create a standalone production bundle in /deploy
+# This solves the "Cannot find module" error by resolving symlinks
+RUN pnpm --filter=backend --prod deploy /deploy
+
+# Copy built artifacts into the deploy folder
+RUN cp -r apps/backend/dist /deploy/dist && \
+    cp -r apps/backend/prisma /deploy/prisma
 
 # Production Stage
 FROM node:20-slim AS runner
 WORKDIR /app
 
-# Install system deps for Prisma and Puppeteer
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     openssl \
     chromium \
@@ -39,20 +47,13 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Copy node_modules from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
-
-# Copy dist and generated client from builder
-COPY --from=builder /app/apps/backend/dist ./dist
-COPY --from=builder /app/apps/backend/src/prisma/generated-client ./src/prisma/generated-client
-COPY --from=builder /app/apps/backend/package.json ./package.json
-COPY --from=builder /app/apps/backend/prisma ./prisma
+# Copy the isolated/standalone package from builder
+COPY --from=builder /deploy /app
 
 ENV NODE_ENV=production
 RUN mkdir -p public/uploads
 
 EXPOSE 3001
 
-# Run the app
+# Run the app from the standalone dist
 CMD ["node", "dist/main"]
