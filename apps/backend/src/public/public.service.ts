@@ -7,7 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationService } from "../notification/notification.service";
 import { CreatePublicBookingDto } from "./dto/public-booking.dto";
-import { BookingStatus, Prisma } from "@prisma/client";
+import { BookingStatus, Prisma } from "@prismaclient";
 
 @Injectable()
 export class PublicService {

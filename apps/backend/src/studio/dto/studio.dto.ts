@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
-import { SubscriptionTier, StudioStatus } from "@prisma/client";
+import { SubscriptionTier, StudioStatus } from "@prismaclient";
 
 export class BrandingConfigDto {
   @IsString()

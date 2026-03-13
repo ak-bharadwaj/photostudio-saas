@@ -20,7 +20,7 @@ import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
-import { InvoiceStatus } from "@prisma/client";
+import { InvoiceStatus } from "@prismaclient";
 import { UserPayload } from "../common/interfaces/user-payload.interface";
 import { SkipSubscriptionCheck } from "../auth/decorators/skip-subscription-check.decorator";
 

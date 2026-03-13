@@ -12,21 +12,23 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 # Copy backend package.json
 COPY apps/backend/package.json ./apps/backend/
 
-# Install ALL dependencies to build (including devDeps like @nestjs/cli)
+# Install ALL dependencies to build
 RUN pnpm install
 
 # Copy source code
 COPY apps/backend ./apps/backend
 
+# IMPORTANT: Generate Prisma Client BEFORE building, because the build process 
+# depends on the generated types in src/generated/prisma-client
+RUN cd apps/backend && npx prisma generate
+
 # Build the app in the monorepo context
 RUN pnpm --filter backend build
 
 # Use pnpm deploy to get a self-contained production directory
-# This correctly isolates production dependencies from the monorepo
 RUN pnpm deploy --filter=backend --prod /deploy
 
-# Step into the deploy directory and copy over our built artifacts and schema
-# We must generate Prisma Client INSIDE /deploy to ensure it's in the correct node_modules
+# Copy built artifacts into the clean deployment directory
 RUN cp -r apps/backend/dist /deploy/dist && \
     cp -r apps/backend/prisma /deploy/prisma && \
     cd /deploy && \
@@ -51,10 +53,9 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 COPY --from=builder /deploy /app
 
 ENV NODE_ENV=production
-# Add prisma engine to the path if needed, usually not required but safe
 RUN mkdir -p public/uploads
 
 EXPOSE 3001
 
-# Run the app from the root of the runner stage
+# Run the app
 CMD ["node", "dist/main"]
