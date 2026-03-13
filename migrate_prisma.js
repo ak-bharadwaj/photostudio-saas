@@ -10,23 +10,19 @@ function walk(dir) {
         const stat = fs.statSync(filePath);
         if (stat.isDirectory()) {
             walk(filePath);
-        } else if (filePath.endsWith('.ts') && !filePath.includes('generated-client')) {
+        } else if (filePath.endsWith('.ts')) {
             let content = fs.readFileSync(filePath, 'utf8');
             let originalContent = content;
 
-            // Replace '@prismaclient' with '@prisma/client'
+            // Standardize all Prisma-related imports to just '@prisma/client'
+            // This is the most compatible way across different environments
+            content = content.replace(/from\s+['"]@prisma\/client\/runtime\/library['"]/g, "from '@prisma/client'");
+            content = content.replace(/from\s+['"]@prisma\/client\/runtime\/client['"]/g, "from '@prisma/client'");
             content = content.replace(/from\s+['"]@prismaclient['"]/g, "from '@prisma/client'");
-            content = content.replace(/import\s+(['"]@prismaclient['"])/g, "import '@prisma/client'");
             
-            // Replace relative paths to generated-client with '@prisma/client'
-            content = content.replace(/from\s+['"]\.\.\/prisma\/generated-client['"]/g, "from '@prisma/client'");
-            content = content.replace(/from\s+['"]\.\.\/\.\.\/prisma\/generated-client['"]/g, "from '@prisma/client'");
-            content = content.replace(/from\s+['"]\.\.\/\.\.\/\.\.\/prisma\/generated-client['"]/g, "from '@prisma/client'");
-
-            // Replace runtime/client or runtime/library imports
-            content = content.replace(/from\s+['"].*\/prisma\/generated-client\/runtime\/client['"]/g, "from '@prisma/client/runtime/library'");
-             content = content.replace(/from\s+['"]@prismaclient\/runtime\/client['"]/g, "from '@prisma/client/runtime/library'");
-
+            // If Decimal is imported separately, try to get it from @prisma/client
+            // Most modern Prisma versions export Decimal from the main entry point
+            
             if (content !== originalContent) {
                 console.log(`Updated: ${filePath}`);
                 fs.writeFileSync(filePath, content, 'utf8');
@@ -36,4 +32,4 @@ function walk(dir) {
 }
 
 walk(directory);
-console.log('Done replacement.');
+console.log('Done standardizing Prisma imports.');
