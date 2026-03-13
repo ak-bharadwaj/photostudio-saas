@@ -21,9 +21,11 @@ export default async function LandingPage() {
             featuredPartners: Array.isArray(studios.data) ? studios.data : (studios.data.items || []),
             reviews: revs.data || []
         };
-    } catch (err) {
-        console.error('Failed to pre-fetch marketplace data:', err);
-        // initialData stays null, HomeContent will fetch on mount
+    } catch (err: any) {
+        // This often happens during Vercel builds because the backend API isn't running yet.
+        // We catch it so the build doesn't fail, and the client will fetch data on mount.
+        console.warn('Marketplace pre-fetch skipped: Backend unreachable during build.', err.message);
+        // initialData stays null, HomeContent handles fetching on mount
     }
 
     return (
