@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { Prisma } from '../generated/prisma-client';
+import { Prisma } from '../../prisma/generated-client';
 import { CreateCustomerDto, UpdateCustomerDto } from "./dto/customer.dto";
 
 @Injectable()

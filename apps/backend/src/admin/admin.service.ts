@@ -13,7 +13,7 @@ import {
   StudioStatus,
   BillingModel,
   CommissionType,
-} from '../generated/prisma-client';
+} from '../../prisma/generated-client';
 import {
   CreateAdminDto,
   AdminLoginDto,

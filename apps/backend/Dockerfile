@@ -18,21 +18,23 @@ RUN pnpm install
 # Copy source code
 COPY apps/backend ./apps/backend
 
-# IMPORTANT: Generate Prisma Client BEFORE building, because the build process 
-# depends on the generated types in src/generated/prisma-client
+# IMPORTANT: Generate Prisma Client into the local folder BEFORE building
 RUN cd apps/backend && npx prisma generate
 
-# Build the app in the monorepo context
+# Build the app – will now use the generated files from the local directory
 RUN pnpm --filter backend build
 
 # Use pnpm deploy to get a self-contained production directory
 RUN pnpm deploy --filter=backend --prod /deploy
 
-# Copy built artifacts into the clean deployment directory
+# Copy built artifacts and the generated client into the deployment isolation
 RUN cp -r apps/backend/dist /deploy/dist && \
     cp -r apps/backend/prisma /deploy/prisma && \
     cd /deploy && \
     npx prisma generate
+
+# Final check to ensure the generated folder exists in the isolated deploy
+RUN ls -la /deploy/prisma/generated-client
 
 # Production Stage
 FROM node:20-slim AS runner
@@ -49,7 +51,7 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Copy the entire deployed isolation from the builder
+# Copy the entire isolated deployment
 COPY --from=builder /deploy /app
 
 ENV NODE_ENV=production

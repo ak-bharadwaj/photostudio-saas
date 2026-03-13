@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateStudioRequestDto } from "./dto/studio-request.dto";
-import { StudioRequestStatus } from '../generated/prisma-client';
+import { StudioRequestStatus } from '../../prisma/generated-client';
 
 @Injectable()
 export class StudioRequestService {
