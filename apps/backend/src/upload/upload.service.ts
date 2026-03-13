@@ -13,6 +13,7 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 @Injectable()
 export class UploadService {
@@ -20,49 +21,71 @@ export class UploadService {
   private readonly useLocalFallback: boolean;
   private readonly localUploadDir: string;
   private readonly localBaseUrl: string;
+  private readonly s3Client: S3Client | null = null;
+  private readonly r2BucketName: string;
+  private readonly r2PublicUrl: string;
 
   constructor(private configService: ConfigService) {
-    const cloudinaryUrl =
-      this.configService.get<string>("CLOUDINARY_URL") || "";
+    // -------------------------------------------------------------------------
+    // Cloudflare R2 / S3 Configuration
+    // -------------------------------------------------------------------------
+    const r2AccessKeyId = this.configService.get<string>("R2_ACCESS_KEY_ID");
+    const r2SecretAccessKey = this.configService.get<string>("R2_SECRET_ACCESS_KEY");
+    const r2Endpoint = this.configService.get<string>("R2_ENDPOINT");
+    this.r2BucketName = this.configService.get<string>("R2_BUCKET_NAME") || "";
+    this.r2PublicUrl = this.configService.get<string>("R2_PUBLIC_URL") || "";
 
-    // Check if the URL is valid and extract credentials
-    const isPlaceholder =
-      !cloudinaryUrl ||
-      cloudinaryUrl.includes("<your_api_key>") ||
-      cloudinaryUrl.includes("<your_api_secret>") ||
-      cloudinaryUrl === "cloudinary://undefined:undefined@undefined";
-
-    if (!isPlaceholder) {
-      try {
-        // Correct way to config programmatically if using a URL string:
-        // Either set process.env.CLOUDINARY_URL or parse it:
-        const urlMatch = cloudinaryUrl.match(
-          /cloudinary:\/\/([^:]+):([^@]+)@(.+)/,
-        );
-        if (urlMatch) {
-          cloudinary.config({
-            api_key: urlMatch[1],
-            api_secret: urlMatch[2],
-            cloud_name: urlMatch[3],
-            secure: true,
-          });
-          this.useLocalFallback = false;
-          this.logger.log(`Cloudinary configured for cloud: ${urlMatch[3]}`);
-        } else {
-          // Fallback to simple config if regex fails but URL exists
-          cloudinary.config({ cloudinary_url: cloudinaryUrl });
-          this.useLocalFallback = false;
-          this.logger.log("Cloudinary configured using URL string");
-        }
-      } catch (err) {
-        this.logger.error("Failed to parse Cloudinary URL:", err);
-        this.useLocalFallback = true;
-      }
+    if (r2AccessKeyId && r2SecretAccessKey && r2Endpoint) {
+      this.s3Client = new S3Client({
+        region: "auto",
+        endpoint: r2Endpoint,
+        credentials: {
+          accessKeyId: r2AccessKeyId,
+          secretAccessKey: r2SecretAccessKey,
+        },
+      });
+      this.useLocalFallback = false;
+      this.logger.log("Cloudflare R2 storage configured");
     } else {
-      this.useLocalFallback = true;
-      this.logger.warn(
-        "CLOUDINARY_URL not configured — falling back to local disk storage.",
-      );
+      // Fallback to Cloudinary logic (existing)
+      const cloudinaryUrl =
+        this.configService.get<string>("CLOUDINARY_URL") || "";
+
+      const isPlaceholder =
+        !cloudinaryUrl ||
+        cloudinaryUrl.includes("<your_api_key>") ||
+        cloudinaryUrl.includes("<your_api_secret>") ||
+        cloudinaryUrl === "cloudinary://undefined:undefined@undefined";
+
+      if (!isPlaceholder) {
+        try {
+          const urlMatch = cloudinaryUrl.match(
+            /cloudinary:\/\/([^:]+):([^@]+)@(.+)/,
+          );
+          if (urlMatch) {
+            cloudinary.config({
+              api_key: urlMatch[1],
+              api_secret: urlMatch[2],
+              cloud_name: urlMatch[3],
+              secure: true,
+            });
+            this.useLocalFallback = false;
+            this.logger.log(`Cloudinary configured for cloud: ${urlMatch[3]}`);
+          } else {
+            cloudinary.config({ cloudinary_url: cloudinaryUrl });
+            this.useLocalFallback = false;
+            this.logger.log("Cloudinary configured using URL string");
+          }
+        } catch (err) {
+          this.logger.error("Failed to parse Cloudinary URL:", err);
+          this.useLocalFallback = true;
+        }
+      } else {
+        this.useLocalFallback = true;
+        this.logger.warn(
+          "No cloud storage configured (R2 or Cloudinary) — falling back to local disk storage.",
+        );
+      }
     }
 
     // Local fallback paths
@@ -82,6 +105,11 @@ export class UploadService {
     if (this.useLocalFallback) {
       return this.saveLocally(file, `logo`);
     }
+
+    if (this.s3Client) {
+      return this.uploadToR2(file.buffer, `studios/${studioId}/logo/${uuidv4()}${this.extFromMime(file.mimetype)}`, file.mimetype);
+    }
+
     try {
       const result = await this.uploadToCloudinary(file.buffer, {
         folder: `studios/${studioId}/logo`,
@@ -107,6 +135,11 @@ export class UploadService {
     if (this.useLocalFallback) {
       return this.saveLocally(file, `portfolio`);
     }
+
+    if (this.s3Client) {
+      return this.uploadToR2(file.buffer, `studios/${studioId}/portfolio/${uuidv4()}${this.extFromMime(file.mimetype)}`, file.mimetype);
+    }
+
     try {
       const result = await this.uploadToCloudinary(file.buffer, {
         folder: `studios/${studioId}/portfolio`,
@@ -134,6 +167,11 @@ export class UploadService {
     if (this.useLocalFallback) {
       return this.saveLocally(file, `service`);
     }
+
+    if (this.s3Client) {
+      return this.uploadToR2(file.buffer, `studios/${studioId}/services/${uuidv4()}${this.extFromMime(file.mimetype)}`, file.mimetype);
+    }
+
     try {
       const result = await this.uploadToCloudinary(file.buffer, {
         folder: `studios/${studioId}/services`,
@@ -160,6 +198,11 @@ export class UploadService {
     if (this.useLocalFallback) {
       return this.saveBufferLocally(buffer, `contract_${bookingId}.pdf`);
     }
+
+    if (this.s3Client) {
+      return this.uploadToR2(buffer, `studios/${studioId}/contracts/contract_${bookingId}.pdf`, "application/pdf");
+    }
+
     try {
       const result = await this.uploadToCloudinary(buffer, {
         folder: `studios/${studioId}/contracts`,
@@ -183,6 +226,11 @@ export class UploadService {
     if (this.useLocalFallback) {
       return this.saveBufferLocally(buffer, `invoice_${invoiceNumber}.pdf`);
     }
+
+    if (this.s3Client) {
+      return this.uploadToR2(buffer, `studios/${studioId}/invoices/invoice_${invoiceNumber}.pdf`, "application/pdf");
+    }
+
     try {
       const result = await this.uploadToCloudinary(buffer, {
         folder: `studios/${studioId}/invoices`,
@@ -283,5 +331,33 @@ export class UploadService {
       );
       stream.end(fileBuffer);
     });
+  }
+
+  /** Helper: upload buffer to Cloudflare R2 */
+  private async uploadToR2(
+    buffer: Buffer,
+    key: string,
+    contentType: string,
+  ): Promise<string> {
+    if (!this.s3Client) throw new Error("R2 Client not initialized");
+
+    try {
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.r2BucketName,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+        }),
+      );
+
+      const baseUrl = this.r2PublicUrl.endsWith("/")
+        ? this.r2PublicUrl.slice(0, -1)
+        : this.r2PublicUrl;
+      return `${baseUrl}/${key}`;
+    } catch (error) {
+      this.logger.error(`R2 Upload failed for ${key}:`, error);
+      throw new InternalServerErrorException("Failed to upload to cloud storage");
+    }
   }
 }

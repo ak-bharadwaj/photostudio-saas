@@ -394,11 +394,15 @@ export class PublicService {
     q?: string,
     categoryId?: string,
     location?: string,
-    isRecommended?: boolean,
-    uniquePerStudio?: boolean,
+    isRecommended = false,
+    uniquePerStudio = false,
     limit = 12,
     offset = 0,
   ) {
+    const cacheKey = `public:search:q=${q}:cat=${categoryId}:loc=${location}:rec=${isRecommended}:uniq=${uniquePerStudio}:lim=${limit}:off=${offset}`;
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const where: any = {
       isActive: true,
       studio: {
@@ -502,10 +506,14 @@ export class PublicService {
    */
   async discoverStudios(
     location?: string,
-    isRecommended?: boolean,
+    isRecommended = false,
     limit = 12,
     offset = 0,
   ) {
+    const cacheKey = `public:discover:loc=${location}:rec=${isRecommended}:lim=${limit}:off=${offset}`;
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const where: any = {
       status: { in: ["ACTIVE", "TRIAL"] },
       isPublic: true,
@@ -570,10 +578,17 @@ export class PublicService {
    * Marketplace: Get all categories
    */
   async getCategories() {
-    return this.prisma.category.findMany({
+    const cacheKey = `public:categories`;
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) return cached;
+
+    const categories = await this.prisma.category.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
     });
+
+    await this.cacheService.set(cacheKey, categories, 3600); // 1 hour
+    return categories;
   }
 
   /**
@@ -648,6 +663,10 @@ export class PublicService {
    * Marketplace: Get all distinct studio cities
    */
   async getLocations() {
+    const cacheKey = `public:locations`;
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const studios = await this.prisma.studio.findMany({
       where: {
         status: { in: ["ACTIVE", "TRIAL"] },
@@ -657,6 +676,8 @@ export class PublicService {
       distinct: ["city"],
     });
 
-    return studios.map((s) => s.city).filter(Boolean);
+    const locations = studios.map((s) => s.city).filter(Boolean);
+    await this.cacheService.set(cacheKey, locations, 3600); // 1 hour
+    return locations;
   }
 }

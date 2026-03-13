@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/auth-store';
-import { studiosApi } from '@/lib/api';
+import { partnersApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
@@ -205,7 +205,7 @@ export default function ShareLinksPage() {
     async function load() {
       try {
         setLoading(true);
-        const res = await studiosApi.getOne(studioId);
+        const res = await partnersApi.getOne(studioId);
         if (ctrl.signal.aborted) return;
         setStudioSlug(res.data.slug);
         setStudioName(res.data.name);

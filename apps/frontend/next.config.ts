@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   // Allow next/image to optimise remote images from Cloudinary and known CDNs
   // NOTE: Supabase removed — migrated to Neon (no file storage via Supabase anymore)
   images: {
+    // Disable Vercel's default API image optimization to dramatically reduce cost/usage limits.
+    // Instead, we will directly serve them or rely on an external CDN (e.g. Cloudflare Images/R2)
+    unoptimized: true,
     // Cache optimised images for 24 h — critical to stay within Vercel's 1,000/month limit
     minimumCacheTTL: 86400,
     // Prefer AVIF, fall back to WebP
@@ -60,6 +63,16 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.r2.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "**.cloudflarestorage.com",
         pathname: "/**",
       },
     ],

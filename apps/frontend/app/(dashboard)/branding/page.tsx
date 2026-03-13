@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NextImage from 'next/image';
 import { useAuthStore } from '@/lib/auth-store';
-import { studiosApi, uploadApi } from '@/lib/api';
+import { partnersApi, uploadApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea, Select } from '@/components/ui/input';
@@ -724,7 +724,7 @@ export default function BrandingPage() {
     async function load() {
       try {
         setLoading(true);
-        const res = await studiosApi.getOne(studioId);
+        const res = await partnersApi.getOne(studioId);
         if (ctrl.signal.aborted) return;
         const s = res.data as StudioData;
         setStudio(s);
@@ -881,7 +881,7 @@ export default function BrandingPage() {
         bgType: branding.bgType,
         layoutMode: branding.layoutMode,
       };
-      await studiosApi.update(studio.id, {
+      await partnersApi.update(studio.id, {
         brandingConfig: brandingPayload,
         logoUrl: logoUrl, // Explicitly send logoUrl even if it is null
         defaultTerms: defaultTerms || '',
