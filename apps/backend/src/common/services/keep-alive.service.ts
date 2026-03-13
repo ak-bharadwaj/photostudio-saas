@@ -9,7 +9,7 @@ export class KeepAliveService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    this.logger.log("Keep-Alive Service initialized.");
+    this.logger.log("Keep-Alive Service initialized. (Schedule: 05:00 - 23:30)");
     this.startPinging();
   }
 
@@ -23,31 +23,34 @@ export class KeepAliveService implements OnModuleInit {
 
   private shouldBeActive(): boolean {
     const now = new Date();
-    // Use local server hour (Render servers often use UTC by default)
     const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
 
-    // Active: 5 AM (5) to 11 PM (23)
-    // Sleep: 12 AM (0) to 4 AM (4)
-    // Note: 11 PM is hour 23.
-    const isActiveRange = currentHour >= 5 && currentHour <= 23;
-    
-    return isActiveRange;
+    // Start at 5:00 AM
+    if (currentHour < 5) return false;
+
+    // Stop at 11:30 PM (Hour 23, Minute 30)
+    if (currentHour === 23 && currentMinutes > 30) return false;
+    if (currentHour > 23) return false;
+
+    return true;
   }
 
   private async ping() {
-    // We try to ping the configured backend URL to simulate inbound traffic
+    // We ping the /ping endpoint which is ultra-lightweight
     const backendUrl = this.configService.get<string>("BACKEND_URL") || `http://localhost:${this.configService.get("PORT") || 3001}`;
-    const healthUrl = `${backendUrl}/health`;
+    const pingUrl = `${backendUrl}/ping`;
 
     try {
-      const response = await fetch(healthUrl);
+      const response = await fetch(pingUrl);
       if (response.ok) {
-        this.logger.debug(`Keep-alive ping successful: ${healthUrl}`);
+        this.logger.debug(`Keep-alive ping successful: ${pingUrl}`);
       } else {
         this.logger.warn(`Keep-alive ping returned status: ${response.status}`);
       }
     } catch (error: any) {
-      this.logger.error(`Keep-alive ping failed: ${error.message}`);
+      // We use debug or log here instead of error to avoid cluttering logs if the server is starting up
+      this.logger.log(`Keep-alive ping attempt: ${error.message}`);
     }
   }
 }
