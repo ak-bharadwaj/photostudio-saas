@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto } from "./dto/payment.dto";
-import { Decimal } from '@prisma/client';
+
 import { InvoiceStatus, PaymentMethod, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -54,7 +54,7 @@ export class PaymentService {
         const payment = await tx.payment.create({
           data: {
             invoiceId: dto.invoiceId,
-            amount: new Decimal(dto.amount),
+            amount: new Prisma.Decimal(dto.amount),
             paymentMethod: dto.paymentMethod,
             transactionId: dto.transactionId,
             notes: dto.notes,
@@ -109,7 +109,7 @@ export class PaymentService {
                   studioId,
                   invoiceId: dto.invoiceId,
                   bookingId: invoice.bookingId ?? undefined,
-                  amount: new Decimal(commissionAmount),
+                  amount: new Prisma.Decimal(commissionAmount),
                   status: "PENDING",
                   notes: `Commission calculated for ${studio.commissionType === "PERCENTAGE" ? studio.commissionRate + "%" : studio.commissionRate} rate`,
                 },

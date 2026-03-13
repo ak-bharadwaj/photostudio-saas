@@ -12,7 +12,7 @@ import { NotificationService } from "../notification/notification.service";
 import { QueueService } from "../queue/queue.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 import { InvoiceStatus, Prisma } from '@prisma/client';
-import { Decimal } from '@prisma/client';
+
 
 /** Shape of a single invoice line item stored in the JSON column. */
 interface InvoiceLineItem {
@@ -105,10 +105,10 @@ export class InvoiceService {
       customerId: dto.customerId,
       ...(dto.bookingId ? { bookingId: dto.bookingId } : {}),
       lineItems: dto.lineItems as unknown as Prisma.InputJsonValue,
-      subtotal: new Decimal(subtotal),
-      tax: new Decimal(tax),
-      discount: new Decimal(discount),
-      total: new Decimal(total),
+      subtotal: new Prisma.Decimal(subtotal),
+      tax: new Prisma.Decimal(tax),
+      discount: new Prisma.Decimal(discount),
+      total: new Prisma.Decimal(total),
       status: "DRAFT",
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       notes: dto.notes,
@@ -225,15 +225,15 @@ export class InvoiceService {
 
       updateData = {
         lineItems: dto.lineItems as unknown as Prisma.InputJsonValue,
-        subtotal: new Decimal(subtotal),
-        tax: new Decimal(tax),
-        discount: new Decimal(discount),
-        total: new Decimal(total),
+        subtotal: new Prisma.Decimal(subtotal),
+        tax: new Prisma.Decimal(tax),
+        discount: new Prisma.Decimal(discount),
+        total: new Prisma.Decimal(total),
       };
     } else {
-      if (dto.tax !== undefined) updateData.tax = new Decimal(dto.tax);
+      if (dto.tax !== undefined) updateData.tax = new Prisma.Decimal(dto.tax);
       if (dto.discount !== undefined)
-        updateData.discount = new Decimal(dto.discount);
+        updateData.discount = new Prisma.Decimal(dto.discount);
 
       // Recalculate total if tax or discount changed
       if (dto.tax !== undefined || dto.discount !== undefined) {
@@ -241,7 +241,7 @@ export class InvoiceService {
         const tax = dto.tax !== undefined ? dto.tax : Number(invoice.tax);
         const discount =
           dto.discount !== undefined ? dto.discount : Number(invoice.discount);
-        updateData.total = new Decimal(subtotal + tax - discount);
+        updateData.total = new Prisma.Decimal(subtotal + tax - discount);
       }
     }
 
