@@ -3,7 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { Prisma } from "@prismaclient";
+import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { CreateServiceDto, UpdateServiceDto } from "./dto/service.dto";

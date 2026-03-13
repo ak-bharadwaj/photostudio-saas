@@ -10,7 +10,7 @@ import {
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { InvoiceStatus } from "@prismaclient";
+import { InvoiceStatus } from '../../generated/prisma-client';
 
 export class LineItemDto {
   @IsString()

@@ -6,7 +6,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto } from "./dto/payment.dto";
 import { Decimal } from "@prismaclient/runtime/client";
-import { InvoiceStatus, PaymentMethod, Prisma } from "@prismaclient";
+import { InvoiceStatus, PaymentMethod, Prisma } from '../generated/prisma-client';
 
 @Injectable()
 export class PaymentService {

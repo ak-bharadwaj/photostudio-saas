@@ -12,7 +12,7 @@ import {
   ValidatorConstraintInterface,
 } from "class-validator";
 import { Transform } from "class-transformer";
-import { BookingStatus } from "@prismaclient";
+import { BookingStatus } from '../../generated/prisma-client';
 
 @ValidatorConstraint({ name: "isFutureDate", async: false })
 class IsFutureDateConstraint implements ValidatorConstraintInterface {

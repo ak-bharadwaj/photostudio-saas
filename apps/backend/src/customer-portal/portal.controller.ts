@@ -20,7 +20,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { BookingService } from "../booking/booking.service";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import { UserRole, Prisma, BookingStatus } from "@prismaclient";
+import { UserRole, Prisma, BookingStatus } from '../generated/prisma-client';
 import { UserPayload } from "../common/interfaces/user-payload.interface";
 import { InvoiceService } from "../invoice/invoice.service";
 
