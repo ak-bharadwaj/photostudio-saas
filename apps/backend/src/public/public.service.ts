@@ -478,7 +478,7 @@ export class PublicService {
     // Ensure we don't return duplicates if uniquePerStudio was NOT requested but somehow crept in
     // (Though normally Prisma handles this, it's safer for this specific requirement)
 
-    const itemsWithStats = finalItems.map((item) => {
+    const itemsWithStats = finalItems.map((item: any) => {
       const studioReviews = (item.studio as any).reviews || [];
       const avgRating =
         studioReviews.length > 0
@@ -555,11 +555,11 @@ export class PublicService {
       }),
     ]);
 
-    const itemsWithStats = items.map((item) => {
+    const itemsWithStats = items.map((item: any) => {
       const reviews = item.reviews || [];
       const avgRating =
         reviews.length > 0
-          ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+          ? reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / reviews.length
           : 0;
 
       const { reviews: _, ...studioWithoutReviews } = item;
@@ -676,7 +676,7 @@ export class PublicService {
       distinct: ["city"],
     });
 
-    const locations = studios.map((s) => s.city).filter(Boolean);
+    const locations = studios.map((s: any) => s.city).filter(Boolean);
     await this.cacheService.set(cacheKey, locations, 3600); // 1 hour
     return locations;
   }
