@@ -170,11 +170,19 @@ export class BookingService {
 
         if (byEmail && byPhone && byEmail.id !== byPhone.id) {
           // If both match different records, merge the 'phone' record into the 'email' record
+          const globalUserId = byEmail.globalUserId || byPhone.globalUserId;
+          
           await tx.booking.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
           await tx.invoice.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
           await tx.review.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
+          
           await tx.customer.delete({ where: { id: byPhone.id } });
-          customer = byEmail;
+          
+          // Ensure the primary record has the globalUserId if either had it
+          customer = await tx.customer.update({
+            where: { id: byEmail.id },
+            data: { globalUserId },
+          });
         } else {
           customer = byEmail || byPhone;
         }
@@ -808,18 +816,32 @@ export class BookingService {
     const customerIds = await this.getCustomerIdsByUserId(userId);
     const booking = await this.prisma.booking.findFirst({
       where: { id, customerId: { in: customerIds } },
+      include: { studio: true, service: true, customer: true }
     });
 
     if (!booking) throw new NotFoundException("Booking not found");
     if (booking.status !== "QUOTED")
       throw new BadRequestException("No active quote to negotiate");
 
+    // Prevent infinite loops by limiting negotiation rounds
+    const negotiationCount = await this.prisma.bookingStatusLog.count({
+      where: {
+        bookingId: id,
+        notes: { startsWith: "Customer requested adjustment:" },
+      },
+    });
+
+    if (negotiationCount >= 3) {
+      throw new BadRequestException(
+        "Maximum negotiation rounds reached for this booking. Please Accept or Reject the current quote.",
+      );
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const b = await tx.booking.update({
         where: { id },
         data: {
           quoteRejectionNotes: notes,
-          // We keep it in QUOTED but log the negotiation request
         },
         include: { customer: true, studio: true, service: true },
       });
@@ -833,6 +855,17 @@ export class BookingService {
       });
       return b;
     });
+
+    // Notify Studio Owner about the negotiation request
+    if (updated.studio.email) {
+      await this.notificationService.sendNegotiationAlert({
+        to: updated.studio.email,
+        studioName: updated.studio.name,
+        customerName: updated.customer.name,
+        serviceName: updated.service?.name ?? "Service",
+        notes,
+      });
+    }
 
     await this.cacheService.del(`studio:${updated.studioId}:bookings`);
     return updated;

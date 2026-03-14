@@ -761,4 +761,44 @@ export class NotificationService {
       throw error;
     }
   }
+
+  async sendNegotiationAlert(data: {
+    to: string;
+    studioName: string;
+    customerName: string;
+    serviceName: string;
+    notes: string;
+  }) {
+    try {
+      await this.sendEmail({
+        to: data.to,
+        subject: `Negotiation Requested - ${data.customerName}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
+                <h1 style="color: #3498db; margin-top: 0;">Negotiation Requested</h1>
+                <p>Hi ${this.esc(data.studioName)},</p>
+                <p><strong>${this.esc(data.customerName)}</strong> has requested an adjustment for their <strong>${this.esc(data.serviceName)}</strong> booking.</p>
+                
+                <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h2 style="color: #2c3e50; font-size: 18px; margin-top: 0;">Customer's Message</h2>
+                  <p style="font-style: italic;">"${this.esc(data.notes)}"</p>
+                </div>
+
+                <p>Please log in to your dashboard to respond with an updated quote or to confirm the booking.</p>
+                
+                <p style="color: #7f8c8d; font-size: 14px; margin-top: 30px;">
+                  Best regards,<br>ReviewsFeedback Team
+                </p>
+              </div>
+            </body>
+          </html>
+        `,
+      });
+    } catch (error: unknown) {
+      this.logger.error("Failed to send negotiation alert email", error);
+    }
+  }
 }
