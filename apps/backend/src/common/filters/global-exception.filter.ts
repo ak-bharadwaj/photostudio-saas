@@ -73,21 +73,32 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         case "P2014":
           message = "Invalid relation";
           break;
+        case "P2021":
+          message = "Database table missing. Please run migrations.";
+          break;
+        case "P2022":
+          message = "Database column missing. Please run migrations.";
+          break;
         default:
-          message = "Database operation failed";
+          message = `Database operation failed (Code: ${prismaErr.code})`;
       }
 
       this.logger.error(
         `Prisma error ${prismaErr.code}: ${prismaErr.message}`,
         prismaErr.stack,
       );
+      
+      // Specifically helpful for the user to see the exact field or constraint that failed
+      if (prismaErr.meta && (prismaErr.meta as any).target) {
+        message = `${message}: ${(prismaErr.meta as any).target}`;
+      }
     }
     // Handle Prisma validation errors
     else if (exception instanceof Prisma.PrismaClientValidationError) {
       const prismaErr = exception as Prisma.PrismaClientValidationError;
       status = HttpStatus.BAD_REQUEST;
       error = "Validation Error";
-      message = "Invalid data provided";
+      message = "Invalid data provided to database";
       this.logger.error(
         `Prisma validation error: ${prismaErr.message}`,
         prismaErr.stack,
@@ -95,10 +106,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // Handle unknown errors
     else if (exception instanceof Error) {
-      message =
-        process.env.NODE_ENV === "production"
-          ? "An unexpected error occurred"
-          : exception.message;
+      message = exception.message;
 
       this.logger.error(
         `Unhandled exception: ${exception.message}`,
@@ -123,20 +131,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message,
     };
 
-    if (process.env.NODE_ENV !== "production" && exception instanceof Error) {
-      errorResponse.debugMessage = exception.message;
-      if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-        errorResponse.prismaCode = (exception as Prisma.PrismaClientKnownRequestError).code;
-      }
+    // Always include prismaCode if available for easier debugging
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      errorResponse.prismaCode = (exception as Prisma.PrismaClientKnownRequestError).code;
     }
 
-    // Log the error in non-production environments with full details
-    if (process.env.NODE_ENV !== "production") {
-      this.logger.error(
-        `${request.method} ${request.url}`,
-        JSON.stringify(errorResponse, null, 2),
-      );
+    if (process.env.NODE_ENV !== "production" && exception instanceof Error) {
+      errorResponse.debugMessage = exception.message;
     }
+
+    // Log the error response
+    this.logger.error(
+      `${request.method} ${request.url} - ${status}`,
+      JSON.stringify(errorResponse, null, 2),
+    );
 
     res.status(status).json(errorResponse);
   }

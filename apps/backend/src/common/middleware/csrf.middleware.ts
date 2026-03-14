@@ -6,19 +6,31 @@ import * as crypto from "crypto";
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     // Set a CSRF cookie on any request if it doesn't exist
+    const isProduction = process.env.NODE_ENV === "production";
+    const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+
     if (!req.cookies?.["XSRF-TOKEN"]) {
       const token = crypto.randomBytes(32).toString("hex");
       res.cookie("XSRF-TOKEN", token, {
-        httpOnly: false, // Must be readable by frontend
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        httpOnly: false, // Must be readable by frontend if not using header cache
+        secure: isSecure || isProduction,
+        sameSite: (isSecure || isProduction) ? "none" : "lax",
       });
       res.setHeader("X-CSRF-Token", token);
-      // For the current request logic, we inject it into cookies so verify works if it's a mutation
       req.cookies = { ...req.cookies, "XSRF-TOKEN": token };
     } else {
-      // Even if cookie exists, also expose it as header for cross-domain reading
-      res.setHeader("X-CSRF-Token", req.cookies["XSRF-TOKEN"]);
+      // Even if cookie exists, also expose it as header and ensure it has correct flags for cross-domain
+      const existingToken = req.cookies["XSRF-TOKEN"];
+      res.setHeader("X-CSRF-Token", existingToken);
+      
+      // Refresh the cookie with correct flags if it's a production/secure flow
+      if (isSecure || isProduction) {
+        res.cookie("XSRF-TOKEN", existingToken, {
+          httpOnly: false,
+          secure: true,
+          sameSite: "none",
+        });
+      }
     }
 
     // Skip verification for safe methods
