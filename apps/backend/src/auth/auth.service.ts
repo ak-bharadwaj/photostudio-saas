@@ -555,8 +555,8 @@ export class AuthService {
     // Generate a secure random token
     const resetToken = crypto.randomBytes(32).toString("hex");
     
-    // Store in Redis/Cache for 1 hour (3600 seconds)
-    await this.cacheService.set(`password_reset:${resetToken}`, user.id, 3600);
+    // Store in Redis/Cache for 15 minutes (900 seconds)
+    await this.cacheService.set(`password_reset:${resetToken}`, user.id, 900);
 
     const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
     const resetUrl = `${frontendUrl}/portal/reset-password?token=${resetToken}`;

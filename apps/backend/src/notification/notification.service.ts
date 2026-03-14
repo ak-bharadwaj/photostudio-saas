@@ -744,7 +744,7 @@ export class NotificationService {
                    <a href="${this.esc(resetUrl)}" style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset My Password</a>
                  </div>
 
-                 <p>If you didn't request this, you can safely ignore this email. This link will expire in 1 hour.</p>
+                 <p>If you didn't request this, you can safely ignore this email. This link will expire in 15 minutes.</p>
                  
                  <p style="word-break: break-all; color: #7f8c8d; font-size: 12px;">
                    If you're having trouble clicking the button, copy and paste this URL into your browser:<br>
