@@ -53,12 +53,16 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // 2. CSRF Token (read from cookie for non-safe methods)
-    if (typeof document !== 'undefined' && config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
-      const xsrfToken = document.cookie
+    // 2. CSRF Token (read from cache or cookie for non-safe methods)
+    if (typeof window !== 'undefined' && config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
+      // Prioritize header-based token (works cross-domain) over cookie (same-domain only)
+      const cachedCsrf = getItem('csrfToken');
+      const cookieCsrf = document.cookie
         .split('; ')
         .find((row) => row.startsWith('XSRF-TOKEN='))
         ?.split('=')[1];
+
+      const xsrfToken = cachedCsrf || cookieCsrf;
 
       if (xsrfToken) {
         config.headers['x-xsrf-token'] = xsrfToken;
@@ -70,9 +74,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor to handle token refresh and CSRF caching
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Catch CSRF from header (reliable cross-domain)
+    const csrfFromHeader = response.headers['x-csrf-token'];
+    if (csrfFromHeader) {
+      setItem('csrfToken', csrfFromHeader);
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 

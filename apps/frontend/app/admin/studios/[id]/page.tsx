@@ -346,9 +346,9 @@ export default function PartnerDetailPage() {
                     ].map((opt) => (
                       <Button
                         key={opt.label}
-                        variant="outline"
+                        variant="secondary"
                         size="xs"
-                        className="bg-white border-[var(--primary)]/30 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white"
+                        className="border-[var(--primary)]/20 text-[var(--foreground)]"
                         onClick={() => {
                           const base = editData.subscriptionExpiresAt 
                             ? new Date(editData.subscriptionExpiresAt) 

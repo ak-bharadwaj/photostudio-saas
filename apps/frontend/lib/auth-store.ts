@@ -119,6 +119,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     } finally {
       storageRemove('accessToken');
       storageRemove('refreshToken');
+      storageRemove('csrfToken');
       set({ user: null, isAuthenticated: false });
     }
   },

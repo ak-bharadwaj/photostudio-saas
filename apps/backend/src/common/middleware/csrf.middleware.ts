@@ -11,10 +11,14 @@ export class CsrfMiddleware implements NestMiddleware {
       res.cookie("XSRF-TOKEN", token, {
         httpOnly: false, // Must be readable by frontend
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
+      res.setHeader("X-CSRF-Token", token);
       // For the current request logic, we inject it into cookies so verify works if it's a mutation
       req.cookies = { ...req.cookies, "XSRF-TOKEN": token };
+    } else {
+      // Even if cookie exists, also expose it as header for cross-domain reading
+      res.setHeader("X-CSRF-Token", req.cookies["XSRF-TOKEN"]);
     }
 
     // Skip verification for safe methods

@@ -69,7 +69,7 @@ export default function AdminLayout({
         {/* Header */}
         <div className="p-5 border-b border-[var(--border-light)]">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-white shadow-lg">
+            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-[var(--primary-foreground)] shadow-lg">
               <Shield className="h-5 w-5" />
             </div>
             <div>
@@ -92,7 +92,7 @@ export default function AdminLayout({
                   'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] text-sm font-medium',
                   'transition-all duration-[var(--transition-fast)]',
                   isActive
-                    ? 'bg-[var(--primary)] text-white shadow-md'
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-md'
                     : 'text-[var(--foreground-secondary)] hover:bg-[var(--overlay-light)] hover:text-[var(--foreground)]',
                 )}
               >
@@ -106,7 +106,7 @@ export default function AdminLayout({
         {/* Footer */}
         <div className="p-3 border-t border-[var(--border-light)]">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] flex items-center justify-center text-xs font-bold text-white shadow-md">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] flex items-center justify-center text-xs font-bold text-[var(--primary-foreground)] shadow-md">
               {user.name?.charAt(0).toUpperCase() || 'A'}
             </div>
             <div className="flex-1 min-w-0">

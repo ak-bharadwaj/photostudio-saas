@@ -40,7 +40,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       primary: [
         // Gradient fill
         'bg-gradient-to-br from-[var(--primary)] to-[var(--accent)]',
-        'text-white',
+        'text-[var(--primary-foreground)]',
         // Hover: deepen + slight glow
         'hover:from-[var(--primary-hover)] hover:to-[var(--accent-hover)]',
         'hover:shadow-[var(--shadow-glow-primary)]',
@@ -72,7 +72,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ].join(' '),
       danger: [
         'bg-gradient-to-br from-[var(--danger)] to-[var(--danger-hover)]',
-        'text-white',
+        'text-[var(--danger-foreground)]',
         'hover:from-[var(--danger-hover)] hover:to-[var(--danger)]',
         'hover:shadow-[0_4px_16px_rgba(239,68,68,0.35)]',
         'shadow-[var(--shadow-sm)]',
@@ -82,7 +82,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ].join(' '),
       success: [
         'bg-gradient-to-br from-[var(--success)] to-[var(--success-hover)]',
-        'text-white',
+        'text-[var(--success-foreground)]',
         'hover:from-[var(--success-hover)] hover:to-[var(--success)]',
         'hover:shadow-[var(--shadow-glow-success)]',
         'shadow-[var(--shadow-sm)]',
