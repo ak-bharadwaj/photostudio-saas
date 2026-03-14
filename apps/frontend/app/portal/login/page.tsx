@@ -169,7 +169,7 @@ function LoginContent() {
                 <div className="space-y-6">
                     <button
                         onClick={handleGoogleLogin}
-                        className="w-full h-14 flex items-center justify-center gap-3 bg-white border border-border text-[11px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 text-slate-900 rounded-2xl group shadow-sm hover:shadow-xl"
+                        className="w-full h-14 flex items-center justify-center gap-3 bg-white border border-border text-[11px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 !text-black rounded-2xl group shadow-sm hover:shadow-xl"
                     >
                         <svg className="h-5 w-5" viewBox="0 0 24 24">
                             <path
@@ -189,7 +189,7 @@ function LoginContent() {
                                 d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                             />
                         </svg>
-                        <span className="text-[#1f1f1f]">Continue with Google</span>
+                        <span className="!text-black font-bold">Continue with Google</span>
                     </button>
 
                     <div className="relative flex items-center justify-center py-2">
