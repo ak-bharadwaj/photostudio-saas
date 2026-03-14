@@ -1,0 +1,21 @@
+name: Render Keep Alive
+
+on:
+  schedule:
+    # Run every 14 minutes to prevent Render's 15-minute sleep timer
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend
+        run: |
+          curl -I https://photostudio-saas.onrender.com/api/health
+      
+      - name: Ping Frontend (Optional)
+        run: |
+          # Although Vercel doesn't "sleep" like Render, 
+          # pinging it ensures the Edge cache stays warm.
+          curl -I https://reviewsfeedback.vercel.app/
