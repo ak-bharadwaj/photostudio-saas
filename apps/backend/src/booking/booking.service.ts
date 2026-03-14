@@ -20,6 +20,7 @@ import {
 import { BookingStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 
+import { InvoiceService } from "../invoice/invoice.service";
 import { PdfService } from "../pdf/pdf.service";
 import { UploadService } from "../upload/upload.service";
 
@@ -34,6 +35,7 @@ export class BookingService {
     private queueService: QueueService,
     private pdfService: PdfService,
     private uploadService: UploadService,
+    private invoiceService: InvoiceService,
   ) {}
   async createInternal(dto: CreateInternalBookingDto, studioId: string) {
     const studio = await this.prisma.studio.findUnique({
@@ -149,16 +151,21 @@ export class BookingService {
     const scheduledAt = new Date(dto.scheduledDate);
     await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
 
+    // Normalize phone number (digits only, last 10 digits for local matching if needed, but here we just take all digits)
+    const normalizedPhone = dto.customerPhone.replace(/\D/g, '');
+    const searchPhone = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+
     // Find or create customer AND create booking atomically inside one transaction.
-    // Both operations share the same DB transaction so the unique constraint on
-    // (studioId, phone) enforces correctness even under concurrent requests —
-    // the second concurrent INSERT will block until the first commits, then
-    // either succeed (if the first rolled back) or hit a unique-key error which
-    // Prisma surfaces as PrismaClientKnownRequestError P2002.
     const booking = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         let customer = await tx.customer.findFirst({
-          where: { phone: dto.customerPhone, studioId: studio.id },
+          where: {
+            studioId: studio.id,
+            OR: [
+              { phone: { contains: searchPhone } },
+              ...(dto.customerEmail ? [{ email: dto.customerEmail }] : []),
+            ],
+          },
         });
 
         if (!customer) {
@@ -166,16 +173,40 @@ export class BookingService {
             data: {
               name: dto.customerName,
               email: dto.customerEmail,
-              phone: dto.customerPhone,
+              phone: dto.customerPhone, // Store original format but search is normalized
               studioId: studio.id,
             },
           });
         } else {
           // Keep the record up-to-date with the latest name/email they provided
+          // Also update phone if it was partial or formatted differently
           customer = await tx.customer.update({
             where: { id: customer.id },
-            data: { name: dto.customerName, email: dto.customerEmail },
+            data: { 
+              name: dto.customerName, 
+              email: dto.customerEmail || customer.email,
+              phone: dto.customerPhone 
+            },
           });
+        }
+
+        // Check if there's a global user with this email or phone
+        if (!customer.globalUserId) {
+          const globalUser = await tx.user.findFirst({
+            where: {
+              OR: [
+                ...(dto.customerEmail ? [{ email: dto.customerEmail }] : []),
+                { phone: dto.customerPhone },
+              ],
+              role: "CUSTOMER",
+            },
+          });
+          if (globalUser) {
+            customer = await tx.customer.update({
+              where: { id: customer.id },
+              data: { globalUserId: globalUser.id },
+            });
+          }
         }
 
         // Create booking with status log in transaction
@@ -273,6 +304,9 @@ export class BookingService {
         include: {
           customer: true,
           service: true,
+          invoices: {
+            select: { id: true, status: true },
+          },
           assignedTo: {
             select: {
               id: true,
@@ -285,8 +319,28 @@ export class BookingService {
       this.prisma.booking.count({ where }),
     ]);
 
+    // Auto-update status to IN_PROGRESS if scheduled time has passed for CONFIRMED bookings
+    const now = new Date();
+    const updatedBookings = await Promise.all(
+      bookings.map(async (b) => {
+        if (b.status === "CONFIRMED" && b.scheduledAt <= now) {
+          try {
+            await this.updateStatus(b.id, {
+              status: "IN_PROGRESS",
+              notes: "Automatically moved to In Progress (time reached)",
+            });
+            return { ...b, status: "IN_PROGRESS" as BookingStatus };
+          } catch (e) {
+            this.logger.error(`Failed to auto-update booking ${b.id} to IN_PROGRESS: ${e instanceof Error ? e.message : String(e)}`);
+            return b;
+          }
+        }
+        return b;
+      })
+    );
+
     return {
-      data: bookings,
+      data: updatedBookings,
       meta: {
         total,
         page,
@@ -334,6 +388,19 @@ export class BookingService {
 
     if (!booking) {
       throw new NotFoundException("Booking not found");
+    }
+
+    // Auto-update status to IN_PROGRESS if scheduled time has passed for CONFIRMED bookings
+    if (booking.status === "CONFIRMED" && booking.scheduledAt <= new Date()) {
+      try {
+        await this.updateStatus(booking.id, {
+          status: "IN_PROGRESS",
+          notes: "Automatically moved to In Progress (time reached)",
+        });
+        booking.status = "IN_PROGRESS";
+      } catch (e) {
+        this.logger.error(`Failed to auto-update booking ${booking.id} to IN_PROGRESS (findOne): ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
 
     return booking;
@@ -412,20 +479,26 @@ export class BookingService {
       throw new NotFoundException("Booking not found");
     }
 
-    // Validate status transitions
-    const validTransitions: Record<string, BookingStatus[]> = {
-      INQUIRY: ["QUOTED", "CONFIRMED", "CANCELLED"],
-      QUOTED: ["CONFIRMED", "CANCELLED"],
-      CONFIRMED: ["IN_PROGRESS", "CANCELLED"],
-      IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-      COMPLETED: [],
-      CANCELLED: [],
-    };
-    const allowed = validTransitions[booking.status] ?? [];
-    if (!allowed.includes(dto.status)) {
-      throw new BadRequestException(
-        `Cannot transition from ${booking.status} to ${dto.status}`,
-      );
+    // For studio owners, we allow manual overrides to any status
+    if (studioId) {
+      // Basic check: completed or cancelled bookings can be moved back if owner really wants to
+      // but we still want to log it
+    } else {
+      // Validate status transitions for non-owners/automation
+      const validTransitions: Record<string, BookingStatus[]> = {
+        INQUIRY: ["QUOTED", "CONFIRMED", "CANCELLED"],
+        QUOTED: ["CONFIRMED", "CANCELLED"],
+        CONFIRMED: ["IN_PROGRESS", "CANCELLED"],
+        IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+        COMPLETED: [],
+        CANCELLED: [],
+      };
+      const allowed = validTransitions[booking.status] ?? [];
+      if (!allowed.includes(dto.status)) {
+        throw new BadRequestException(
+          `Cannot transition from ${booking.status} to ${dto.status}`,
+        );
+      }
     }
 
     const updated = await this.prisma.$transaction(
@@ -549,6 +622,35 @@ export class BookingService {
         this.logger.log(
           `[Queue] Scheduled follow-up email for booking ${booking.id}`,
         );
+
+        // Auto-generate invoice if not exists
+        const fullBooking: any = await this.findOne(booking.id, booking.studioId);
+        if (fullBooking) {
+          const existingInvoice = await this.prisma.invoice.findFirst({
+            where: { bookingId: booking.id }
+          });
+          
+          if (!existingInvoice) {
+            const unitPrice = fullBooking.quoteAmount ? Number(fullBooking.quoteAmount) : Number(fullBooking.service.price);
+            try {
+               await this.invoiceService.create({
+                  customerId: fullBooking.customer.id,
+                  bookingId: fullBooking.id,
+                  lineItems: [{
+                     description: fullBooking.service.name + (fullBooking.quoteAmount ? ' (Negotiated Rate)' : ''),
+                     quantity: 1,
+                     rate: unitPrice,
+                     amount: unitPrice
+                  }],
+                  dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                  notes: "Auto-generated upon completion.",
+               }, fullBooking.studioId);
+               this.logger.log(`Auto-generated invoice for completed booking ${booking.id}`);
+            } catch(err) {
+               this.logger.error("Failed to auto-generate invoice:", err);
+            }
+          }
+        }
       }
     } catch (error: unknown) {
       this.logger.error(
@@ -651,6 +753,7 @@ export class BookingService {
             status: "QUOTED",
             quoteAmount: dto.amount as unknown as Prisma.Decimal,
             quoteNotes: dto.notes,
+            quoteRejectionNotes: null,
             quotedAt: new Date(),
           },
           include: { customer: true, studio: true, service: true },
@@ -692,9 +795,9 @@ export class BookingService {
   }
 
   async negotiateQuote(id: string, userId: string, notes: string) {
-    const customer = await this.getCustomerByUserId(userId);
+    const customerIds = await this.getCustomerIdsByUserId(userId);
     const booking = await this.prisma.booking.findFirst({
-      where: { id, customerId: customer.id },
+      where: { id, customerId: { in: customerIds } },
     });
 
     if (!booking) throw new NotFoundException("Booking not found");
@@ -721,35 +824,41 @@ export class BookingService {
       return b;
     });
 
+    await this.cacheService.del(`studio:${updated.studioId}:bookings`);
     return updated;
   }
 
-  // Helper to DRY up customer lookup
-  private async getCustomerByUserId(userId: string) {
-    let customer = await this.prisma.customer.findFirst({
+  // Helper to DRY up customer lookup mapping globally across studios
+  private async getCustomerIdsByUserId(userId: string) {
+    let records = await this.prisma.customer.findMany({
       where: { globalUserId: userId },
+      select: { id: true }
     });
+    
+    let ids = records.map(r => r.id);
 
-    if (!customer) {
+    if (ids.length === 0) {
       const globalUser = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { email: true },
       });
       if (globalUser?.email) {
-        customer = await this.prisma.customer.findFirst({
+        records = await this.prisma.customer.findMany({
           where: { email: globalUser.email },
+          select: { id: true }
         });
+        ids = records.map(r => r.id);
       }
     }
 
-    if (!customer) throw new ForbiddenException("No customer record found");
-    return customer;
+    if (ids.length === 0) throw new ForbiddenException("No customer record found");
+    return ids;
   }
 
   async acceptQuote(id: string, userId: string) {
-    const customer = await this.getCustomerByUserId(userId);
+    const customerIds = await this.getCustomerIdsByUserId(userId);
     const booking = await this.prisma.booking.findFirst({
-      where: { id, customerId: customer.id },
+      where: { id, customerId: { in: customerIds } },
     });
 
     if (!booking) throw new NotFoundException("Booking not found");
@@ -788,9 +897,9 @@ export class BookingService {
   }
 
   async rejectQuote(id: string, userId: string, notes: string) {
-    const customer = await this.getCustomerByUserId(userId);
+    const customerIds = await this.getCustomerIdsByUserId(userId);
     const booking = await this.prisma.booking.findFirst({
-      where: { id, customerId: customer.id },
+      where: { id, customerId: { in: customerIds } },
     });
 
     if (!booking) throw new NotFoundException("Booking not found");

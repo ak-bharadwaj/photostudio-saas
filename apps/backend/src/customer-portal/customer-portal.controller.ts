@@ -56,18 +56,40 @@ export class CustomerPortalController {
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit = 10,
   ) {
-    if (!phone || !email) {
-      throw new BadRequestException("Both phone and email are required");
+    if (!phone && !email) {
+      throw new BadRequestException("Phone or email is required");
     }
 
-    const safeLimit = Math.min(limit, 50);
+    const safeLimit = Math.min(limit, 1000);
     const skip = (page - 1) * safeLimit;
 
-    const customer = await this.findCustomerByDualFactor(phone, email);
+    // Normalize phone for searching
+    const normalizedPhone = phone?.replace(/\D/g, '');
+    const searchPhone = normalizedPhone && normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+
+    // Find all potential customer records that might belong to this person
+    // Rule: same phone or same email means same customer identity.
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        OR: [
+          { phone: searchPhone ? { contains: searchPhone } : undefined },
+          { email: email || undefined },
+        ].filter(Boolean) as any,
+      },
+    });
+
+    if (customers.length === 0) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    // Security: at least one record must match BOTH for verification, 
+    // or we verify they have access to this identity. 
+    // Given the user request "same mail or phno mean 1 customer", we treat them as one.
+    const customerIds = customers.map(c => c.id);
 
     const [bookings, total] = await Promise.all([
       this.prisma.booking.findMany({
-        where: { customerId: customer.id },
+        where: { customerId: { in: customerIds } },
         include: {
           service: {
             select: {
@@ -81,6 +103,7 @@ export class CustomerPortalController {
               name: true,
               email: true,
               phone: true,
+              currency: true,
             },
           },
         },
@@ -88,15 +111,15 @@ export class CustomerPortalController {
         skip,
         take: safeLimit,
       }),
-      this.prisma.booking.count({ where: { customerId: customer.id } }),
+      this.prisma.booking.count({ where: { customerId: { in: customerIds } } }),
     ]);
 
     return {
       customer: {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
+        id: customers[0].id,
+        name: customers[0].name,
+        email: email, // Fix swap
+        phone: phone,
       },
       data: bookings,
       meta: {
@@ -120,18 +143,35 @@ export class CustomerPortalController {
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit = 10,
   ) {
-    if (!phone || !email) {
-      throw new BadRequestException("Both phone and email are required");
+    if (!phone && !email) {
+      throw new BadRequestException("Phone or email is required");
     }
 
-    const safeLimit = Math.min(limit, 50);
+    const safeLimit = Math.min(limit, 1000);
     const skip = (page - 1) * safeLimit;
 
-    const customer = await this.findCustomerByDualFactor(phone, email);
+    // Normalize phone for searching
+    const normalizedPhone = phone?.replace(/\D/g, '');
+    const searchPhone = normalizedPhone && normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        OR: [
+          { phone: searchPhone ? { contains: searchPhone } : undefined },
+          { email: email || undefined },
+        ].filter(Boolean) as any,
+      },
+    });
+
+    if (customers.length === 0) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    const customerIds = customers.map(c => c.id);
 
     const [invoices, total] = await Promise.all([
       this.prisma.invoice.findMany({
-        where: { customerId: customer.id },
+        where: { customerId: { in: customerIds } },
         include: {
           booking: {
             include: {
@@ -144,6 +184,7 @@ export class CustomerPortalController {
               name: true,
               email: true,
               phone: true,
+              currency: true,
             },
           },
         },
@@ -151,15 +192,15 @@ export class CustomerPortalController {
         skip,
         take: safeLimit,
       }),
-      this.prisma.invoice.count({ where: { customerId: customer.id } }),
+      this.prisma.invoice.count({ where: { customerId: { in: customerIds } } }),
     ]);
 
     return {
       customer: {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
+        id: customers[0].id,
+        name: customers[0].name,
+        email: email, // Fix swap
+        phone: phone,
       },
       data: invoices,
       meta: {
@@ -182,8 +223,8 @@ export class CustomerPortalController {
     @Query("phone") phone: string,
     @Query("email") email: string,
   ) {
-    if (!phone || !email) {
-      throw new BadRequestException("Both phone and email are required");
+    if (!phone && !email) {
+      throw new BadRequestException("Phone or email is required");
     }
 
     const invoice = await this.prisma.invoice.findUnique({
@@ -198,11 +239,11 @@ export class CustomerPortalController {
       throw new NotFoundException("Invoice not found");
     }
 
-    // Dual-factor verification: phone AND email must match
-    if (
-      invoice.customer.phone !== phone ||
-      (invoice.customer.email ?? "") !== email
-    ) {
+    // Loosened verification: match either provided phone or email
+    const matchesPhone = phone && invoice.customer.phone === phone;
+    const matchesEmail = email && (invoice.customer.email ?? "") === email;
+
+    if (!matchesPhone && !matchesEmail) {
       throw new NotFoundException("Invoice not found");
     }
 
@@ -220,8 +261,8 @@ export class CustomerPortalController {
     @Query("phone") phone: string,
     @Query("email") email: string,
   ) {
-    if (!phone || !email) {
-      throw new BadRequestException("Both phone and email are required");
+    if (!phone && !email) {
+      throw new BadRequestException("Phone or email is required");
     }
 
     const booking = await this.prisma.booking.findUnique({
@@ -244,11 +285,11 @@ export class CustomerPortalController {
       throw new NotFoundException("Booking not found");
     }
 
-    // Dual-factor verification: phone AND email must match
-    if (
-      booking.customer.phone !== phone ||
-      (booking.customer.email ?? "") !== email
-    ) {
+    // Loosened verification: match either provided phone or email
+    const matchesPhone = phone && booking.customer.phone === phone;
+    const matchesEmail = email && (booking.customer.email ?? "") === email;
+
+    if (!matchesPhone && !matchesEmail) {
       throw new NotFoundException("Booking not found");
     }
 

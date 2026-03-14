@@ -45,6 +45,7 @@ interface Booking {
   moodboardUrl?: string;
   quoteAmount?: number;
   quoteNotes?: string;
+  quoteRejectionNotes?: string;
   service: { name: string; price: number; durationMinutes: number };
   studio: { name: string; email: string; phone: string; slug: string; logoUrl?: string };
 }
@@ -57,12 +58,12 @@ const STATUS_CONFIG: Record<string, {
   bg: string;
   border: string;
 }> = {
-  INQUIRY: { variant: 'default', icon: MessageSquare, label: 'Inquiry', color: '#9ca3af', bg: 'rgba(156,163,175,0.08)', border: 'rgba(156,163,175,0.2)' },
-  QUOTED: { variant: 'info', icon: MessageSquare, label: 'Quoted', color: '#60a5fa', bg: 'rgba(96,165,250,0.08)', border: 'rgba(96,165,250,0.2)' },
-  CONFIRMED: { variant: 'success', icon: CheckCircle, label: 'Confirmed', color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)' },
-  IN_PROGRESS: { variant: 'warning', icon: Loader, label: 'In Progress', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.2)' },
-  COMPLETED: { variant: 'secondary', icon: CheckCircle, label: 'Completed', color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)' },
-  CANCELLED: { variant: 'danger', icon: Ban, label: 'Cancelled', color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.2)' },
+  INQUIRY: { variant: 'default', icon: MessageSquare, label: 'Inquiry', color: '#94a3b8', bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.3)' },
+  QUOTED: { variant: 'info', icon: MessageSquare, label: 'Quoted', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)' },
+  CONFIRMED: { variant: 'success', icon: CheckCircle, label: 'Confirmed', color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.3)' },
+  IN_PROGRESS: { variant: 'warning', icon: Loader, label: 'In Progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.3)' },
+  COMPLETED: { variant: 'secondary', icon: CheckCircle, label: 'Completed', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)' },
+  CANCELLED: { variant: 'danger', icon: Ban, label: 'Cancelled', color: '#ef4444', bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)' },
 };
 
 /* ── Status stepper pill ── */
@@ -71,7 +72,7 @@ const STATUS_STEPS = ['INQUIRY', 'QUOTED', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETE
 function StatusStepper({ status }: { status: string }) {
   if (status === 'CANCELLED') {
     return (
-      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-destructive">
+      <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-destructive">
         <Ban className="h-3 w-3" />
         Protocol Aborted
       </div>
@@ -86,8 +87,7 @@ function StatusStepper({ status }: { status: string }) {
         return (
           <div
             key={step}
-            className={`h-1 rounded-full transition-all duration-700 ${active ? 'w-8 bg-primary shadow-glow-primary' : done ? 'w-4 bg-primary/40' : 'w-4 bg-border'
-              }`}
+            className={`h-1.5 rounded-full transition-all duration-700 ${active ? 'w-10 bg-primary shadow-glow-primary' : done ? 'w-5 bg-primary/60' : 'w-5 bg-border-strong'}`}
           />
         );
       })}
@@ -117,20 +117,23 @@ export default function BookingsPage() {
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((silent = false) => {
     const token = safeGetItem('accessToken');
     const guestPhone = safeGetItem('customer_guest_phone');
 
-    abortRef.current?.abort();
+    if (!silent) {
+      abortRef.current?.abort();
+      setLoading(true);
+    }
+    
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    setLoading(true);
     setError(null);
 
     if (token) {
-      fetchWithToken(token, ctrl);
+      fetchWithToken(token, ctrl, silent);
     } else if (guestPhone) {
-      fetchGuest(guestPhone, ctrl);
+      fetchGuest(guestPhone, safeGetItem('customer_guest_email'), ctrl, silent);
     } else {
       router.replace('/portal/login');
     }
@@ -139,10 +142,19 @@ export default function BookingsPage() {
 
   useEffect(() => {
     load();
-    return () => abortRef.current?.abort();
+    
+    // Auto-refresh every 30 seconds for "real-time" experience without manual reload
+    const interval = setInterval(() => {
+      load(true);
+    }, 30000);
+
+    return () => {
+      abortRef.current?.abort();
+      clearInterval(interval);
+    };
   }, [load]);
 
-  const fetchWithToken = async (token: string, ctrl: AbortController) => {
+  const fetchWithToken = async (token: string, ctrl: AbortController, silent = false) => {
     try {
       const res = await axios.get(`${API_URL}/portal/bookings`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -154,16 +166,16 @@ export default function BookingsPage() {
     } catch (err: unknown) {
       if ((err as { name?: string }).name === 'CanceledError') return;
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Failed to load bookings.');
+      if (!silent) setError(e.response?.data?.message || 'Failed to load bookings.');
     } finally {
-      if (!ctrl.signal.aborted) setLoading(false);
+      if (!ctrl.signal.aborted && !silent) setLoading(false);
     }
   };
 
-  const fetchGuest = async (phone: string, ctrl: AbortController) => {
+  const fetchGuest = async (phone: string, email: string | null, ctrl: AbortController, silent = false) => {
     try {
       const res = await axios.get(`${API_URL}/customer-portal/bookings`, {
-        params: { phone },
+        params: { phone, email: email || '' },
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
@@ -171,9 +183,9 @@ export default function BookingsPage() {
       setBookings(res.data?.data ?? res.data?.bookings ?? []);
     } catch (err: unknown) {
       if ((err as { name?: string }).name === 'CanceledError') return;
-      setError('Failed to load bookings.');
+      if (!silent) setError('Failed to load bookings.');
     } finally {
-      if (!ctrl.signal.aborted) setLoading(false);
+      if (!ctrl.signal.aborted && !silent) setLoading(false);
     }
   };
 
@@ -204,7 +216,7 @@ export default function BookingsPage() {
           <p className="text-sm text-[var(--foreground-tertiary)] max-w-xs">{error}</p>
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 hover:-translate-y-0.5"
           style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent))' }}
         >
@@ -328,13 +340,13 @@ export default function BookingsPage() {
       {/* ── Filter pills ── */}
       {bookings.length > 0 && (
         <div className="flex flex-wrap gap-3 items-center px-2">
-          <div className="text-[10px] font-black text-foreground-tertiary tracking-[0.2em] uppercase mr-2">
+          <div className="text-[11px] font-black text-foreground-tertiary tracking-[0.2em] uppercase mr-2">
             Protocol Filter:
           </div>
           <button
             onClick={() => setActiveFilter(null)}
-            className={`px-6 py-2.5 rounded-full text-[10px] font-black tracking-widest uppercase transition-all duration-500 border ${activeFilter === null
-              ? 'bg-primary text-white border-primary shadow-glow-primary'
+            className={`px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest uppercase transition-all duration-500 border ${activeFilter === null
+              ? 'bg-primary text-background border-primary shadow-glow-primary'
               : 'bg-white/5 text-foreground-tertiary border-white/5 hover:bg-white/10'
               }`}
           >
@@ -347,7 +359,7 @@ export default function BookingsPage() {
               <button
                 key={key}
                 onClick={() => setActiveFilter(activeFilter === key ? null : key)}
-                className={`px-6 py-2.5 rounded-full text-[10px] font-black tracking-widest uppercase transition-all duration-500 border ${activeFilter === key
+                className={`px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest uppercase transition-all duration-500 border ${activeFilter === key
                   ? 'bg-foreground text-background border-foreground shadow-lg'
                   : 'bg-white/5 text-foreground-tertiary border-white/5 hover:bg-white/10'
                   }`}
@@ -421,26 +433,33 @@ export default function BookingsPage() {
                             <Badge className="bg-primary/10 text-primary border-transparent py-0.5 px-2 sm:px-3 rounded-lg font-black tracking-widest uppercase text-[8px]">
                               {booking.id.slice(0, 8)}
                             </Badge>
-                            <span className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase hidden sm:inline">/ BOOKING ID</span>
+                            <span className="text-[11px] font-black text-foreground-tertiary tracking-widest uppercase hidden sm:inline">/ BOOKING ID</span>
                           </div>
                           <h3 className="text-xl sm:text-3xl font-black tracking-tighter leading-tight group-hover:text-primary transition-colors">
                             {booking.service?.name}
                           </h3>
-                          <p className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase flex items-center gap-2">
+                          <p className="text-[11px] font-black text-foreground-tertiary tracking-widest uppercase flex items-center gap-2">
                             <MapPin className="h-3 w-3 text-primary" /> {booking.studio?.name}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex sm:flex-col sm:items-end items-center justify-between gap-2 sm:gap-3 sm:text-right">
-                        <div
-                          className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center gap-2"
-                          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
-                        >
-                          <StatusIcon className="h-3 w-3" /> {cfg.label}
+                        <div className="flex flex-col items-end gap-1">
+                          <div
+                            className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[11px] font-black tracking-widest uppercase flex items-center gap-2"
+                            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+                          >
+                            <StatusIcon className="h-3 w-3" /> {cfg.label}
+                          </div>
+                          {booking.quoteRejectionNotes && (
+                            <Badge variant="warning" className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider animate-pulse bg-amber-500 text-white border-none shadow-md">
+                              Negotiating
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-2xl sm:text-3xl font-black tracking-tighter tabular-nums">
-                          {formatCurrency(booking.service?.price ?? 0)}
+                          {formatCurrency(booking.quoteAmount ?? booking.service?.price ?? 0)}
                         </div>
                       </div>
                     </div>
@@ -465,12 +484,12 @@ export default function BookingsPage() {
                         {isCompleted ? (
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-4 w-4 text-primary" />
-                            <span className="text-[10px] font-black tracking-widest uppercase text-foreground-tertiary">Booking Archival Complete</span>
+                            <span className="text-[11px] font-black tracking-widest uppercase text-foreground-tertiary">Booking Archival Complete</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[10px] font-black tracking-widest uppercase text-foreground-tertiary">Real-time Engagement Active</span>
+                            <span className="text-[11px] font-black tracking-widest uppercase text-foreground-tertiary">Real-time Engagement Active</span>
                           </div>
                         )}
                       </div>
@@ -480,33 +499,33 @@ export default function BookingsPage() {
                           !isGuest ? (
                             <Button
                               variant="primary"
-                              className="btn-luxury h-12 flex-1 sm:flex-none px-4 sm:px-8 rounded-xl text-[10px] font-black tracking-widest uppercase text-center"
+                              className="btn-luxury h-12 flex-1 sm:flex-none px-4 sm:px-8 rounded-xl text-[11px] font-black tracking-widest uppercase text-center"
                               onClick={() => setReviewingBooking(booking)}
                             >
                               LEAVE FEEDBACK <Star className="ml-2 h-4 w-4 fill-current hidden sm:inline-block" />
                             </Button>
                           ) : (
                             <div className="flex-1 sm:flex-none h-12 px-4 sm:px-8 rounded-xl flex items-center justify-center border border-white/10 bg-white/5">
-                              <span className="text-[10px] font-black tracking-widest uppercase text-foreground-tertiary">Sign Up to Review</span>
+                              <span className="text-[11px] font-black tracking-widest uppercase text-foreground-tertiary">Sign Up to Review</span>
                             </div>
                           )
                         ) : (
                           <div className="flex items-center gap-2 flex-1 sm:flex-none">
                             {booking.status === 'QUOTED' ? (
                               <div className="flex gap-2 w-full sm:w-auto">
-                                <Button
-                                  variant="primary"
-                                  className="h-12 flex-1 sm:px-6 rounded-xl text-[10px] font-black tracking-widest uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
-                                  onClick={() => {
-                                    setQuotingBooking(booking);
-                                    setQuoteAction('accept');
-                                  }}
-                                >
-                                  ACCEPT
-                                </Button>
+                                  <Button
+                                    variant="primary"
+                                    className="h-12 flex-1 sm:px-6 rounded-xl text-[11px] font-black tracking-widest uppercase bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white"
+                                    onClick={() => {
+                                      setQuotingBooking(booking);
+                                      setQuoteAction('accept');
+                                    }}
+                                  >
+                                    ACCEPT
+                                  </Button>
                                 <Button
                                   variant="secondary"
-                                  className="h-12 flex-1 sm:px-6 rounded-xl text-[10px] font-black tracking-widest uppercase"
+                                  className="h-12 flex-1 sm:px-6 rounded-xl text-[11px] font-black tracking-widest uppercase"
                                   onClick={() => {
                                     setQuotingBooking(booking);
                                     setQuoteAction('negotiate');
@@ -518,7 +537,7 @@ export default function BookingsPage() {
                             ) : (
                               <Button
                                 variant="primary"
-                                className="btn-luxury h-12 flex-1 sm:flex-none px-4 sm:px-8 rounded-xl text-[10px] font-black tracking-widest uppercase"
+                                className="btn-luxury h-12 flex-1 sm:flex-none px-4 sm:px-8 rounded-xl text-[11px] font-black tracking-widest uppercase"
                                 onClick={() => setBriefingBooking(booking)}
                               >
                                 OPEN BRIEF <Sparkles className="ml-2 h-4 w-4 hidden sm:inline-block" />
@@ -557,7 +576,7 @@ export default function BookingsPage() {
 
             <div className="space-y-6">
               <div>
-                <span className="text-[10px] font-black tracking-[.3em] uppercase text-primary mb-2 block">HOW WAS YOUR EXPERIENCE?</span>
+                <span className="text-[11px] font-black tracking-[.3em] uppercase text-primary mb-2 block">HOW WAS YOUR EXPERIENCE?</span>
                 <h3 className="text-2xl font-black">{reviewingBooking.service.name}</h3>
                 <p className="text-xs text-foreground-tertiary">Partner: {reviewingBooking.studio.name}</p>
               </div>
@@ -607,14 +626,14 @@ export default function BookingsPage() {
 
             <div className="space-y-6">
               <div>
-                <span className="text-[10px] font-black tracking-[.3em] uppercase text-primary mb-2 block">COLLABORATIVE VISION</span>
+                <span className="text-[11px] font-black tracking-[.3em] uppercase text-primary mb-2 block">COLLABORATIVE VISION</span>
                 <h3 className="text-2xl font-black">Prepare Your Booking</h3>
                 <p className="text-xs text-foreground-tertiary">Share specific requirements or objectives with the partner team.</p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-foreground-tertiary">Vibe & Vision</label>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-foreground-tertiary">Vibe & Vision</label>
                   <textarea
                     placeholder="Describe the desired aesthetic, objectives, or specific outcomes you have in mind..."
                     className="w-full h-32 bg-surface-2 border border-border rounded-xl p-4 text-sm focus:border-primary transition-all outline-none"
@@ -624,7 +643,7 @@ export default function BookingsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-foreground-tertiary">Moodboard / Pinterest URL</label>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-foreground-tertiary">Moodboard / Pinterest URL</label>
                   <div className="relative">
                     <input
                       type="url"
@@ -672,7 +691,7 @@ export default function BookingsPage() {
 
             <div className="space-y-6">
               <div>
-                <span className="text-[10px] font-black tracking-[.3em] uppercase text-primary mb-2 block">
+                <span className="text-[11px] font-black tracking-[.3em] uppercase text-primary mb-2 block">
                   {quoteAction === 'accept' ? 'CONFIRM YOUR BOOKING' : quoteAction === 'negotiate' ? 'DISCUSS QUOTE' : 'REJECT QUOTE'}
                 </span>
                 <h3 className="text-2xl font-black">{quotingBooking.service.name}</h3>
@@ -691,7 +710,7 @@ export default function BookingsPage() {
 
               {(quoteAction === 'negotiate' || quoteAction === 'reject') && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-foreground-tertiary">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-foreground-tertiary">
                     {quoteAction === 'negotiate' ? 'YOUR MESSAGE TO PARTNER' : 'REASON FOR REJECTION'}
                   </label>
                   <textarea

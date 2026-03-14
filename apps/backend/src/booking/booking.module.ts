@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { BookingService } from "./booking.service";
 import { BookingController } from "./booking.controller";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -8,6 +8,7 @@ import { QueueModule } from "../queue/queue.module";
 
 import { PdfModule } from "../pdf/pdf.module";
 import { UploadModule } from "../upload/upload.module";
+import { InvoiceModule } from "../invoice/invoice.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UploadModule } from "../upload/upload.module";
     QueueModule,
     PdfModule,
     UploadModule,
+    forwardRef(() => InvoiceModule),
   ],
   controllers: [BookingController],
   providers: [BookingService],

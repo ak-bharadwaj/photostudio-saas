@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Modal } from '@/components/ui/modal';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
 import { bookingsApi, customersApi, servicesApi, invoicesApi } from '@/lib/api';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
@@ -25,8 +26,11 @@ interface Booking {
   scheduledAt: string;
   status: string;
   notes?: string;
+  quoteAmount?: number;
+  quoteRejectionNotes?: string;
   customer: { id: string; name: string; email: string };
   service: { id: string; name: string; price: number };
+  invoices?: Array<{ id: string; status: string }>;
 }
 
 interface Customer { id: string; name: string; email: string }
@@ -43,11 +47,11 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 
 const STATUS_FLOW = [
   { value: 'INQUIRY', label: 'Inquiry', color: 'bg-[var(--surface-2)] text-[var(--foreground-secondary)] border-[var(--border)]' },
-  { value: 'QUOTED', label: 'Quoted', color: 'bg-[var(--primary-light)] text-[var(--primary)] border-[var(--primary)]/30' },
-  { value: 'CONFIRMED', label: 'Confirmed', color: 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/30' },
-  { value: 'IN_PROGRESS', label: 'In Progress', color: 'bg-[var(--info)]/10 text-[var(--info)] border-[var(--info)]/30' },
+  { value: 'QUOTED', label: 'Quoted', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' },
+  { value: 'CONFIRMED', label: 'Confirmed', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' },
+  { value: 'IN_PROGRESS', label: 'In Progress', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30' },
   { value: 'COMPLETED', label: 'Completed', color: 'bg-[var(--foreground)] text-[var(--background)] border-[var(--foreground)]' },
-  { value: 'CANCELLED', label: 'Cancelled', color: 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/30' },
+  { value: 'CANCELLED', label: 'Cancelled', color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30' },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -153,6 +157,12 @@ function BookingsPage() {
   const [quoteNotes, setQuoteNotes] = useState('');
   const [sendingQuote, setSendingQuote] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
+  
+  // Date/Time Edit state
+  const [isEditDateModalOpen, setIsEditDateModalOpen] = useState(false);
+  const [editBooking, setEditBooking] = useState<Booking | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [updatingDate, setUpdatingDate] = useState(false);
 
   const { addToast } = useToast();
 
@@ -195,16 +205,36 @@ function BookingsPage() {
     }
   };
 
+  const handleUpdateDate = async () => {
+    if (!editBooking || !editDate) return;
+    try {
+      setUpdatingDate(true);
+      await bookingsApi.update(editBooking.id, {
+        scheduledDate: new Date(editDate).toISOString(),
+      });
+      addToast('success', 'Booking date and time updated');
+      setIsEditDateModalOpen(false);
+      loadBookings();
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to update date');
+    } finally {
+      setUpdatingDate(false);
+    }
+  };
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
   });
 
-  const loadBookings = useCallback(async () => {
-    abortRef.current?.abort();
+  const loadBookings = useCallback(async (silent = false) => {
+    if (!silent) {
+       abortRef.current?.abort();
+       setIsLoading(true);
+    }
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      setIsLoading(true);
       const params: Record<string, string | number> = { limit: BOOKINGS_PAGE_SIZE, page: bookingPage };
       if (statusFilter) params.status = statusFilter;
       if (debouncedSearch) params.search = debouncedSearch;
@@ -220,17 +250,27 @@ function BookingsPage() {
       }
     } catch {
       if (abortRef.current?.signal.aborted) return;
-      addToast('error', 'Failed to load bookings');
+      if (!silent) addToast('error', 'Failed to load bookings');
     } finally {
-      if (!abortRef.current?.signal.aborted) setIsLoading(false);
+      if (!abortRef.current?.signal.aborted && !silent) setIsLoading(false);
     }
   }, [statusFilter, debouncedSearch, bookingPage, addToast]);
 
   useEffect(() => {
     loadBookings();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadBookings(true);
+    }, 30000);
+
     customersApi.getAll({ limit: 100 }).then(r => setCustomers(r.data?.data || [])).catch(() => { });
     servicesApi.getAll({ limit: 100, isActive: true }).then(r => setServices(r.data?.data || [])).catch(() => { });
-    return () => abortRef.current?.abort();
+    
+    return () => {
+      abortRef.current?.abort();
+      clearInterval(interval);
+    };
   }, [loadBookings]);
 
   const onCreateBooking = async (data: BookingFormData) => {
@@ -257,12 +297,12 @@ function BookingsPage() {
   const handleGenerateInvoice = async (booking: Booking) => {
     setGeneratingInvoice(booking.id);
     try {
-      const unitPrice = booking.service.price;
+      const unitPrice = Number(booking.quoteAmount || booking.service.price);
       await invoicesApi.create({
         bookingId: booking.id,
         customerId: booking.customer.id,
         lineItems: [{
-          description: booking.service.name,
+          description: booking.service.name + (booking.quoteAmount ? ' (Negotiated Rate)' : ''),
           quantity: 1,
           rate: unitPrice,
           amount: unitPrice,
@@ -270,6 +310,7 @@ function BookingsPage() {
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
       addToast('success', 'Invoice generated — check the Invoices tab');
+      loadBookings(true);
     } catch (e) {
       const err = e as { response?: { data?: { message?: string } } };
       addToast('error', err.response?.data?.message || 'Failed to generate invoice');
@@ -373,8 +414,13 @@ function BookingsPage() {
                           <p className="text-xs text-[var(--foreground-secondary)]">{booking.customer.email}</p>
                         </TableCell>
                         <TableCell className="text-[var(--foreground)]">
-                          <p>{booking.service.name}</p>
-                          <p className="text-xs text-[var(--foreground-tertiary)]">{formatCurrency(booking.service.price)}</p>
+                          <p className="font-semibold">{booking.service.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                             <p className="text-sm font-black text-[var(--primary)]">{formatCurrency(booking.quoteAmount ?? booking.service.price)}</p>
+                             {booking.quoteRejectionNotes && (
+                               <Badge variant="warning" className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider animate-pulse bg-amber-500 text-white border-none shadow-lg">NEGOTIATION</Badge>
+                             )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm text-[var(--foreground-secondary)]">
                           {formatDate(booking.scheduledAt)}
@@ -394,7 +440,21 @@ function BookingsPage() {
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
-                            {booking.status === 'INQUIRY' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:bg-[var(--primary-light)]"
+                              aria-label={`Edit date for ${booking.customer.name}`}
+                              onClick={() => {
+                                setEditBooking(booking);
+                                // truncate to local datetime string format for input
+                                setEditDate(new Date(booking.scheduledAt).toISOString().slice(0, 16));
+                                setIsEditDateModalOpen(true);
+                              }}
+                            >
+                              <Calendar className="h-4 w-4" />
+                            </Button>
+                            {(booking.status === 'INQUIRY' || (booking.status === 'QUOTED' && booking.quoteRejectionNotes)) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -402,7 +462,7 @@ function BookingsPage() {
                                 aria-label={`Send quote for ${booking.customer.name}`}
                                 onClick={() => {
                                   setQuoteBooking(booking);
-                                  setQuoteAmount(Number(booking.service.price));
+                                  setQuoteAmount(Number(booking.quoteAmount || booking.service.price));
                                   setQuoteNotes('');
                                   setIsQuoteModalOpen(true);
                                 }}
@@ -416,11 +476,23 @@ function BookingsPage() {
                               aria-label={`Generate invoice for ${booking.customer.name}`}
                               disabled={generatingInvoice === booking.id}
                               onClick={() => handleGenerateInvoice(booking)}
-                              className="text-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/10"
+                              className={cn(
+                                "transition-all duration-200",
+                                booking.invoices && booking.invoices.length > 0 
+                                  ? "text-[var(--primary)] hover:bg-[var(--primary-light)]"
+                                  : "text-[var(--success)] hover:bg-[var(--success)]/10"
+                              )}
                             >
-                              {generatingInvoice === booking.id
-                                ? <LoadingSpinner className="h-4 w-4" />
-                                : <FileText className="h-4 w-4" />}
+                              {generatingInvoice === booking.id ? (
+                                <LoadingSpinner className="h-4 w-4" />
+                              ) : booking.invoices && booking.invoices.length > 0 ? (
+                                <div className="flex items-center gap-1.5">
+                                  <FileText className="h-4 w-4" />
+                                  <span className="text-[11px] font-bold uppercase tracking-wider">Invoiced</span>
+                                </div>
+                              ) : (
+                                <FileText className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -448,7 +520,15 @@ function BookingsPage() {
                     <div className="flex items-center justify-between text-xs">
                       <div>
                         <p className="font-medium text-[var(--foreground)]">{booking.service.name}</p>
-                        <p className="text-[var(--foreground-tertiary)]">{formatCurrency(booking.service.price)} · {formatDate(booking.scheduledAt)}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[var(--primary)] font-bold">{formatCurrency(booking.quoteAmount ?? booking.service.price)}</p>
+                          <p className="text-[var(--foreground-tertiary)]">· {formatDate(booking.scheduledAt)}</p>
+                        </div>
+                        {booking.quoteRejectionNotes && (
+                           <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-white border-none shadow-md w-fit animate-pulse">
+                              <span className="text-[10px] font-black uppercase tracking-wider">ACTION: NEGOTIATING</span>
+                           </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Link href={`/bookings/${booking.id}`}>
@@ -459,12 +539,44 @@ function BookingsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="text-[var(--primary)]"
+                          aria-label="Edit date"
+                          onClick={() => {
+                            setEditBooking(booking);
+                            setEditDate(new Date(booking.scheduledAt).toISOString().slice(0, 16));
+                            setIsEditDateModalOpen(true);
+                          }}
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </Button>
+                        {(booking.status === 'INQUIRY' || (booking.status === 'QUOTED' && booking.quoteRejectionNotes)) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-[var(--primary)]"
+                            aria-label={`Send quote for ${booking.customer.name}`}
+                            onClick={() => {
+                              setQuoteBooking(booking);
+                              setQuoteAmount(Number(booking.quoteAmount || booking.service.price));
+                              setQuoteNotes('');
+                              setIsQuoteModalOpen(true);
+                            }}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           aria-label="Invoice"
                           disabled={generatingInvoice === booking.id}
                           onClick={() => handleGenerateInvoice(booking)}
-                          className="text-[var(--success)]"
+                          className={cn(
+                            "transition-all",
+                            booking.invoices && booking.invoices.length > 0 ? "text-[var(--primary)]" : "text-[var(--success)]"
+                          )}
                         >
-                          {generatingInvoice === booking.id ? <LoadingSpinner className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                          {generatingInvoice === booking.id ? <LoadingSpinner className="h-4 w-4" /> : booking.invoices && booking.invoices.length > 0 ? <span className="text-[10px] font-bold uppercase tracking-wider">Invoiced</span> : <FileText className="h-4 w-4" />}
                         </Button>
                       </div>
                     </div>
@@ -594,6 +706,46 @@ function BookingsPage() {
               disabled={sendingQuote}
             >
               {sendingQuote ? 'Sending...' : 'Send Quote'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Date Modal */}
+      <Modal
+        isOpen={isEditDateModalOpen}
+        onClose={() => setIsEditDateModalOpen(false)}
+        title="Edit Booking Date & Time"
+        description={`Update schedule for ${editBooking?.customer.name}`}
+      >
+        <div className="space-y-4 py-4">
+          <div className="bg-[var(--surface-2)] p-4 rounded-xl border border-[var(--border)] mb-4">
+            <p className="text-sm font-medium">Current Schedule:</p>
+            <p className="text-xl font-black text-[var(--primary)]">
+              {editBooking ? formatDate(editBooking.scheduledAt) : '—'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+              New Date & Time
+            </label>
+            <Input
+              type="datetime-local"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
+            <Button variant="outline" onClick={() => setIsEditDateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateDate}
+              disabled={updatingDate || !editDate}
+            >
+              {updatingDate ? 'Updating...' : 'Update Schedule'}
             </Button>
           </div>
         </div>

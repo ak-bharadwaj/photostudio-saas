@@ -49,11 +49,11 @@ const STATUS_CFG: Record<string, {
   bg: string;
   border: string;
 }> = {
-  DRAFT:          { variant: 'default',   icon: FileText,      label: 'Draft',   color: '#9ca3af', bg: 'rgba(156,163,175,0.08)', border: 'rgba(156,163,175,0.2)' },
-  SENT:           { variant: 'info',      icon: Clock,         label: 'Sent',    color: '#60a5fa', bg: 'rgba(96,165,250,0.08)',  border: 'rgba(96,165,250,0.2)' },
-  PAID:           { variant: 'success',   icon: CheckCircle,   label: 'Paid',    color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)' },
-  PARTIALLY_PAID: { variant: 'warning',   icon: Banknote,      label: 'Partial', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.2)' },
-  OVERDUE:        { variant: 'danger',    icon: AlertTriangle, label: 'Overdue', color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.2)' },
+  DRAFT:          { variant: 'default',   icon: FileText,      label: 'Draft',   color: '#4b5563', bg: 'rgba(75,85,99,0.08)', border: 'rgba(75,85,99,0.2)' },
+  SENT:           { variant: 'info',      icon: Clock,         label: 'Sent',    color: '#2563eb', bg: 'rgba(37,99,235,0.08)',  border: 'rgba(37,99,235,0.2)' },
+  PAID:           { variant: 'success',   icon: CheckCircle,   label: 'Paid',    color: '#059669', bg: 'rgba(5,150,105,0.08)', border: 'rgba(5,150,105,0.2)' },
+  PARTIALLY_PAID: { variant: 'warning',   icon: Banknote,      label: 'Partial', color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.2)' },
+  OVERDUE:        { variant: 'danger',    icon: AlertTriangle, label: 'Overdue', color: '#dc2626', bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.2)' },
 };
 
 /* ── Payment progress bar ── */
@@ -61,7 +61,7 @@ function PaymentProgress({ paid, total, status }: { paid: number; total: number;
   const pct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
   if (status === 'PAID') {
     return (
-      <div className="flex items-center gap-2 text-xs font-bold" style={{ color: '#34d399' }}>
+      <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
         <CheckCircle className="h-3.5 w-3.5" />
         Paid in full
       </div>
@@ -70,7 +70,7 @@ function PaymentProgress({ paid, total, status }: { paid: number; total: number;
   if (pct === 0 && status !== 'PARTIALLY_PAID') return null;
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-[10px] font-bold" style={{ color: 'var(--foreground-tertiary)' }}>
+      <div className="flex justify-between text-[11px] font-bold" style={{ color: 'var(--foreground-tertiary)' }}>
         <span>{formatCurrency(paid)} paid</span>
         <span>{pct}%</span>
       </div>
@@ -79,7 +79,7 @@ function PaymentProgress({ paid, total, status }: { paid: number; total: number;
           className="h-full rounded-full transition-all duration-700"
           style={{
             width: `${pct}%`,
-            background: pct >= 100 ? '#34d399' : 'linear-gradient(90deg, var(--primary), var(--accent))',
+            background: pct >= 100 ? 'var(--color-success, #059669)' : 'linear-gradient(90deg, var(--primary), var(--accent))',
           }}
         />
       </div>
@@ -96,21 +96,24 @@ export default function InvoicesPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((silent = false) => {
     const token = safeGetItem('accessToken');
     const guestPhone = safeGetItem('customer_guest_phone');
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    setLoading(true);
-    setError(null);
+    
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
 
     if (token) {
-      fetchWithToken(token, ctrl);
+      fetchWithToken(token, ctrl, silent);
     } else if (guestPhone) {
-      fetchGuest(guestPhone, ctrl);
-    } else {
+      fetchGuest(guestPhone, safeGetItem('customer_guest_email'), ctrl, silent);
+    } else if (!silent) {
       router.replace('/portal/login');
     }
      
@@ -118,10 +121,19 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     load();
-    return () => abortRef.current?.abort();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      load(true);
+    }, 30000);
+
+    return () => {
+      abortRef.current?.abort();
+      clearInterval(interval);
+    };
   }, [load]);
 
-  const fetchWithToken = async (token: string, ctrl: AbortController) => {
+  const fetchWithToken = async (token: string, ctrl: AbortController, silent: boolean) => {
     try {
       const res = await axios.get(`${API_URL}/portal/invoices`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -132,16 +144,16 @@ export default function InvoicesPage() {
       setInvoices(Array.isArray(list) ? list : []);
     } catch (err: unknown) {
       if ((err as { name?: string }).name === 'CanceledError') return;
-      setError('Failed to load invoices. Check your connection and try again.');
+      if (!silent) setError('Failed to load invoices. Check your connection and try again.');
     } finally {
-      if (!ctrl.signal.aborted) setLoading(false);
+      if (!ctrl.signal.aborted && !silent) setLoading(false);
     }
   };
 
-  const fetchGuest = async (phone: string, ctrl: AbortController) => {
+  const fetchGuest = async (phone: string, email: string | null, ctrl: AbortController, silent: boolean) => {
     try {
       const res = await axios.get(`${API_URL}/customer-portal/invoices`, {
-        params: { phone },
+        params: { phone, email: email || '' },
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
@@ -149,9 +161,9 @@ export default function InvoicesPage() {
       setInvoices(Array.isArray(list) ? list : []);
     } catch (err: unknown) {
       if ((err as { name?: string }).name === 'CanceledError') return;
-      setError('Failed to load invoices. Check your connection and try again.');
+      if (!silent) setError('Failed to load invoices. Check your connection and try again.');
     } finally {
-      if (!ctrl.signal.aborted) setLoading(false);
+      if (!ctrl.signal.aborted && !silent) setLoading(false);
     }
   };
 
@@ -159,13 +171,26 @@ export default function InvoicesPage() {
     setDownloading(invoiceId);
     try {
       const token = safeGetItem('accessToken');
-      const response = await axios.get(
-        `${API_URL}/portal/invoices/${invoiceId}/pdf`,
-        {
-          responseType: 'blob',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      );
+      let response;
+      if (token) {
+        response = await axios.get(
+          `${API_URL}/portal/invoices/${invoiceId}/pdf`,
+          {
+            responseType: 'blob',
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+      } else {
+        const phone = safeGetItem('customer_guest_phone') || '';
+        const email = safeGetItem('customer_guest_email') || '';
+        response = await axios.get(
+          `${API_URL}/customer-portal/invoices/${invoiceNumber}/pdf`,
+          {
+            params: { phone, email },
+            responseType: 'blob',
+          },
+        );
+      }
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -209,7 +234,7 @@ export default function InvoicesPage() {
           <p className="text-sm text-[var(--foreground-tertiary)] max-w-xs">{error}</p>
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 hover:-translate-y-0.5"
           style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent))' }}
         >
@@ -239,7 +264,7 @@ export default function InvoicesPage() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-3.5 w-3.5" style={{ color: '#db2777' }} />
-              <span className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.3)' }}>Billing</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.3)' }}>Billing</span>
             </div>
             <h1 className="text-3xl font-black tracking-tight text-white">Financial History</h1>
             <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
@@ -389,7 +414,7 @@ export default function InvoicesPage() {
                           Invoice #{invoice.invoiceNumber}
                         </h3>
                         {isOverdue && (
-                          <p className="text-xs font-bold" style={{ color: '#f87171' }}>Overdue — immediate attention required</p>
+                          <p className="text-xs font-bold text-red-600 dark:text-red-400">Overdue — immediate attention required</p>
                         )}
                       </div>
                       <Badge variant={cfg.variant} size="sm" className="ml-auto sm:ml-0">
@@ -408,8 +433,7 @@ export default function InvoicesPage() {
                       </span>
                       {invoice.dueDate && (
                         <span
-                          className="flex items-center gap-1.5 font-bold"
-                          style={{ color: isOverdue ? '#f87171' : 'var(--foreground-tertiary)' }}
+                          className={cn("flex items-center gap-1.5 font-bold", isOverdue ? "text-red-600 dark:text-red-400" : "text-[var(--foreground-tertiary)]")}
                         >
                           <Clock className="h-3.5 w-3.5" />
                           Due {formatDate(invoice.dueDate)}
@@ -432,7 +456,7 @@ export default function InvoicesPage() {
                         {formatCurrency(Number(invoice.total))}
                       </p>
                       {invoice.status === 'PAID' && (
-                        <p className="text-xs font-bold" style={{ color: '#34d399' }}>Paid in full</p>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Paid in full</p>
                       )}
                     </div>
                     <Button

@@ -261,12 +261,14 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 function StepIndicator({
   step,
   brand,
+  isDark,
 }: {
   step: number;
   brand: {
     primaryColor: string;
     buttonShape: 'rounded' | 'pill' | 'luxury-sharp' | 'geometric';
   };
+  isDark: boolean;
 }) {
   return (
     <div className="flex items-center justify-center gap-0 mb-16 animate-cinematic">
@@ -278,24 +280,25 @@ function StepIndicator({
             <div className="flex flex-col items-center gap-3 relative" key={s.id}>
               <div
                 className={cn(
-                  "h-10 w-10 rounded-2xl flex items-center justify-center text-xs font-black transition-all duration-700 shadow-2xl backdrop-blur-xl",
-                  isActive ? "scale-125 border-primary/40" : "scale-100 border-white/5"
+                  "h-10 w-10 rounded-2xl flex items-center justify-center text-xs font-black transition-all duration-300 shadow-2xl backdrop-blur-xl",
+                  isActive ? "scale-110 border-primary/40" : "scale-100 border-white/5"
                 )}
                 style={{
                   backgroundColor: isActive
                     ? brand.primaryColor
                     : isCompleted
                       ? '#22c55e'
-                      : 'rgba(255,255,255,0.03)',
+                      : isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
                   borderWidth: '1px',
-                  color: isActive ? getContrastColor(brand.primaryColor) : isCompleted ? '#fff' : 'rgba(255,255,255,0.2)',
+                  borderColor: isActive ? 'transparent' : isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                  color: isActive ? getContrastColor(brand.primaryColor) : isCompleted ? '#fff' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.4)',
                 }}
               >
                 {isCompleted ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
               </div>
               <span
-                className="text-[9px] font-black uppercase tracking-[0.3em] hidden sm:block absolute -bottom-8 whitespace-nowrap"
-                style={{ color: isActive ? brand.primaryColor : 'rgba(255,255,255,0.2)' }}
+                className="text-[9px] font-black uppercase tracking-[0.3em] block absolute -bottom-8 whitespace-nowrap"
+                style={{ color: isActive ? (isDark ? '#fff' : brand.primaryColor) : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.4)') }}
               >
                 {s.title}
               </span>
@@ -590,7 +593,7 @@ function ServiceCard({
               fill
               className="object-cover transition-transform duration-1000 group-hover:scale-110"
               sizes="(max-width: 768px) 100vw, 33vw"
-              unoptimized={!!(service.coverImage && (service.coverImage.includes('unsplash.com') || service.coverImage.includes('cloudinary.com')))}
+              unoptimized
               onError={() => setImgError(true)}
             />
             <div className={cn(
@@ -646,7 +649,7 @@ function ServiceCard({
         )}>
           <h3 className={cn(
               "leading-[0.9] tracking-tighter group-hover:text-primary transition-colors duration-500 line-clamp-2",
-              dark ? "text-white" : "text-black",
+              "text-white",
               cardTheme === 'editorial' ? "text-5xl font-light italic" : "text-3xl font-black"
           )} style={{ fontFamily: cardTheme === 'editorial' ? '"Playfair Display", serif' : 'inherit' }}>
             {service.name.toUpperCase()}
@@ -684,17 +687,17 @@ function ServiceCard({
 /*  Status Badge                                                               */
 /* -------------------------------------------------------------------------- */
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, primaryColor }: { status: string; primaryColor?: string }) {
   const cfg: Record<string, { bg: string; text: string; label: string }> = {
-    CONFIRMED: { bg: 'var(--success-light)', text: 'var(--success)', label: 'Confirmed' },
-    QUOTED: { bg: 'rgba(124,58,237,0.1)', text: 'var(--primary)', label: 'Quote Ready' },
-    INQUIRY: { bg: 'var(--warning-light)', text: 'var(--warning)', label: 'Inquiry' },
-    PENDING: { bg: 'var(--warning-light)', text: 'var(--warning)', label: 'Pending' },
-    CANCELLED: { bg: 'var(--danger-light)', text: 'var(--danger)', label: 'Cancelled' },
-    COMPLETED: { bg: 'var(--success-light)', text: 'var(--success)', label: 'Completed' },
-    IN_PROGRESS: { bg: 'var(--info-light)', text: 'var(--info-foreground)', label: 'In Progress' },
+    CONFIRMED: { bg: 'var(--success-08)', text: 'var(--success)', label: 'Confirmed' },
+    QUOTED: { bg: hexAlpha(primaryColor || 'var(--primary)', '15'), text: primaryColor || 'var(--primary)', label: 'Quote Ready' },
+    INQUIRY: { bg: 'var(--warning-08)', text: 'var(--warning)', label: 'Inquiry' },
+    PENDING: { bg: 'var(--warning-08)', text: 'var(--warning)', label: 'Pending' },
+    CANCELLED: { bg: 'var(--danger-08)', text: 'var(--danger)', label: 'Cancelled' },
+    COMPLETED: { bg: 'var(--success-08)', text: 'var(--success)', label: 'Completed' },
+    IN_PROGRESS: { bg: 'var(--info-08)', text: 'var(--info)', label: 'In Progress' },
   };
-  const c = cfg[status] || { bg: 'var(--surface-2)', text: 'var(--foreground-secondary)', label: status };
+  const c = cfg[status] || { bg: 'var(--surface-0)', text: 'var(--text-secondary)', label: status };
   return (
     <span
       className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
@@ -728,7 +731,7 @@ function PortfolioItemCard({ item, index, primaryColor }: { item: PortfolioItem,
           fill
           className="object-cover transition-transform duration-700 group-hover:scale-105"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          unoptimized={!!(item.imageUrl && (item.imageUrl.includes('unsplash.com') || item.imageUrl.includes('cloudinary.com')))}
+          unoptimized
           onError={() => setImgError(true)}
         />
       ) : (
@@ -1171,6 +1174,16 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
       );
       setBookingIds(results.map((r) => r.data?.id ?? ''));
       setStep(4);
+      
+      // Save guest info so they can access their bookings in the portal later
+      try {
+        localStorage.setItem('customer_guest_phone', customerData.phone);
+        if (customerData.email) localStorage.setItem('customer_guest_email', customerData.email);
+        if (customerData.name) localStorage.setItem('customer_guest_name', customerData.name);
+      } catch (e) {
+        // noop
+      }
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
       const count = selectedServices.length;
       addToast('success', count > 1 ? `${count} booking requests submitted!` : 'Booking request submitted successfully!');
@@ -1242,6 +1255,22 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
         '--theme-border': borderColor,
         '--theme-card-bg': isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
         '--theme-card-bg-solid': isDark ? '#111111' : '#ffffff',
+        '--foreground': textPrimary,
+        '--foreground-secondary': textSecondary,
+        '--background': isDark ? '#000000' : '#ffffff',
+        '--surface-0': isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+        '--border': borderColor,
+        '--primary': brand.primaryColor,
+        '--success': '#22c55e',
+        '--success-08': 'rgba(34,197,94,0.08)',
+        '--warning': '#eab308',
+        '--warning-08': 'rgba(234,179,8,0.08)',
+        '--danger': '#ef4444',
+        '--danger-08': 'rgba(239,68,68,0.08)',
+        '--info': '#3b82f6',
+        '--info-08': 'rgba(59,130,246,0.08)',
+        '--text-primary': textPrimary,
+        '--text-secondary': textSecondary,
         color: textPrimary,
         fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
       } as React.CSSProperties}
@@ -1312,7 +1341,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                 <NextImage
                   src={studio.logoUrl.startsWith('http') ? studio.logoUrl : `${API_URL}${studio.logoUrl.startsWith('/') ? '' : '/'}${studio.logoUrl}`}
                   alt={studio.name} fill className="object-contain p-1" sizes="40px"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  unoptimized
+                  onError={(e: any) => { e.currentTarget.src = "https://images.unsplash.com/photo-1554046920-90dcac824bd6?auto=format&fit=crop&w=100&q=80" }}
                 />
               </div>
             )}
@@ -2279,7 +2309,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   All Services
                 </button>
 
-                <StepIndicator step={step} brand={brand} />
+                <StepIndicator step={step} brand={brand} isDark={isDark} />
 
                 <h2
                   className="leading-tight tracking-tight mb-1"
@@ -2312,7 +2342,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                             <Clock className="h-3 w-3 inline mr-0.5" />{svc.durationMinutes} min
                           </span>
                         </div>
-                        <span className="font-black text-sm shrink-0" style={{ color: brand.primaryColor }}>
+                        <span className="font-black text-sm shrink-0" style={{ color: textPrimary }}>
                           {formatCurrency(svc.price)}
                         </span>
                       </div>
@@ -2321,7 +2351,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   {selectedServices.length > 1 && (
                     <div className="flex justify-between items-center pt-2 border-t mt-2" style={{ borderColor }}>
                       <span className="text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Total</span>
-                      <span className="font-black text-base" style={{ color: brand.primaryColor }}>
+                      <span className="font-black text-base" style={{ color: textPrimary }}>
                         {formatCurrency(selectedServices.reduce((sum, s) => sum + Number(s.price), 0))}
                       </span>
                     </div>
@@ -2425,7 +2455,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   Back to Schedule
                 </button>
 
-                <StepIndicator step={step} brand={brand} />
+                <StepIndicator step={step} brand={brand} isDark={isDark} />
 
                 <h2
                   className="leading-tight tracking-tight mb-1"
@@ -2449,16 +2479,16 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                     style={{ borderColor: hexAlpha(brand.primaryColor, '30'), borderRadius: '4px', backgroundColor: hexAlpha(brand.primaryColor, '05') }}
                   >
                     <div className="h-12 w-12 rounded bg-white shadow flex items-center justify-center shrink-0">
-                      <svg viewBox="0 0 24 24" className="h-6 w-6">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                      </svg>
+                      <NextImage 
+                        src="https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png"
+                        width={24}
+                        height={24}
+                        alt="Google"
+                      />
                     </div>
                     <div className="flex-1 text-center sm:text-left">
-                      <h3 className="font-black text-black text-sm">Save to your account?</h3>
-                      <p className="text-xs text-black/40 mt-0.5">
+                      <h3 className="font-black text-sm" style={{ color: textPrimary }}>Save to your account?</h3>
+                      <p className="text-xs mt-0.5" style={{ color: textSecondary, opacity: 0.6 }}>
                         Sign in to auto-fill your details and track all bookings.
                       </p>
                     </div>
@@ -2809,8 +2839,9 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                         Bookings
                       </div>
                       <h2
-                        className="text-black leading-tight tracking-tight"
+                        className="leading-tight tracking-tight"
                         style={{
+                          color: textPrimary,
                           fontSize: '1.8rem',
                           fontWeight: 900,
                           fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
@@ -2830,10 +2861,10 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   </div>
 
                   {bookings.length === 0 ? (
-                    <div className="py-12 text-center border border-dashed border-black/10">
-                      <BookOpen className="h-8 w-8 text-black/15 mx-auto mb-3" />
-                      <p className="font-bold text-black/30 text-sm mb-1">No bookings yet</p>
-                      <p className="text-xs text-black/20">Your bookings with {studio.name} will appear here.</p>
+                    <div className="py-12 text-center border border-dashed" style={{ borderColor }}>
+                      <BookOpen className="h-8 w-8 mx-auto mb-3" style={{ color: textSecondary, opacity: 0.15 }} />
+                      <p className="font-bold text-sm mb-1" style={{ color: textSecondary, opacity: 0.5 }}>No bookings yet</p>
+                      <p className="text-xs" style={{ color: textSecondary, opacity: 0.3 }}>Your bookings with {studio.name} will appear here.</p>
                       <button
                         onClick={() => setActiveTab('book')}
                         className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 font-black text-xs uppercase tracking-wider transition-all hover:opacity-90"
@@ -2847,11 +2878,11 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                       {bookings.map((b) => (
                         <div
                           key={b.id}
-                          className="p-5 border transition-all duration-200 hover:border-black/20"
+                          className="p-5 border transition-all duration-200"
                           style={{
-                            borderColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '40') : '#e0e0d8',
+                            borderColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '40') : borderColor,
                             borderRadius: '4px',
-                            backgroundColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '04') : '#fff',
+                            backgroundColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '04') : isDark ? 'rgba(255,255,255,0.02)' : '#fff',
                           }}
                         >
                           <div className="flex items-start justify-between gap-4">
@@ -2863,22 +2894,22 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                 <Camera className="h-5 w-5" style={{ color: brand.primaryColor }} />
                               </div>
                               <div className="min-w-0">
-                                <div className="font-black text-black text-sm truncate">{b.service.name}</div>
-                                <div className="text-xs text-black/40 mt-0.5 flex items-center gap-1.5">
+                                <div className="font-black text-sm truncate" style={{ color: textPrimary }}>{b.service.name}</div>
+                                <div className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: textSecondary, opacity: 0.6 }}>
                                   <Calendar className="h-3 w-3 shrink-0" />
                                   {safeFormatDate(b.scheduledAt, {
                                     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
                                     hour: '2-digit', minute: '2-digit',
                                   })}
                                 </div>
-                                <div className="text-xs text-black/30 flex items-center gap-1 mt-0.5">
+                                <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: textSecondary, opacity: 0.5 }}>
                                   <Clock className="h-3 w-3" />
                                   {b.service.durationMinutes} min
                                 </div>
                               </div>
                             </div>
                             <div className="text-right shrink-0 space-y-1.5">
-                              <StatusBadge status={b.status} />
+                              <StatusBadge status={b.status} primaryColor={brand.primaryColor} />
                               <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
                                 {formatCurrency(b.quoteAmount || b.service?.price || 0)}
                               </div>
@@ -2892,7 +2923,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                   </div>
                                 ) : (
                                   <div className="flex flex-col items-end gap-1 mt-2">
-                                    <div className="text-[9px] font-black uppercase tracking-widest text-black/30">Rate experience</div>
+                                    <div className="text-[9px] font-black uppercase tracking-widest" style={{ color: textSecondary, opacity: 0.5 }}>Rate experience</div>
                                     <div className="flex items-center gap-0.5">
                                       {[1, 2, 3, 4, 5].map((star) => (
                                         <button
@@ -2931,26 +2962,27 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                   Partner Quote
                                 </div>
                                 {b.quoteNotes && (
-                                  <p className="text-sm text-black/50 italic border-l-2 pl-3 mb-3" style={{ borderColor: hexAlpha(brand.primaryColor, '40') }}>
+                                  <p className="text-sm italic border-l-2 pl-3 mb-3" style={{ borderColor: hexAlpha(brand.primaryColor, '40'), color: textSecondary, opacity: 0.7 }}>
                                     &quot;{b.quoteNotes}&quot;
                                   </p>
                                 )}
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-black/30 font-semibold">Quoted Amount</span>
-                                  <span className="text-2xl font-black text-black">{formatCurrency(b.quoteAmount)}</span>
+                                  <span className="text-xs font-semibold" style={{ color: textSecondary, opacity: 0.5 }}>Quoted Amount</span>
+                                  <span className="text-2xl font-black" style={{ color: textPrimary }}>{formatCurrency(b.quoteAmount)}</span>
                                 </div>
                               </div>
 
                               {counterOfferId === b.id && (
-                                <div className="space-y-3 mb-3 p-4 border border-black/10 rounded bg-black/[0.02]">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-black/40">Your Counter-Offer</p>
-                                  <div className="flex items-center gap-2 border border-black/15 rounded px-3 py-2.5 bg-white">
-                                    <span className="text-sm font-semibold text-black/30">₹</span>
+                                <div className="space-y-3 mb-3 p-4 border rounded" style={{ borderColor, backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)' }}>
+                                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: textSecondary }}>Your Counter-Offer</p>
+                                  <div className="flex items-center gap-2 border rounded px-3 py-2.5" style={{ borderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }}>
+                                    <span className="text-sm font-semibold" style={{ color: textSecondary }}>₹</span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
-                                      className="flex-1 bg-transparent text-sm font-black text-black outline-none"
+                                      className="flex-1 bg-transparent text-sm font-black outline-none"
+                                      style={{ color: textPrimary }}
                                       placeholder="Your proposed amount"
                                       value={counterOfferAmount}
                                       onChange={(e) => setCounterOfferAmount(e.target.value)}
@@ -2958,7 +2990,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                   </div>
                                   <textarea
                                     rows={2}
-                                    className="w-full border border-black/15 rounded px-3 py-2.5 text-sm text-black placeholder-black/30 outline-none resize-none bg-white"
+                                    className="w-full border rounded px-3 py-2.5 text-sm outline-none resize-none"
+                                    style={{ borderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff', color: textPrimary }}
                                     placeholder="Optional note..."
                                     value={counterOfferNote}
                                     onChange={(e) => setCounterOfferNote(e.target.value)}
@@ -2971,7 +3004,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                       style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: btnRadius }}
                                     >
                                       {sendingCounter ? (
-                                        <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                        <span className="h-3.5 w-3.5 rounded-full border-2 animate-spin" style={{ borderColor: `${getContrastColor(brand.primaryColor)}40`, borderTopColor: getContrastColor(brand.primaryColor) }} />
                                       ) : (
                                         <ThumbsUp className="h-3.5 w-3.5" />
                                       )}
@@ -2979,8 +3012,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                     </button>
                                     <button
                                       onClick={() => { setCounterOfferId(null); setCounterOfferAmount(''); setCounterOfferNote(''); }}
-                                      className="px-4 border border-black/15 text-black/40 font-semibold text-sm hover:bg-black/5 transition-all"
-                                      style={{ borderRadius: btnRadius }}
+                                      className="px-4 border font-semibold text-sm transition-all hover:opacity-70"
+                                      style={{ borderRadius: btnRadius, borderColor, color: textSecondary }}
                                     >
                                       Cancel
                                     </button>
@@ -3003,15 +3036,15 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                     setCounterOfferAmount(b.quoteAmount && !isNaN(Number(b.quoteAmount)) ? (Number(b.quoteAmount) * 0.9).toFixed(0) : '');
                                     setCounterOfferNote('');
                                   }}
-                                  className="px-4 border border-black/15 text-black/50 py-2.5 font-bold text-xs hover:bg-black/5 transition-all"
-                                  style={{ borderRadius: btnRadius }}
+                                  className="px-4 border py-2.5 font-bold text-xs transition-all hover:opacity-70"
+                                  style={{ borderRadius: btnRadius, borderColor, color: textSecondary }}
                                 >
                                   Counter
                                 </button>
                                 <button
                                   onClick={() => handleRejectQuote(b.id)}
-                                  className="px-4 border border-red-200 text-red-500 py-2.5 font-bold hover:bg-red-50 transition-all"
-                                  style={{ borderRadius: btnRadius }}
+                                  className="px-4 border py-2.5 font-bold transition-all hover:opacity-70"
+                                  style={{ borderRadius: btnRadius, borderColor: '#ef444450', color: '#ef4444' }}
                                 >
                                   <ThumbsDown className="h-3.5 w-3.5" />
                                 </button>
@@ -3074,7 +3107,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                               </div>
                             </div>
                             <div className="text-right shrink-0 space-y-1">
-                              <StatusBadge status={inv.status} />
+                              <StatusBadge status={inv.status} primaryColor={brand.primaryColor} />
                               <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
                                 {formatCurrency(inv.totalAmount)}
                               </div>

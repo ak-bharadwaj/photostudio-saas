@@ -27,7 +27,8 @@ import {
   ChevronRight,
   Info,
   ExternalLink,
-  History
+  History,
+  X
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -47,6 +48,7 @@ interface Booking {
   moodboardUrl?: string;
   quoteAmount?: number;
   quoteNotes?: string;
+  quoteRejectionNotes?: string;
   service: { name: string; price: number; durationMinutes: number; description?: string };
   studio: { 
     name: string; 
@@ -79,12 +81,12 @@ const STATUS_CONFIG: Record<string, {
   border: string;
   description: string;
 }> = {
-  INQUIRY: { variant: 'default', icon: MessageSquare, label: 'Inquiry', color: '#9ca3af', bg: 'rgba(156,163,175,0.08)', border: 'rgba(156,163,175,0.2)', description: 'Your request has been sent to the partner.' },
-  QUOTED: { variant: 'info', icon: MessageSquare, label: 'Quoted', color: '#60a5fa', bg: 'rgba(96,165,250,0.08)', border: 'rgba(96,165,250,0.2)', description: 'Partner has provided a quote for your appointment.' },
-  CONFIRMED: { variant: 'success', icon: CheckCircle, label: 'Confirmed', color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)', description: 'Your appointment is confirmed and scheduled.' },
-  IN_PROGRESS: { variant: 'warning', icon: Loader, label: 'In Progress', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.2)', description: 'Your engagement is currently ongoing or in review.' },
-  COMPLETED: { variant: 'secondary', icon: CheckCircle, label: 'Completed', color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', description: 'Booking completed! Your results are available.' },
-  CANCELLED: { variant: 'danger', icon: Ban, label: 'Cancelled', color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.2)', description: 'This booking has been cancelled.' },
+  INQUIRY: { variant: 'default', icon: MessageSquare, label: 'Inquiry', color: '#94a3b8', bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.3)', description: 'Your request has been sent to the partner.' },
+  QUOTED: { variant: 'info', icon: MessageSquare, label: 'Quoted', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)', description: 'Partner has provided a quote for your appointment.' },
+  CONFIRMED: { variant: 'success', icon: CheckCircle, label: 'Confirmed', color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.3)', description: 'Your appointment is confirmed and scheduled.' },
+  IN_PROGRESS: { variant: 'warning', icon: Loader, label: 'In Progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.3)', description: 'Your engagement is currently ongoing or in review.' },
+  COMPLETED: { variant: 'secondary', icon: CheckCircle, label: 'Completed', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)', description: 'Booking completed! Your results are available.' },
+  CANCELLED: { variant: 'danger', icon: Ban, label: 'Cancelled', color: '#ef4444', bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)', description: 'This booking has been cancelled.' },
 };
 
 export default function BookingDetailPage() {
@@ -100,31 +102,89 @@ export default function BookingDetailPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  const fetchBooking = useCallback(async () => {
+  // Quote actions
+  const [quoteAction, setQuoteAction] = useState<'accept' | 'negotiate' | 'reject' | null>(null);
+  const [quoteNotes, setNegotiationNotes] = useState('');
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+
+  const fetchBooking = useCallback(async (silent = false) => {
     const token = safeGetItem('accessToken');
-    if (!token) {
+    const guestPhone = safeGetItem('customer_guest_phone');
+    if (!token && !guestPhone) {
       router.replace('/portal/login');
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_URL}/portal/bookings/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setBooking(res.data);
+      if (token) {
+        const res = await axios.get(`${API_URL}/portal/bookings/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setBooking(res.data);
+      } else {
+        const email = safeGetItem('customer_guest_email') || '';
+        const res = await axios.get(`${API_URL}/customer-portal/bookings/${id}/timeline`, {
+          params: { phone: guestPhone, email }
+        });
+        const data = res.data;
+        // Transform the customer-portal response to match the expected format roughly
+        setBooking({
+          ...data.booking,
+          statusLogs: data.timeline,
+        });
+      }
     } catch (err) {
       console.error('Failed to load booking', err);
-      setError('Could not find this booking. It may have been deleted or moved.');
+      if (!silent) setError('Could not find this booking. It may have been deleted or moved.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [id, router]);
 
   useEffect(() => {
     fetchBooking();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchBooking(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [fetchBooking]);
+
+  const handleQuoteAction = async () => {
+    if (!booking || !quoteAction) return;
+
+    setIsSubmittingQuote(true);
+    try {
+      if (quoteAction === 'accept') {
+        await portalApi.acceptQuote(booking.id);
+        addToast('success', 'Booking confirmed! We have notified the partner.');
+      } else if (quoteAction === 'negotiate') {
+        if (!quoteNotes) {
+          addToast('error', 'Please enter a message for the partner');
+          setIsSubmittingQuote(false);
+          return;
+        }
+        await portalApi.negotiateQuote(booking.id, quoteNotes);
+        addToast('success', 'Negotiation request sent to the partner.');
+      } else if (quoteAction === 'reject') {
+        await portalApi.rejectQuote(booking.id, quoteNotes);
+        addToast('success', 'Quote rejected.');
+      }
+
+      setQuoteAction(null);
+      setNegotiationNotes('');
+      fetchBooking();
+    } catch (err) {
+      console.error('Quote action failed', err);
+      addToast('error', 'Action failed. Please try again.');
+    } finally {
+      setIsSubmittingQuote(false);
+    }
+  };
 
   const handleReviewSubmit = async () => {
     if (reviewRating === 0) {
@@ -152,7 +212,7 @@ export default function BookingDetailPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center">
         <LoadingSpinner size="lg" />
-        <p className="text-[10px] font-black tracking-widest uppercase text-foreground-tertiary mt-4">SYNCING BOOKING DATA</p>
+        <p className="text-[11px] font-black tracking-widest uppercase text-foreground-tertiary mt-4">SYNCING BOOKING DATA</p>
       </div>
     );
   }
@@ -178,7 +238,7 @@ export default function BookingDetailPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-10 animate-fade-in pb-20">
       {/* ── BREADCRUMB ── */}
-      <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[.3em] text-foreground-tertiary">
+      <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[.3em] text-foreground-tertiary">
         <Link href="/portal" className="hover:text-primary transition-colors">DASHBOARD</Link>
         <ChevronRight className="h-3 w-3" />
         <Link href="/portal/bookings" className="hover:text-primary transition-colors">BOOKINGS</Link>
@@ -194,13 +254,13 @@ export default function BookingDetailPage() {
           <div className="space-y-6 flex-1">
             <div className="flex flex-wrap items-center gap-4">
               <Badge 
-                className="py-1 px-4 rounded-full font-black tracking-widest uppercase text-[10px]"
+                className="py-1 px-4 rounded-full font-black tracking-widest uppercase text-[11px]"
                 style={{ backgroundColor: currentStatus.bg, color: currentStatus.color, borderColor: currentStatus.border }}
               >
                 {currentStatus.label}
               </Badge>
               <div className="h-px w-8 bg-border" />
-              <span className="text-[10px] font-black tracking-widest text-foreground-tertiary flex items-center gap-2">
+              <span className="text-[11px] font-black tracking-widest text-foreground-tertiary flex items-center gap-2">
                 <Calendar className="h-3 w-3" /> {formatDate(booking.scheduledAt)}
               </span>
             </div>
@@ -218,7 +278,7 @@ export default function BookingDetailPage() {
                 )}
                </div>
                <div>
-                  <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest">BUSINESS PARTNER</p>
+                  <p className="text-[11px] font-black text-foreground-tertiary uppercase tracking-widest">BUSINESS PARTNER</p>
                   <Link href={`/studio/${booking.studio.slug}`} className="text-xl font-black hover:text-primary transition-colors flex items-center gap-2">
                     {booking.studio.name} <ExternalLink className="h-3.5 w-3.5 opacity-50" />
                   </Link>
@@ -227,14 +287,36 @@ export default function BookingDetailPage() {
           </div>
 
           <div className="glass-ultra p-8 rounded-3xl min-w-[280px] space-y-4 border border-white/10 shadow-xl">
-             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-foreground-tertiary">
+             <div className="flex justify-between items-center text-[11px] font-black uppercase tracking-widest text-foreground-tertiary">
                <span>INVESTMENT</span>
                <Info className="h-3 w-3" />
              </div>
-             <div className="text-4xl font-black tracking-tighter">
-               {formatCurrency(booking.quoteAmount || booking.service.price)}
-             </div>
-             <div className="h-px w-full bg-border/30" />
+              <div className="text-4xl font-black tracking-tighter">
+                {formatCurrency(booking.quoteAmount || booking.service.price)}
+              </div>
+              {booking.status === 'QUOTED' && !booking.quoteRejectionNotes && (
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    className="flex-1 h-10 rounded-xl text-[11px] font-black tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white"
+                    onClick={() => setQuoteAction('accept')}
+                  >
+                    ACCEPT
+                  </Button>
+                  <Button 
+                    variant="secondary"
+                    className="flex-1 h-10 rounded-xl text-[11px] font-black tracking-widest"
+                    onClick={() => setQuoteAction('negotiate')}
+                  >
+                    NEGOTIATE
+                  </Button>
+                </div>
+              )}
+              {booking.status === 'QUOTED' && booking.quoteRejectionNotes && (
+                <div className="text-center pt-2 text-[10px] font-black uppercase tracking-widest text-amber-500 animate-pulse">
+                  Negotiation Pending
+                </div>
+              )}
+              <div className="h-px w-full bg-border/30" />
              <div className="flex items-center gap-3 text-xs font-bold text-foreground-secondary">
                <Clock className="h-4 w-4 text-primary" />
                {booking.service.durationMinutes} Minute Appointment
@@ -256,7 +338,7 @@ export default function BookingDetailPage() {
             
             <div className="space-y-10">
               <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Service Description</label>
+                <label className="text-[11px] font-black uppercase tracking-widest text-primary">Service Description</label>
                 <p className="text-foreground-secondary leading-relaxed text-sm">
                   {booking.service.description || 'Professional service tailored to your requirements.'}
                 </p>
@@ -264,7 +346,7 @@ export default function BookingDetailPage() {
 
               {booking.vision && (
                 <div className="space-y-4 p-8 bg-surface-2/50 rounded-3xl border border-border/50">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-primary">Creative Vision</label>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-primary">Creative Vision</label>
                   <p className="text-foreground font-medium text-base italic leading-relaxed">
                     &quot;{booking.vision}&quot;
                   </p>
@@ -273,7 +355,7 @@ export default function BookingDetailPage() {
 
               {booking.moodboardUrl && (
                 <div className="space-y-4">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-primary">Reference Material</label>
+                   <label className="text-[11px] font-black uppercase tracking-widest text-primary">Reference Material</label>
                    <a 
                     href={booking.moodboardUrl} 
                     target="_blank" 
@@ -286,7 +368,7 @@ export default function BookingDetailPage() {
                        </div>
                        <div className="min-w-0">
                          <p className="text-sm font-black truncate max-w-[200px] sm:max-w-md">{booking.moodboardUrl}</p>
-                         <p className="text-[10px] font-bold text-foreground-tertiary uppercase tracking-widest">OPEN MOODBOARD</p>
+                         <p className="text-[11px] font-bold text-foreground-tertiary uppercase tracking-widest">OPEN MOODBOARD</p>
                        </div>
                      </div>
                      <ChevronRight className="h-5 w-5 text-foreground-tertiary group-hover:translate-x-1 transition-transform" />
@@ -308,7 +390,7 @@ export default function BookingDetailPage() {
                             <Star 
                               className={cn(
                                 "h-10 w-10 transition-all",
-                                star <= reviewRating ? "text-yellow-400 fill-current drop-shadow-glow" : "text-border hover:text-yellow-400/40"
+                                star <= reviewRating ? "text-amber-500 fill-current drop-shadow-glow" : "text-border hover:text-amber-500/40"
                               )} 
                             />
                           </button>
@@ -334,14 +416,14 @@ export default function BookingDetailPage() {
 
               {booking.review && (
                 <div className="pt-10 border-t border-border">
-                   <div className="p-8 rounded-[2rem] bg-emerald-500/5 border border-emerald-500/10 relative overflow-hidden">
+                   <div className="p-8 rounded-[2rem] bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 dark:border-emerald-500/20 relative overflow-hidden">
                      <div className="absolute top-0 right-0 p-8 opacity-10">
-                       <Star className="h-20 w-20 text-emerald-500 fill-current" />
+                       <Star className="h-20 w-20 text-emerald-600 dark:text-emerald-400 fill-current" />
                      </div>
-                     <span className="text-[10px] font-black tracking-widest uppercase text-emerald-500 mb-4 block">YOUR FEEDBACK</span>
+                     <span className="text-[11px] font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-400 mb-4 block">YOUR FEEDBACK</span>
                      <div className="flex items-center gap-1 mb-4">
                        {[1, 2, 3, 4, 5].map(s => (
-                         <Star key={s} className={cn("h-4 w-4", s <= booking.review!.rating ? "text-emerald-500 fill-current" : "text-emerald-500/20")} />
+                         <Star key={s} className={cn("h-4 w-4", s <= booking.review!.rating ? "text-emerald-600 dark:text-emerald-400 fill-current" : "text-emerald-500/20")} />
                        ))}
                      </div>
                      <p className="text-foreground font-medium italic">
@@ -421,6 +503,81 @@ export default function BookingDetailPage() {
           </div>
         </div>
       </div>
+
+
+      {/* ── QUOTE ACTION MODAL ── */}
+      {quoteAction && (
+        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in text-white">
+          <div className="card-luxury w-full sm:max-w-md p-6 sm:p-8 bg-surface-1 border-t sm:border border-border-strong rounded-t-3xl sm:rounded-[2.5rem] animate-slide-up sm:animate-cinematic relative overflow-hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)] text-left">
+            <div className="mx-auto w-12 h-1.5 bg-white/20 rounded-full mb-6 sm:hidden" />
+            <div className="absolute top-4 sm:top-0 right-4 sm:right-0 sm:p-4">
+              <button 
+                onClick={() => { setQuoteAction(null); setNegotiationNotes(''); }} 
+                className="h-10 w-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <span className="text-[10px] font-black tracking-[.3em] uppercase text-primary mb-2 block">
+                  {quoteAction === 'accept' ? 'CONFIRM YOUR BOOKING' : quoteAction === 'negotiate' ? 'DISCUSS QUOTE' : 'REJECT QUOTE'}
+                </span>
+                <h3 className="text-2xl font-black text-white">{booking.service.name}</h3>
+                <div className="mt-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                  <p className="text-[9px] font-black text-white/40 tracking-widest uppercase mb-1">PARTNER QUOTE</p>
+                  <p className="text-2xl font-black tracking-tighter text-white">
+                    {formatCurrency(booking.quoteAmount || booking.service.price)}
+                  </p>
+                  {booking.quoteNotes && (
+                    <p className="mt-2 text-sm text-white/60 border-t border-white/5 pt-2 italic">
+                      &quot;{booking.quoteNotes}&quot;
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {(quoteAction === 'negotiate' || quoteAction === 'reject') && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-foreground-tertiary">
+                    {quoteAction === 'negotiate' ? 'YOUR MESSAGE TO PARTNER' : 'REASON FOR REJECTION'}
+                  </label>
+                  <textarea
+                    id="negotiation-notes"
+                    placeholder={quoteAction === 'negotiate' ? "Discuss pricing, dates, or specific requirements..." : "Please let us know why you're rejecting this quote..."}
+                    className="w-full h-32 bg-surface-2 border border-border rounded-xl p-4 text-sm focus:border-primary transition-all outline-none text-foreground"
+                    value={quoteNotes}
+                    onChange={(e) => setNegotiationNotes(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <Button
+                  className="flex-1 h-14 rounded-full text-xs font-black tracking-[.15em] border-white/10"
+                  variant="outline"
+                  onClick={() => { setQuoteAction(null); setNegotiationNotes(''); }}
+                >
+                  CANCEL
+                </Button>
+                <Button
+                  className={cn(
+                    "flex-1 h-14 rounded-full text-xs font-black tracking-[.15em]",
+                    quoteAction === 'accept' ? "bg-emerald-500 hover:bg-emerald-600 text-white border-transparent" :
+                    quoteAction === 'reject' ? "bg-red-500 hover:bg-red-600 text-white border-transparent" : ""
+                  )}
+                  variant="primary"
+                  disabled={isSubmittingQuote || (quoteAction === 'reject' && !quoteNotes)}
+                  onClick={handleQuoteAction}
+                >
+                  {isSubmittingQuote ? 'PROCESSING...' : quoteAction === 'accept' ? 'CONFIRM & BOOK' : quoteAction === 'negotiate' ? 'SEND REQUEST' : 'CONFIRM REJECTION'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
