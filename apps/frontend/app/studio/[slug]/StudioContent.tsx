@@ -1022,6 +1022,12 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     }
   };
 
+  const handleGoogleSignIn = () => {
+    // Return to this specific studio portal page after sign in
+    const returnTo = window.location.pathname;
+    window.location.href = `${API_URL}/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
