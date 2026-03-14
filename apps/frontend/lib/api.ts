@@ -10,6 +10,7 @@ const apiTimeout = isBuildPhase ? 1000 : 15000;
 export const api = axios.create({
   baseURL: API_URL,
   timeout: apiTimeout,
+  withCredentials: true,
 });
 
 // Safe localStorage accessor — returns null during SSR / server components
@@ -43,13 +44,27 @@ function removeItem(key: string): void {
   }
 }
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and CSRF token
 api.interceptors.request.use(
   (config) => {
+    // 1. Auth Token
     const token = getItem('accessToken');
-    if (token && token.length > 10) { // Basic sanity check for JWT length
+    if (token && token.length > 10) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // 2. CSRF Token (read from cookie for non-safe methods)
+    if (typeof document !== 'undefined' && config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
+      const xsrfToken = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+      if (xsrfToken) {
+        config.headers['x-xsrf-token'] = xsrfToken;
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error),

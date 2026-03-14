@@ -317,6 +317,7 @@ export class InvoiceService {
       studioName: invoice.studio.name,
       studioEmail: invoice.studio.email,
       studioPhone: invoice.studio.phone ?? "",
+      studioLogo: invoice.studio.logoUrl ?? undefined,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email || undefined,
       customerPhone: invoice.customer.phone,
@@ -395,6 +396,7 @@ export class InvoiceService {
       studioName: invoice.studio.name,
       studioEmail: invoice.studio.email,
       studioPhone: invoice.studio.phone ?? "",
+      studioLogo: invoice.studio.logoUrl ?? undefined,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email || undefined,
       customerPhone: invoice.customer.phone,
@@ -503,9 +505,11 @@ export class InvoiceService {
       this.prisma.invoice.count({ where: { studioId, status: "SENT" } }),
       this.prisma.invoice.count({ where: { studioId, status: "PAID" } }),
       this.prisma.invoice.count({ where: { studioId, status: "OVERDUE" } }),
-      this.prisma.invoice.aggregate({
-        where: { studioId, status: "PAID" },
-        _sum: { total: true },
+      this.prisma.payment.aggregate({
+        where: {
+          invoice: { studioId },
+        },
+        _sum: { amount: true },
       }),
       this.prisma.invoice.aggregate({
         where: {
@@ -522,7 +526,7 @@ export class InvoiceService {
       sentInvoices,
       paidInvoices,
       overdueInvoices,
-      totalRevenue: totalRevenue._sum.total || 0,
+      totalRevenue: totalRevenue._sum.amount || 0,
       pendingRevenue: pendingRevenue._sum.total || 0,
     };
   }

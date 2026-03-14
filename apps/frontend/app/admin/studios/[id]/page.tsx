@@ -218,9 +218,9 @@ export default function PartnerDetailPage() {
               <h1 className="text-2xl font-bold text-[var(--foreground)]">{studio.name}</h1>
               {getStatusBadge(studio.status)}
             </div>
-            <div className="flex items-center gap-4 mt-1 text-sm text-[var(--foreground-secondary)]">
-              <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{studio.email}</span>
-              {studio.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{studio.phone}</span>}
+            <div className="flex items-center gap-5 mt-2 text-sm text-white/70">
+              <span className="flex items-center gap-1.5 font-medium hover:text-white transition-colors cursor-pointer"><Mail className="h-4 w-4 text-[var(--primary)]" />{studio.email}</span>
+              {studio.phone && <span className="flex items-center gap-1.5 font-medium hover:text-white transition-colors cursor-pointer"><Phone className="h-4 w-4 text-[var(--primary)]" />{studio.phone}</span>}
             </div>
           </div>
         </div>
@@ -365,7 +365,6 @@ export default function PartnerDetailPage() {
                 <Input
                   label="Subscription Expiry Date"
                   type="date"
-                  className="bg-white"
                   value={editData.subscriptionExpiresAt}
                   onChange={(e) => setEditData((p) => ({ ...p, subscriptionExpiresAt: e.target.value }))}
                 />

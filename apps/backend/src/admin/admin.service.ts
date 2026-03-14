@@ -378,9 +378,8 @@ export class AdminService {
       this.prisma.studio.count(),
       this.prisma.studio.count({ where: { status: "ACTIVE" } }),
       this.prisma.booking.count(),
-      this.prisma.invoice.aggregate({
-        where: { status: "PAID" },
-        _sum: { total: true },
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
       }),
       this.prisma.commission.aggregate({
         _sum: { amount: true },
@@ -401,7 +400,8 @@ export class AdminService {
         total: totalBookings,
       },
       revenue: {
-        totalGMV: totalGMV._sum?.total?.toNumber() || 0,
+        total: totalPlatformRevenue._sum?.amount?.toNumber() || 0,
+        totalGMV: totalGMV._sum?.amount?.toNumber() || 0,
         platformRevenue: totalPlatformRevenue._sum?.amount?.toNumber() || 0,
       },
     };

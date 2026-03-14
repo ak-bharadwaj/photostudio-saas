@@ -158,28 +158,38 @@ export class BookingService {
     // Find or create customer AND create booking atomically inside one transaction.
     const booking = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        let customer = await tx.customer.findFirst({
-          where: {
-            studioId: studio.id,
-            OR: [
-              { phone: { contains: searchPhone } },
-              ...(dto.customerEmail ? [{ email: dto.customerEmail }] : []),
-            ],
-          },
+        let customer = null;
+        // SMART MERGE: Independently search by email and phone to handle cross-matches
+        const byEmail = dto.customerEmail ? await tx.customer.findFirst({
+          where: { studioId: studio.id, email: { equals: dto.customerEmail, mode: 'insensitive' } }
+        }) : null;
+        
+        const byPhone = await tx.customer.findFirst({
+          where: { studioId: studio.id, phone: { contains: searchPhone } }
         });
+
+        if (byEmail && byPhone && byEmail.id !== byPhone.id) {
+          // If both match different records, merge the 'phone' record into the 'email' record
+          await tx.booking.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
+          await tx.invoice.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
+          await tx.review.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
+          await tx.customer.delete({ where: { id: byPhone.id } });
+          customer = byEmail;
+        } else {
+          customer = byEmail || byPhone;
+        }
 
         if (!customer) {
           customer = await tx.customer.create({
             data: {
               name: dto.customerName,
               email: dto.customerEmail,
-              phone: dto.customerPhone, // Store original format but search is normalized
+              phone: dto.customerPhone,
               studioId: studio.id,
             },
           });
         } else {
-          // Keep the record up-to-date with the latest name/email they provided
-          // Also update phone if it was partial or formatted differently
+          // Update existing customer info
           customer = await tx.customer.update({
             where: { id: customer.id },
             data: { 

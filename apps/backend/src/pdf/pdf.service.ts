@@ -6,6 +6,7 @@ interface InvoiceData {
   studioName: string;
   studioEmail: string;
   studioPhone: string;
+  studioLogo?: string;
   customerName: string;
   customerEmail?: string;
   customerPhone: string;
@@ -342,6 +343,15 @@ export class PdfService {
           </style>
         </head>
         <body>
+          ${
+            data.studioLogo
+              ? `
+          <div style="margin-bottom: 20px; text-align: center;">
+            <img src="${data.studioLogo}" alt="Logo" style="max-height: 80px; max-width: 250px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));">
+          </div>
+          `
+              : ""
+          }
           <div class="invoice-header">
             <div class="studio-info">
               <h1>${e(data.studioName)}</h1>

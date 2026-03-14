@@ -72,10 +72,10 @@ export default function AuthCallbackPage() {
         // If the user is a platform admin, send them to the admin panel
         if (role === 'ADMIN' || user?.isAdmin) {
           router.replace('/admin');
-        } else if (role === 'STUDIO_OWNER') {
+        } else if (['OWNER', 'PHOTOGRAPHER', 'ASSISTANT'].includes(role)) {
           router.replace('/dashboard');
         } else {
-          // Customers go to the home page by default
+          // Customers go to the public portal/home by default
           router.replace('/');
         }
       })
