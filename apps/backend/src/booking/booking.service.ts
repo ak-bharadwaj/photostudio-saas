@@ -824,14 +824,7 @@ export class BookingService {
       throw new BadRequestException("No active quote to negotiate");
 
     // Prevent infinite loops by limiting negotiation rounds
-    const negotiationCount = await this.prisma.bookingStatusLog.count({
-      where: {
-        bookingId: id,
-        notes: { startsWith: "Customer requested adjustment:" },
-      },
-    });
-
-    if (negotiationCount >= 3) {
+    if ((booking.negotiationRounds ?? 0) >= 3) {
       throw new BadRequestException(
         "Maximum negotiation rounds reached for this booking. Please Accept or Reject the current quote.",
       );
@@ -842,6 +835,7 @@ export class BookingService {
         where: { id },
         data: {
           quoteRejectionNotes: notes,
+          negotiationRounds: { increment: 1 },
         },
         include: { customer: true, studio: true, service: true },
       });

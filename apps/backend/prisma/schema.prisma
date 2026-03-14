@@ -137,6 +137,7 @@ model Customer {
   reviews      Review[]
 
   @@unique([studioId, phone])
+  @@unique([studioId, email])
   @@index([studioId])
   @@index([email])
   @@index([createdAt])
@@ -185,6 +186,7 @@ model Booking {
   quoteAcceptedAt     DateTime?          @map("quote_accepted_at")
   quoteAmount         Decimal?           @map("quote_amount") @db.Decimal(10, 2)
   quoteNotes          String?            @map("quote_notes")
+  negotiationRounds    Int                @default(0) @map("negotiation_rounds")
   quotedAt            DateTime?          @map("quoted_at")
   quoteRejectionNotes String?            @map("quote_rejection_notes")
   statusLogs          BookingStatusLog[]

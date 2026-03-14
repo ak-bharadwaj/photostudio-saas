@@ -189,7 +189,7 @@ export default function AdminDashboard() {
                 <Activity className="h-6 w-6 text-primary animate-pulse" />
               </div>
               <div>
-                <p className="text-[11px] font-black text-white/60 tracking-widest uppercase">SYSTEM STATUS</p>
+                <p className="text-[11px] font-black text-white/80 tracking-widest uppercase">SYSTEM STATUS</p>
                 <p className="text-lg font-black text-white">OPERATIONAL</p>
               </div>
             </div>
@@ -201,8 +201,8 @@ export default function AdminDashboard() {
                 <div className="absolute -top-4 -right-4 h-24 w-24 bg-primary/[0.03] blur-2xl rounded-full group-hover:bg-primary/10 transition-colors" />
                 <div className="flex flex-col justify-between h-full gap-4 relative z-10">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black tracking-[0.3em] uppercase text-white/50 group-hover:text-white transition-colors">{stat.title}</span>
-                    <stat.icon className={`h-4 w-4 text-white/40 group-hover:text-primary transition-colors`} />
+                    <span className="text-[11px] font-black tracking-[.3em] uppercase text-white/80 group-hover:text-white transition-colors">{stat.title}</span>
+                    <stat.icon className={`h-4 w-4 text-white/70 group-hover:text-primary transition-colors`} />
                   </div>
                   <div className="text-4xl font-black tracking-tighter text-white group-hover:scale-105 origin-left transition-transform duration-700 tabular-nums">
                     {stat.value}

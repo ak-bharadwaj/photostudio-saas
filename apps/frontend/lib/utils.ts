@@ -6,23 +6,41 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(
-  amount: number | null | undefined,
+  amount: number | string | any | null | undefined,
   currency = 'INR',
 ): string {
-  const val = amount || 0;
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(val);
+  let val = 0;
+  if (typeof amount === 'number') {
+    val = amount;
+  } else if (typeof amount === 'string') {
+    val = parseFloat(amount);
+  } else if (amount && typeof amount.toNumber === 'function') {
+    val = amount.toNumber();
+  } else if (amount && typeof amount === 'object' && amount.d && amount.s) {
+    // Basic Decimal.js object check if toNumber is missing
+    val = parseFloat(amount.toString());
+  }
+  
+  if (isNaN(val)) val = 0;
+
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: currency || 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val);
+  } catch (e) {
+    console.error('Currency formatting failed', e);
+    return `${currency || '₹'} ${val.toFixed(2)}`;
+  }
 }
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return 'N/A';
   try {
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return 'Invalid Date';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) return 'Invalid Date';
     return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'short',
@@ -36,8 +54,8 @@ export function formatDate(date: string | Date | null | undefined): string {
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return 'N/A';
   try {
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return 'Invalid Date';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) return 'Invalid Date';
     return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'short',

@@ -253,9 +253,17 @@ export class InvoiceService {
       }
     }
 
-    if (dto.dueDate) updateData.dueDate = new Date(dto.dueDate);
-    if (dto.notes !== undefined) updateData.notes = dto.notes;
-    if (dto.status) updateData.status = dto.status;
+    if (dto.status) {
+      updateData.status = dto.status;
+    }
+
+    if (dto.dueDate) {
+      updateData.dueDate = new Date(dto.dueDate);
+    }
+    
+    if (dto.notes !== undefined) {
+      updateData.notes = dto.notes;
+    }
 
     const updated = await this.prisma.invoice.update({
       where: { id },
@@ -505,11 +513,12 @@ export class InvoiceService {
       this.prisma.invoice.count({ where: { studioId, status: "SENT" } }),
       this.prisma.invoice.count({ where: { studioId, status: "PAID" } }),
       this.prisma.invoice.count({ where: { studioId, status: "OVERDUE" } }),
-      this.prisma.payment.aggregate({
+      this.prisma.invoice.aggregate({
         where: {
-          invoice: { studioId },
+          studioId,
+          status: "PAID",
         },
-        _sum: { amount: true },
+        _sum: { total: true },
       }),
       this.prisma.invoice.aggregate({
         where: {
@@ -526,7 +535,7 @@ export class InvoiceService {
       sentInvoices,
       paidInvoices,
       overdueInvoices,
-      totalRevenue: totalRevenue._sum.amount || 0,
+      totalRevenue: totalRevenue._sum.total || 0,
       pendingRevenue: pendingRevenue._sum.total || 0,
     };
   }

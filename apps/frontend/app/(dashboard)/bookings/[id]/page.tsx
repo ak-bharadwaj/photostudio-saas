@@ -38,6 +38,7 @@ interface Booking {
   quoteAmount?: number;
   quoteNotes?: string;
   quoteRejectionNotes?: string;
+  negotiationRounds?: number;
   customer: {
     id: string | number;
     name: string;
@@ -371,7 +372,10 @@ export default function BookingDetailsPage() {
                     <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 mb-1">Customer Requested Adjustment</p>
                        <p className="text-sm font-medium italic text-amber-900 dark:text-amber-100">&quot;{booking.quoteRejectionNotes}&quot;</p>
-                       <p className="text-[10px] text-amber-600/60 mt-2">Update the quote below to respond.</p>
+                       <div className="flex items-center justify-between mt-3">
+                         <p className="text-[10px] text-amber-600/60 uppercase font-bold tracking-wider">Round {booking.negotiationRounds || 0} of 3</p>
+                         <p className="text-[10px] text-amber-600/60">Update the quote below to respond.</p>
+                       </div>
                     </div>
                   )}
                 </div>

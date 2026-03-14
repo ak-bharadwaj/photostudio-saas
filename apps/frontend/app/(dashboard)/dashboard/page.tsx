@@ -52,7 +52,7 @@ interface Booking {
 interface Invoice {
   id: number;
   invoiceNumber: string;
-  totalAmount: number;
+  total: number;
   status: string;
   dueDate: string;
   customer: { name: string };
@@ -154,7 +154,7 @@ export default function DashboardPage() {
             <div className="h-2 w-2 rounded-full bg-primary shadow-glow-primary animate-pulse" />
             <span className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-tertiary hidden sm:block">PARTNER COMMAND CENTER / v2.4</span>
           </div>
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tighter leading-none" style={{ fontFamily: 'var(--font-heading)' }}>
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tighter leading-none" style={{ fontFamily: 'var(--font-display)' }}>
             Welcome, <span className="text-outline-luxury">{user?.name?.split(' ')[0].toUpperCase()}</span>.
           </h1>
         </div>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                       <td className="px-6 py-5">
                         <span className="text-sm font-bold tracking-tight">{inv.customer?.name}</span>
                       </td>
-                      <td className="px-6 py-5 font-black text-sm tabular-nums">{formatCurrency(inv.totalAmount)}</td>
+                      <td className="px-6 py-5 font-black text-sm tabular-nums">{formatCurrency(inv.total)}</td>
                       <td className="px-6 py-5">
                         <Badge {...getInvoiceStatusBadge(inv.status)} className="rounded-full text-[11px] px-3 font-bold">{inv.status}</Badge>
                       </td>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                 <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-4" onClick={() => window.location.href = `/invoices/${inv.id}`}>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-primary">{inv.invoiceNumber}</p>
-                    <p className="text-xs font-medium truncate">{inv.customer?.name} · {formatCurrency(inv.totalAmount)}</p>
+                    <p className="text-xs font-medium truncate">{inv.customer?.name} · {formatCurrency(inv.total)}</p>
                   </div>
                   <Badge {...getInvoiceStatusBadge(inv.status)} className="rounded-full text-[11px] px-2 font-bold">{inv.status}</Badge>
                 </div>

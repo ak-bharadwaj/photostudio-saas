@@ -191,13 +191,14 @@ interface Booking {
   studio: { name: string; slug: string; logoUrl?: string };
   quoteAmount?: number;
   quoteNotes?: string;
+  negotiationRounds?: number;
   review?: { id: string; rating: number; comment?: string };
 }
 
 interface Invoice {
   id: string;
   createdAt: string;
-  totalAmount: number;
+  total: number;
   status: string;
   studio: { name: string; slug: string };
   payments: { id: string; amount: number }[];
@@ -298,7 +299,7 @@ function StepIndicator({
               </div>
               <span
                 className="text-[9px] font-black uppercase tracking-[0.3em] block absolute -bottom-8 whitespace-nowrap"
-                style={{ color: isActive ? (isDark ? '#fff' : brand.primaryColor) : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.4)') }}
+                style={{ color: isActive ? (isDark ? '#fff' : brand.primaryColor) : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)') }}
               >
                 {s.title}
               </span>
@@ -668,10 +669,10 @@ function ServiceCard({
             <div 
                 className="px-6 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl"
                 style={{ 
-                    backgroundColor: isSelected ? primaryColor : 'rgba(255,255,255,0.1)', 
-                    color: isSelected ? getContrastColor(primaryColor) : '#fff',
+                    backgroundColor: isSelected ? primaryColor : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'), 
+                    color: isSelected ? getContrastColor(primaryColor) : (dark ? '#fff' : '#000'),
                     borderRadius: radius,
-                    border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.1)'
+                    border: isSelected ? 'none' : (dark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)')
                 }}
             >
               {isSelected ? 'Confirmed' : 'Select'}
@@ -1067,7 +1068,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     }
     setSendingCounter(true);
     try {
-      await portalApi.rejectQuote(counterOfferId, `Counter-offer: ${formatCurrency(amount)}${counterOfferNote ? ' — ' + counterOfferNote : ''}`);
+      await portalApi.negotiateQuote(counterOfferId, `Proposed adjustment: ${formatCurrency(amount)}${counterOfferNote ? ' — ' + counterOfferNote : ''}`);
       addToast('success', `Counter-offer of ${formatCurrency(amount)} sent! The partner will review and respond.`);
       setCounterOfferId(null);
       setCounterOfferAmount('');
@@ -1158,21 +1159,20 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     }
     setSubmitting(true);
     try {
-      // Fire one booking POST per selected service, all at the same scheduled time
-      const results = await Promise.all(
-        selectedServices.map((service) =>
-          axios.post(`${API_URL}/public/studios/${params.slug}/bookings`, {
-            customerName: customerData.name,
-            customerEmail: customerData.email || undefined,
-            customerPhone: customerData.phone,
-            serviceId: service.id,
-            scheduledAt: selectedTime,
-            customerNotes: customerData.notes || undefined,
-            acceptedTerms: acceptedTerms,
-          }),
-        ),
-      );
-      setBookingIds(results.map((r) => r.data?.id ?? ''));
+      const bookingIds: string[] = [];
+      for (const service of selectedServices) {
+        const res = await axios.post(`${API_URL}/public/studios/${params.slug}/bookings`, {
+          customerName: customerData.name,
+          customerEmail: customerData.email || undefined,
+          customerPhone: customerData.phone,
+          serviceId: service.id,
+          scheduledAt: selectedTime,
+          customerNotes: customerData.notes || undefined,
+          acceptedTerms: acceptedTerms,
+        });
+        if (res.data?.id) bookingIds.push(res.data.id);
+      }
+      setBookingIds(bookingIds);
       setStep(4);
       
       // Save guest info so they can access their bookings in the portal later
@@ -1928,7 +1928,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className={cn(
                           "backdrop-blur-sm focus:ring-1 transition-all pl-10",
-                          isDark ? "bg-white/5 border-white/10 text-white placeholder:text-white/20" : "bg-black/5 border-black/8 text-black placeholder:text-black/20"
+                          isDark ? "bg-white/5 border-white/10 text-white placeholder:text-white/50" : "bg-black/5 border-black/8 text-black placeholder:text-black/50"
                       )}
                       style={{ borderRadius: btnRadius }}
                     />
@@ -2795,38 +2795,35 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
         {activeTab === 'history' && (
           <div className="animate-fade-in max-w-3xl">
             {!authUser ? (
-              <div className="py-24 text-center">
-                <History className="h-12 w-12 mx-auto mb-6" style={{ color: textSecondary, opacity: 0.3 }} />
+              <div className="py-24 text-center border border-dashed rounded-3xl" style={{ borderColor }}>
+                <Users className="h-12 w-12 mx-auto mb-6" style={{ color: textSecondary, opacity: 0.3 }} />
                 <h2
-                  className="leading-tight tracking-tight mb-2"
+                  className="leading-tight tracking-tight mb-3"
                   style={{
-                    fontSize: '2rem',
+                    fontSize: '2.5rem',
                     fontWeight: 900,
                     color: textPrimary,
                     fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
                   }}
                 >
-                  Sign in to view history
+                  Sign in to see history
                 </h2>
-                <p className="mb-8 text-sm max-w-sm mx-auto" style={{ color: textSecondary }}>
-                  Track all your bookings with {studio.name} in one place.
+                <p className="mb-10 text-sm max-w-sm mx-auto leading-relaxed" style={{ color: textSecondary }}>
+                  Your quotes, invoices, and booking history are linked to your email address. Sign in to track everything in one place.
                 </p>
                 <button
-                  onClick={() => {
-                    const returnUrl = encodeURIComponent(window.location.pathname);
-                    window.location.href = `${API_URL}/auth/google?state=${returnUrl}`;
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 font-black text-sm uppercase tracking-wider transition-all hover:opacity-90"
-                  style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: btnRadius }}
+                  onClick={handleGoogleSignIn}
+                  className="px-10 py-4 font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
+                  style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: '1rem' }}
                 >
-                  <Chrome className="h-4 w-4" />
+                  <Chrome className="h-4 w-4 mr-2 inline-block" />
                   Sign in with Google
                 </button>
               </div>
             ) : loadingHistory ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="skeleton h-20 w-full rounded" />
+                  <div key={i} className="theme-card h-24 w-full rounded-2xl animate-pulse animate-shimmer" />
                 ))}
               </div>
             ) : (
@@ -2836,14 +2833,14 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   <div className="flex items-center justify-between mb-8">
                     <div>
                       <div className="text-xs font-black uppercase tracking-[0.2em] mb-1" style={{ color: brand.primaryColor }}>
-                        Bookings
+                        History
                       </div>
                       <h2
                         className="leading-tight tracking-tight"
                         style={{
-                          color: textPrimary,
-                          fontSize: '1.8rem',
+                          fontSize: '3rem',
                           fontWeight: 900,
+                          color: textPrimary,
                           fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
                         }}
                       >
@@ -3036,10 +3033,21 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                     setCounterOfferAmount(b.quoteAmount && !isNaN(Number(b.quoteAmount)) ? (Number(b.quoteAmount) * 0.9).toFixed(0) : '');
                                     setCounterOfferNote('');
                                   }}
-                                  className="px-4 border py-2.5 font-bold text-xs transition-all hover:opacity-70"
+                                  disabled={(b.negotiationRounds ?? 0) >= 3}
+                                  className={cn(
+                                    "px-4 border py-2.5 font-bold text-xs transition-all relative group",
+                                    (b.negotiationRounds ?? 0) >= 3 ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"
+                                  )}
                                   style={{ borderRadius: btnRadius, borderColor, color: textSecondary }}
                                 >
-                                  Counter
+                                  {(b.negotiationRounds ?? 0) >= 3 ? 'Limit Reached' : (
+                                    <>
+                                      Counter
+                                      <span className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
+                                        Round {b.negotiationRounds || 0} of 3
+                                      </span>
+                                    </>
+                                  )}
                                 </button>
                                 <button
                                   onClick={() => handleRejectQuote(b.id)}
@@ -3098,18 +3106,18 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                                 <Receipt className="h-4 w-4" style={{ color: brand.primaryColor }} />
                               </div>
                               <div className="min-w-0">
-                                <div className="font-black text-black text-xs font-mono">
-                                  #{inv.id.slice(-8).toUpperCase()}
-                                </div>
-                                <div className="text-xs text-black/35 mt-0.5">
-                                  {safeFormatDate(inv.createdAt)}
-                                </div>
+                                <div className="font-black text-xs font-mono" style={{ color: textPrimary }}>
+                                   #{inv.id.slice(-8).toUpperCase()}
+                                 </div>
+                                 <div className="text-xs mt-0.5" style={{ color: textSecondary, opacity: 0.6 }}>
+                                   {safeFormatDate(inv.createdAt)}
+                                 </div>
                               </div>
                             </div>
                             <div className="text-right shrink-0 space-y-1">
                               <StatusBadge status={inv.status} primaryColor={brand.primaryColor} />
                               <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
-                                {formatCurrency(inv.totalAmount)}
+                                {formatCurrency(inv.total)}
                               </div>
                             </div>
                           </div>
@@ -3132,16 +3140,17 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
               <div className="py-24 text-center">
                 <User className="h-12 w-12 text-black/10 mx-auto mb-6" />
                 <h2
-                  className="text-black leading-tight tracking-tight mb-2"
+                  className="leading-tight tracking-tight mb-2"
                   style={{
                     fontSize: '2rem',
                     fontWeight: 900,
+                    color: textPrimary,
                     fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
                   }}
                 >
                   Sign in to manage account
                 </h2>
-                <p className="text-black/40 mb-8 text-sm max-w-xs mx-auto">
+                <p className="mb-8 text-sm max-w-xs mx-auto" style={{ color: textSecondary }}>
                   Update your profile, name, and preferences.
                 </p>
                 <button
@@ -3160,8 +3169,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
               <div className="space-y-4">
                 {/* Profile card */}
                 <div
-                  className="overflow-hidden border border-[#e0e0d8] bg-white"
-                  style={{ borderRadius: '4px' }}
+                  className="overflow-hidden border theme-card"
+                  style={{ borderRadius: '4px', borderColor }}
                 >
                   {/* Header band */}
                   <div
@@ -3175,8 +3184,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                     >
                       {(authUser.name || '?').charAt(0).toUpperCase()}
                     </div>
-                    <div className="font-black text-black text-xl">{authUser.name}</div>
-                    <div className="text-sm text-black/40 mt-0.5">{authUser.email}</div>
+                    <div className="font-black text-xl" style={{ color: textPrimary }}>{authUser.name}</div>
+                    <div className="text-sm mt-0.5" style={{ color: textSecondary }}>{authUser.email}</div>
 
                     <div className="mt-6 space-y-4">
                       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 flex items-center gap-2">
@@ -3244,15 +3253,15 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
         {/* Review Modal */}
         {reviewBookingId && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="w-full max-w-lg bg-white overflow-hidden shadow-2xl animate-slide-up" style={{ borderRadius: '8px' }}>
+            <div className="w-full max-w-lg theme-card border overflow-hidden shadow-2xl animate-slide-up" style={{ borderRadius: '8px', borderColor }}>
               <div className="p-6 sm:p-8">
                 <div className="flex items-center justify-between mb-8">
                   <div>
                     <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-1" style={{ color: brand.primaryColor }}>Review Booking</div>
-                    <h2 className="text-2xl font-black text-black leading-tight">Your Feedback</h2>
+                    <h2 className="text-2xl font-black leading-tight" style={{ color: textPrimary }}>Your Feedback</h2>
                   </div>
                   <button onClick={() => setReviewBookingId(null)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
-                    <X className="h-5 w-5 text-black/20" />
+                    <X className="h-5 w-5 opacity-20" style={{ color: textPrimary }} />
                   </button>
                 </div>
 
@@ -3284,7 +3293,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                     <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Share more details</p>
                     <textarea
                       rows={4}
-                      className="w-full border border-[#e0e0d8] rounded p-4 text-sm text-black placeholder-black/20 outline-none resize-none focus:border-black/20 transition-all"
+                      className="w-full border rounded p-4 text-sm outline-none resize-none transition-all theme-card"
+                      style={{ borderColor, color: textPrimary }}
                       placeholder="What did you love? Any special shots or moments?"
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}

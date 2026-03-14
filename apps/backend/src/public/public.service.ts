@@ -185,30 +185,48 @@ export class PublicService {
     // Find or create customer + create booking atomically in one transaction
     const booking = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        // Search by phone OR email first to find existing customer in this studio
-        let customer = await tx.customer.findFirst({
-          where: {
-            studioId: studio.id,
-            OR: [
-              { phone: dto.customerPhone },
-              { email: dto.customerEmail },
-            ],
-          },
+        // Check both separately to avoid P2002 unique constraint violations
+        let customerByPhone = await tx.customer.findFirst({
+          where: { studioId: studio.id, phone: dto.customerPhone },
         });
+        let customerByEmail = dto.customerEmail ? await tx.customer.findFirst({
+          where: { studioId: studio.id, email: dto.customerEmail },
+        }) : null;
 
-        if (customer) {
-          // Update existing customer info with new details
+        let customer;
+        if (customerByPhone && customerByEmail) {
+          // Both exists. If they are different records, we link the current booking to the email-matched one
+          // and update its phone to match the current booking.
           customer = await tx.customer.update({
-            where: { id: customer.id },
+            where: { id: customerByEmail.id },
             data: {
-              globalUserId: globalUserId || customer.globalUserId || undefined,
+              globalUserId: globalUserId || customerByEmail.globalUserId || undefined,
               name: dto.customerName,
-              email: dto.customerEmail || customer.email,
-              phone: dto.customerPhone || customer.phone,
+              phone: dto.customerPhone,
+            },
+          });
+        } else if (customerByPhone) {
+          // Found by phone only. Update email if safe (we know customerByEmail was null).
+          customer = await tx.customer.update({
+            where: { id: customerByPhone.id },
+            data: {
+              globalUserId: globalUserId || customerByPhone.globalUserId || undefined,
+              name: dto.customerName,
+              email: dto.customerEmail,
+            },
+          });
+        } else if (customerByEmail) {
+          // Found by email only. Update phone.
+          customer = await tx.customer.update({
+            where: { id: customerByEmail.id },
+            data: {
+              globalUserId: globalUserId || customerByEmail.globalUserId || undefined,
+              name: dto.customerName,
+              phone: dto.customerPhone,
             },
           });
         } else {
-          // Create new customer
+          // New customer
           customer = await tx.customer.create({
             data: {
               studioId: studio.id,

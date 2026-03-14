@@ -50,7 +50,7 @@ interface Booking {
 interface Invoice {
   id: number;
   invoiceNumber: string;
-  totalAmount: number;
+  total: number;
   status: string;
   dueDate: string;
 }
@@ -294,7 +294,7 @@ export default function CustomerDetailsPage() {
                     {invoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-mono text-sm">{invoice.invoiceNumber}</TableCell>
-                        <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.total)}</TableCell>
                         <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell>
                            <Badge variant={getInvoiceStatusBadge(invoice.status).variant}>{invoice.status}</Badge>

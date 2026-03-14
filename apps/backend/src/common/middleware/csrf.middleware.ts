@@ -5,17 +5,20 @@ import * as crypto from "crypto";
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
-    // Skip for safe methods
+    // Set a CSRF cookie on any request if it doesn't exist
+    if (!req.cookies?.["XSRF-TOKEN"]) {
+      const token = crypto.randomBytes(32).toString("hex");
+      res.cookie("XSRF-TOKEN", token, {
+        httpOnly: false, // Must be readable by frontend
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+      });
+      // For the current request logic, we inject it into cookies so verify works if it's a mutation
+      req.cookies = { ...req.cookies, "XSRF-TOKEN": token };
+    }
+
+    // Skip verification for safe methods
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
-      // Set a CSRF cookie if it doesn't exist
-      if (!req.cookies?.["XSRF-TOKEN"]) {
-        const token = crypto.randomBytes(32).toString("hex");
-        res.cookie("XSRF-TOKEN", token, {
-          httpOnly: false, // Must be readable by frontend
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-        });
-      }
       return next();
     }
 
@@ -25,15 +28,18 @@ export class CsrfMiddleware implements NestMiddleware {
     const cookieToken = req.cookies?.["XSRF-TOKEN"];
 
     if (!csrfToken || csrfToken !== cookieToken) {
-      // In development, we might want to log this but allow it if not fully set up
+      // In development, allow it
       if (
         process.env.NODE_ENV === "development" ||
         process.env.NODE_ENV === "test"
       ) {
         return next();
       }
+      
+      console.error(`[CSRF] Failure: Header[${csrfToken}] vs Cookie[${cookieToken}] on ${req.method} ${req.originalUrl}`);
+      
       return res.status(403).json({
-        message: "Invalid or missing CSRF token",
+        message: "Invalid or missing CSRF token. Please refresh the page.",
         error: "Forbidden",
         statusCode: 403,
       });

@@ -16,19 +16,21 @@ export class AnalyticsService {
   async getRevenueOverTime(studioId: string, startDate: Date, endDate: Date) {
     // Query Payment records directly filtered by paidAt — this gives accurate
     // revenue attribution by actual payment date, not invoice creation date.
-    const payments = await this.prisma.payment.findMany({
+    // Query PAID invoices to calculate revenue
+    const invoices = await this.prisma.invoice.findMany({
       where: {
-        invoice: { studioId },
-        paidAt: {
+        studioId,
+        status: "PAID",
+        updatedAt: {
           gte: startDate,
           lte: endDate,
         },
       },
       select: {
-        amount: true,
-        paidAt: true,
+        total: true,
+        updatedAt: true,
       },
-      orderBy: { paidAt: "asc" },
+      orderBy: { updatedAt: "asc" },
     });
 
     // Group by date
@@ -42,12 +44,11 @@ export class AnalyticsService {
       currentDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
     }
 
-    // Sum payments by date
-    payments.forEach((payment: { amount: unknown; paidAt: Date | null }) => {
-      if (!payment.paidAt) return;
-      const dateStr = format(payment.paidAt, "yyyy-MM-dd");
+    // Sum invoices by date
+    invoices.forEach((invoice: { total: unknown; updatedAt: Date }) => {
+      const dateStr = format(invoice.updatedAt, "yyyy-MM-dd");
       const currentRevenue = revenueByDate.get(dateStr) || 0;
-      revenueByDate.set(dateStr, currentRevenue + Number(payment.amount));
+      revenueByDate.set(dateStr, currentRevenue + Number(invoice.total));
     });
 
     // Convert to array format for chart
@@ -114,6 +115,8 @@ export class AnalyticsService {
         },
         invoices: {
           select: {
+            total: true,
+            status: true,
             payments: {
               select: { amount: true },
             },
@@ -147,10 +150,14 @@ export class AnalyticsService {
         if (serviceData) {
           serviceData.bookings += 1;
           booking.invoices.forEach(
-            (invoice: { payments: Array<{ amount: unknown }> }) => {
-              invoice.payments.forEach((payment: { amount: unknown }) => {
-                serviceData.revenue += Number(payment.amount);
-              });
+            (invoice: { total: unknown; status: string; payments: Array<{ amount: unknown }> }) => {
+              if (invoice.status === "PAID") {
+                serviceData.revenue += Number(invoice.total);
+              } else {
+                invoice.payments.forEach((payment: { amount: unknown }) => {
+                  serviceData.revenue += Number(payment.amount);
+                });
+              }
             },
           );
         }
@@ -287,19 +294,18 @@ export class AnalyticsService {
         },
       }),
 
-      // Total revenue (sum of payments)
-      this.prisma.payment.aggregate({
+      // Total revenue (sum of PAID invoices)
+      this.prisma.invoice.aggregate({
         where: {
-          invoice: {
-            studioId,
-          },
-          paidAt: {
+          studioId,
+          status: "PAID",
+          updatedAt: { // Using updatedAt as a proxy for payment/completion date
             gte: startDate,
             lte: endDate,
           },
         },
         _sum: {
-          amount: true,
+          total: true,
         },
       }),
 
@@ -363,7 +369,7 @@ export class AnalyticsService {
 
     const result = {
       totalBookings,
-      totalRevenue: Number(totalRevenue._sum.amount ?? 0),
+      totalRevenue: Number(totalRevenue._sum.total ?? 0),
       pendingInvoices,
       completedBookings,
       inquiryCount,
