@@ -79,17 +79,6 @@ async function main() {
     }
   });
 
-  // Promote user to admin
-  console.log('👑 Promoting dornipaduakshith@gmail.com...');
-  await prisma.admin.upsert({
-    where: { email: 'dornipaduakshith@gmail.com' },
-    update: {},
-    create: {
-      email: 'dornipaduakshith@gmail.com',
-      name: 'Akshith D',
-      passwordHash: adminPassword
-    }
-  });
 
   console.log('\n🎉 Database seed completed successfully!');
   console.log('\n📝 Admin Credentials:');

@@ -96,7 +96,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             }
           : undefined,
         type: "user",
-        isAdmin: user.email === 'dornipaduakshith@gmail.com' ? true : false,
+        isAdmin: false,
       };
       await this.cacheService.set(cacheKey, result, USER_CACHE_TTL);
       return result;

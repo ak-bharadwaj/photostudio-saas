@@ -324,7 +324,31 @@ export class AuthService {
     provider: string;
     providerId: string;
   }) {
-    // 1. Find or create the global User
+    // 1. Check if the user is a platform admin
+    const admin = await this.prisma.admin.findUnique({
+      where: { email: profile.email },
+    });
+
+    if (admin) {
+      const tokens = await this.generateTokens({
+        sub: admin.id,
+        email: admin.email,
+        type: "admin",
+      });
+
+      return {
+        user: {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: "ADMIN",
+        },
+        ...tokens,
+        userType: "admin",
+      };
+    }
+
+    // 2. Find or create the global User
     let user = await this.prisma.user.findUnique({
       where: { email: profile.email },
       include: { studio: true },
@@ -335,7 +359,7 @@ export class AuthService {
         data: {
           email: profile.email,
           name: profile.name,
-          role: profile.email === 'dornipaduakshith@gmail.com' ? "OWNER" : "CUSTOMER",
+          role: "CUSTOMER",
           provider: profile.provider,
           providerId: profile.providerId,
           isActive: true,
@@ -354,15 +378,13 @@ export class AuthService {
       // If the user matches by email but doesn't have an OAuth provider ID yet,
       // or if their current provider is "local", we link them.
       const needsLinking = !user.providerId || user.provider === 'local';
-      const isAdminEmail = profile.email === 'dornipaduakshith@gmail.com';
 
-      if (needsLinking || isAdminEmail) {
+      if (needsLinking) {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
             provider: profile.provider,
             providerId: profile.providerId,
-            role: isAdminEmail ? 'OWNER' : user.role, // Ensure OWNER role for admin
             isActive: true, // Ensure user is active
           },
           include: { studio: true },
