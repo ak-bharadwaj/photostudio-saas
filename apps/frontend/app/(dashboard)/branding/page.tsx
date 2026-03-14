@@ -360,7 +360,7 @@ function ColorPicker({
           {label}
         </label>
         {description && (
-          <p className="text-[10px] text-[var(--foreground-tertiary)] font-medium leading-none mt-0.5">{description}</p>
+          <p className="text-[11px] text-[var(--foreground-tertiary)] font-medium leading-none mt-0.5">{description}</p>
         )}
       </div>
       <div className="relative w-32">
@@ -646,7 +646,7 @@ function BrandPreview({
                   {branding.headerText || studioName}
                 </h3>
                 {branding.tagline && (
-                  <p className="text-[10px] mt-0.5 font-medium text-white/70">{branding.tagline}</p>
+                  <p className="text-[11px] mt-0.5 font-medium text-white/70">{branding.tagline}</p>
                 )}
               </div>
             </div>
@@ -679,7 +679,7 @@ function BrandPreview({
           </div>
 
           <button
-            className="w-full py-3 text-[10px] font-black uppercase tracking-[0.2em]"
+            className="w-full py-3 text-[11px] font-black uppercase tracking-[0.2em]"
             style={{
               backgroundColor: primaryColor,
               color: getContrastColor(primaryColor),
@@ -782,7 +782,7 @@ export default function BrandingPage() {
               <Sparkles className="h-5 w-5 text-[var(--primary)]" />
               <CardTitle>Premium Theme Gallery</CardTitle>
             </div>
-            <div className="px-3 py-1 bg-[var(--primary)]/10 text-[var(--primary)] text-[10px] font-black uppercase tracking-[0.2em] rounded-full">
+            <div className="px-3 py-1 bg-[var(--primary)]/10 text-[var(--primary)] text-[11px] font-black uppercase tracking-[0.2em] rounded-full">
               10 Curated Styles
             </div>
           </div>

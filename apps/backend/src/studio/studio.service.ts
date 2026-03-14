@@ -111,7 +111,7 @@ export class StudioService {
     return studio;
   }
 
-  async findAll(page: number = 1, limit: number = 10, status?: string) {
+  async findAll(page: number = 1, limit: number = 1000, status?: string) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.StudioWhereInput = {};

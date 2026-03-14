@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { BgMeshEngine } from '@/components/ui/bg-mesh-engine';
 import { useCart } from '@/context/cart-context';
 import { useWishlist } from '@/context/wishlist-context';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export default function ServiceDetailsPage() {
@@ -110,11 +111,11 @@ export default function ServiceDetailsPage() {
                 </Button>
 
                 <Link href="/" className="pointer-events-auto flex items-center gap-2 group">
-                    <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-glow-primary group-hover:scale-105 transition-transform">
-                        <Camera className="text-white h-5 w-5" />
+                    <div className="h-10 w-10 flex items-center justify-center p-0 group-hover:scale-105 transition-transform">
+                        <Image src="/logo.png" alt="ReviewsFeedback Logo" width={40} height={40} className="object-contain" unoptimized />
                     </div>
                     <span className="text-xl font-black tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-                        REVIEWS<span className="text-primary">FEEDBACK</span>
+                        REVIEWS<span className="text-primary drop-shadow-md">FEEDBACK</span>
                     </span>
                 </Link>
 
@@ -128,10 +129,13 @@ export default function ServiceDetailsPage() {
                     <div className="lg:col-span-7 space-y-12 animate-cinematic">
                         <section className="relative aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 group bg-surface-2">
                             {service.coverImage ? (
-                                <img
+                                <Image
                                     src={service.coverImage}
                                     alt={service.name}
+                                    fill
                                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2000ms] group-hover:scale-110"
+                                    unoptimized
+                                    onError={(e: any) => { e.currentTarget.src = "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200" }}
                                 />
                             ) : (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
@@ -164,11 +168,15 @@ export default function ServiceDetailsPage() {
                                 {service.studio.portfolioItems.slice(0, 3).map((item: any, i: number) => (
                                     <div key={item.id || i} className="aspect-square rounded-[1.5rem] overflow-hidden glass-ultra p-1 group cursor-pointer">
                                         {item.imageUrl ? (
-                                            <img
-                                                src={item.imageUrl}
-                                                alt={item.title || 'Portfolio'}
-                                                className="w-full h-full object-cover rounded-[1rem] group-hover:scale-110 transition-transform duration-1000"
-                                            />
+                                            <div className="relative w-full h-full">
+                                                <Image
+                                                    src={item.imageUrl}
+                                                    alt={item.title || 'Portfolio'}
+                                                    fill
+                                                    className="object-cover rounded-[1rem] group-hover:scale-110 transition-transform duration-1000"
+                                                    unoptimized
+                                                />
+                                            </div>
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center rounded-[1rem] bg-surface-2">
                                                 <Camera className="h-10 w-10 text-foreground-tertiary/30" />
@@ -185,12 +193,15 @@ export default function ServiceDetailsPage() {
                         {/* Studio Card */}
                         <Link href={`/studio/${service.studio.slug}`} className="block group animate-cinematic" style={{ animationDelay: '200ms' }}>
                             <div className="glass-ultra p-8 rounded-[2rem] flex items-center gap-6 border-white/5 shadow-2xl group-hover:border-primary/50 transition-all duration-700">
-                                <div className="h-20 w-20 rounded-2xl overflow-hidden bg-white border border-border group-hover:scale-110 transition-transform duration-700">
+                                <div className="h-20 w-20 relative rounded-2xl overflow-hidden bg-white border border-border group-hover:scale-110 transition-transform duration-700">
                                     {service.studio.logoUrl ? (
-                                        <img
+                                        <Image
                                             src={service.studio.logoUrl}
                                             className="w-full h-full object-cover"
                                             alt={service.studio.name}
+                                            fill
+                                            unoptimized
+                                            onError={(e: any) => { e.currentTarget.src = "https://images.unsplash.com/photo-1554046920-90dcac824bd6?auto=format&fit=crop&w=100&q=80" }}
                                         />
                                     ) : (
                                         <div

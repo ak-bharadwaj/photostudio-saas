@@ -17,7 +17,7 @@ import {
     CheckCircle
 } from 'lucide-react';
 import { marketplaceApi } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getOptimizedImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/cart-context';
@@ -460,7 +460,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                         className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-white/5"
                                     >
                                         <Image
-                                            src={cat.imageUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=75&w=400"}
+                                            src={getOptimizedImageUrl(cat.imageUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4", { width: 400, quality: 75 })}
                                             fill
                                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                             className="object-cover group-hover:scale-110 transition-all duration-1000 ease-out opacity-80 group-hover:opacity-100"
@@ -517,7 +517,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                     >
                                         <div className="aspect-[4/3] relative overflow-hidden bg-white/5">
                                             <Image
-                                                src={service.coverImage || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=75&w=600"}
+                                                src={getOptimizedImageUrl(service.coverImage || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e", { width: 600, quality: 75 })}
                                                 fill
                                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                                 className="object-cover group-hover:scale-110 transition-transform duration-1000 ease-out"

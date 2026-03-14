@@ -192,7 +192,8 @@ export class UpdateStudioDto {
 
   @IsString()
   @IsOptional()
-  logoUrl?: string;
+  @Transform(({ value }) => (value === null ? null : value))
+  logoUrl?: string | null;
 
   @ValidateNested()
   @Type(() => BrandingConfigDto)

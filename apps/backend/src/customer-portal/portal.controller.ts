@@ -101,7 +101,7 @@ export class PortalController {
     @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
   ) {
     const userId = req.user.id;
-    const safeLimit = Math.min(limit, 100); // cap at 100 per page
+    const safeLimit = Math.min(limit, 1000); // Increased limit to 1000 per page
     const skip = (page - 1) * safeLimit;
 
     const customerWhere: Prisma.CustomerWhereInput = { globalUserId: userId };
@@ -209,7 +209,7 @@ export class PortalController {
     @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
   ) {
     const userId = req.user.id;
-    const safeLimit = Math.min(limit, 100);
+    const safeLimit = Math.min(limit, 1000);
     const skip = (page - 1) * safeLimit;
 
     const customerWhere: Prisma.CustomerWhereInput = { globalUserId: userId };

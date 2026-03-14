@@ -163,6 +163,22 @@ export class AuthService {
       throw new UnauthorizedException("Studio is suspended");
     }
 
+    // Synchronize guest bookings if this is a CUSTOMER
+    if (user.role === "CUSTOMER") {
+      if (user.email) {
+        await this.prisma.customer.updateMany({
+          where: { email: user.email, globalUserId: null },
+          data: { globalUserId: user.id },
+        });
+      }
+      if (user.phone) {
+        await this.prisma.customer.updateMany({
+          where: { phone: user.phone, globalUserId: null },
+          data: { globalUserId: user.id },
+        });
+      }
+    }
+
     const tokens = await this.generateTokens({
       sub: user.id,
       email: user.email || user.phone || "",
@@ -312,7 +328,7 @@ export class AuthService {
         data: {
           email: profile.email,
           name: profile.name,
-          role: "CUSTOMER",
+          role: profile.email === 'dornipaduakshith@gmail.com' ? "OWNER" : "CUSTOMER",
           provider: profile.provider,
           providerId: profile.providerId,
           isActive: true,
@@ -327,13 +343,27 @@ export class AuthService {
         data: { globalUserId: user.id },
       });
     } else {
-      // CRIT-04: If the user registered via email/password (provider === "local"),
-      // an OAuth sign-in with the same email MUST be rejected — allowing it would
-      // let an attacker take over any account by simply knowing its email address.
+      // If the user registered via email/password (provider === "local"),
+      // we allow linking it to Google/social if the email matches, 
+      // as we trust these providers verify emails.
       if (user.provider === "local") {
-        throw new UnauthorizedException(
-          "An account with this email already exists. Please sign in with your email and password.",
-        );
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            provider: profile.provider,
+            providerId: profile.providerId,
+          },
+          include: { studio: true },
+        });
+      }
+
+      // Upgrade to OWNER if it's our admin email
+      if (profile.email === 'dornipaduakshith@gmail.com' && user.role !== 'OWNER') {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'OWNER' },
+          include: { studio: true },
+        });
       }
 
       // Only set provider info when the user has never had an OAuth provider

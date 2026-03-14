@@ -61,6 +61,41 @@ export class QueueService {
    * The 25-hour window ensures each booking gets exactly one reminder
    * (next hourly run the booking will be < 24 h away and already processed).
    */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async autoUpdateToInProgress() {
+    const now = new Date();
+    try {
+      const pastDue = await this.prisma.booking.findMany({
+        where: {
+          status: "CONFIRMED",
+          scheduledAt: { lte: now }
+        },
+        select: { id: true }
+      });
+
+      if (pastDue.length > 0) {
+        for (const b of pastDue) {
+          await this.prisma.$transaction(async (tx) => {
+            await tx.booking.update({
+              where: { id: b.id },
+              data: { status: "IN_PROGRESS" }
+            });
+            await tx.bookingStatusLog.create({
+              data: {
+                bookingId: b.id,
+                status: "IN_PROGRESS",
+                notes: "Automatically moved to In Progress (time reached)"
+              }
+            });
+          });
+          this.logger.log(`Auto-updated booking ${b.id} to IN_PROGRESS`);
+        }
+      }
+    } catch (err: unknown) {
+      this.logger.error("Error auto-updating to IN_PROGRESS", err);
+    }
+  }
+
   @Cron(CronExpression.EVERY_HOUR)
   async checkUpcomingBookings() {
     this.logger.log("Cron: checking upcoming bookings for reminders…");
@@ -210,6 +245,42 @@ export class QueueService {
         `checkCompletedBookings failed: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
+    }
+  }
+
+  /**
+   * Every hour — auto-advance CONFIRMED bookings past their scheduled time to IN_PROGRESS.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async autoAdvanceInProgress() {
+    this.logger.log(
+      "Cron: checking confirmed bookings reaching their scheduled time…",
+    );
+    try {
+      const now = new Date();
+      const bookings = await this.prisma.booking.findMany({
+        where: {
+          status: "CONFIRMED",
+          scheduledAt: { lte: now },
+        },
+      });
+
+      for (const booking of bookings) {
+        await this.prisma.booking.update({
+          where: { id: booking.id },
+          data: { status: "IN_PROGRESS" },
+        });
+        await this.prisma.bookingStatusLog.create({
+          data: {
+            bookingId: booking.id,
+            status: "IN_PROGRESS",
+            notes: "Automatically moved to In Progress (scheduled time reached)",
+          },
+        });
+        this.logger.log(`Auto-advanced booking ${booking.id} to IN_PROGRESS`);
+      }
+    } catch (error) {
+      this.logger.error("autoAdvanceInProgress failed", error);
     }
   }
 }

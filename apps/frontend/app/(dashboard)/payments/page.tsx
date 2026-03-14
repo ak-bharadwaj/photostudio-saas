@@ -155,7 +155,7 @@ export default function PaymentsPage() {
                 <Receipt className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)]">Total Payments</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)]">Total Payments</p>
                 <p className="text-3xl font-black text-[var(--foreground)] font-heading tabular-nums">{stats.totalPayments}</p>
               </div>
             </div>
@@ -167,7 +167,7 @@ export default function PaymentsPage() {
                 <DollarSign className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)]">Total Amount Received</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)]">Total Amount Received</p>
                 <p className="text-3xl font-black text-[var(--foreground)] font-heading tabular-nums">{formatCurrency(Number(stats.totalAmount))}</p>
               </div>
             </div>

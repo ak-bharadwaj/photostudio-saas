@@ -76,11 +76,11 @@ export class InvoiceService {
 
       if (booking?.quoteAmount) {
         const negotiatedPrice = Number(booking.quoteAmount);
-        // If negotiated price is lower than subtotal, apply the difference as bargaining discount
-        if (negotiatedPrice < subtotal) {
+        // Apply difference as bargaining discount or adjustment
+        if (negotiatedPrice !== subtotal) {
           discount = subtotal - negotiatedPrice;
           this.logger.log(
-            `Applying bargaining discount of ${discount} to match quote of ${negotiatedPrice}`,
+            `Applying bargaining adjustment of ${-discount} to match quote of ${negotiatedPrice}`,
           );
         }
       }
@@ -122,12 +122,20 @@ export class InvoiceService {
     page: number = 1,
     limit: number = 10,
     status?: InvoiceStatus,
+    search?: string,
   ) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.InvoiceWhereInput = { studioId };
     if (status) {
       where.status = status;
+    }
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: "insensitive" } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { email: { contains: search, mode: "insensitive" } } },
+      ];
     }
 
     const [invoices, total] = await Promise.all([

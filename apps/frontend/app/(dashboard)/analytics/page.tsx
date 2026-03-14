@@ -248,7 +248,7 @@ export default function AnalyticsPage() {
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         <Card className="card-luxury p-8">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Total Bookings</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Total Bookings</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {overviewData?.totalBookings || 0}
           </div>
@@ -257,7 +257,7 @@ export default function AnalyticsPage() {
           </div>
         </Card>
         <Card className="card-luxury p-8">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Total Revenue</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Total Revenue</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {formatCurrency(overviewData?.totalRevenue || 0)}
           </div>
@@ -266,14 +266,14 @@ export default function AnalyticsPage() {
           </div>
         </Card>
         <Card className="card-luxury p-8 border-l-4 border-l-[var(--warning)]">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Pending Invoices</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Pending Invoices</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {overviewData?.pendingInvoices || 0}
           </div>
           <p className="mt-3 text-xs font-bold text-[var(--warning)] font-heading tracking-widest uppercase">Requires Review</p>
         </Card>
         <Card className="card-luxury p-8 border-l-4 border-l-[var(--primary)]">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Completed Sessions</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Completed Sessions</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">
             {overviewData?.completedBookings || 0}
           </div>

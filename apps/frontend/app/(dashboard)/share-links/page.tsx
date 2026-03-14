@@ -714,16 +714,16 @@ export default function ShareLinksPage() {
                   <p className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest mb-4">Pro Implementation</p>
                   <ul className="space-y-3 text-sm text-[var(--foreground-secondary)]">
                     <li className="flex gap-3 items-center">
-                      <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                      <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[11px] font-bold flex items-center justify-center shrink-0">1</span>
                       Take a high-quality screenshot of the preview
                     </li>
                     <li className="flex gap-3 items-center">
-                      <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                      <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[11px] font-bold flex items-center justify-center shrink-0">2</span>
                       Upload to your Instagram {cmgType}
                     </li>
                     {cmgType === 'story' && (
                       <li className="flex gap-3 items-center">
-                        <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">3</span>
+                        <span className="h-6 w-6 rounded-full bg-[var(--primary)] text-white text-[11px] font-bold flex items-center justify-center shrink-0">3</span>
                         Add a &quot;Link&quot; sticker set to your Booking URL
                       </li>
                     )}

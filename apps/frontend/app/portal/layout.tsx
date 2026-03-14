@@ -268,7 +268,7 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
               <Aperture className="h-5 w-5 text-white" strokeWidth={1.5} />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] leading-none" style={{ color: 'rgba(255,255,255,0.25)' }}>Studio</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] leading-none" style={{ color: 'rgba(255,255,255,0.5)' }}>Studio</p>
               <p className="text-sm font-black leading-tight mt-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>Customer Portal</p>
             </div>
           </Link>
@@ -302,7 +302,7 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
               </p>
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Active session</span>
+                <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Active session</span>
               </div>
             </div>
           </div>
@@ -310,7 +310,7 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 pb-2 overflow-y-auto no-scrollbar" aria-label="Main">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] px-3 pt-2 pb-3" style={{ color: 'rgba(255,255,255,0.18)' }}>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] px-3 pt-2 pb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
             Navigation
           </p>
           <div className="space-y-0.5">
@@ -362,7 +362,7 @@ function PortalLayoutInner({ children }: { children: React.ReactNode }) {
                     <p className={cn('text-sm leading-none', isActive ? 'font-bold' : 'font-semibold')} style={{ color: isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.45)' }}>
                       {item.name}
                     </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: isActive ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)' }}>
+                    <p className="text-[11px] mt-0.5" style={{ color: isActive ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.4)' }}>
                       {item.description}
                     </p>
                   </div>

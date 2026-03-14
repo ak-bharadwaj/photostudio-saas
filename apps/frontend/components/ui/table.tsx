@@ -44,7 +44,7 @@ export const TableHeader = React.forwardRef<HTMLTableSectionElement, TableHeader
           'border-b border-[var(--border-light)]',
           className,
         )}
-        style={{ background: 'linear-gradient(to right, var(--surface-2), var(--surface-1))' }}
+        style={{ background: 'linear-gradient(to right, var(--surface-1), var(--surface-2))' }}
         {...props}
       >
         {children}
@@ -131,8 +131,8 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
         ref={ref}
         className={cn(
           'h-11 px-6 text-left align-middle',
-          'text-[10px] font-bold uppercase tracking-[0.12em]',
-          'text-[var(--foreground-tertiary)]',
+          'text-[11px] font-black uppercase tracking-[0.2em]',
+          'text-[var(--foreground-secondary)]',
           className,
         )}
         {...props}

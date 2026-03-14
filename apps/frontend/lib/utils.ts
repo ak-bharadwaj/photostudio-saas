@@ -89,3 +89,16 @@ export function getInvoiceStatusBadge(status: string): { variant: 'default' | 's
   };
   return { variant: variants[status] || 'default' };
 }
+
+export function getOptimizedImageUrl(url: string | null | undefined, options: { width?: number; quality?: number } = {}): string {
+  if (!url) return '';
+  const { width = 1200, quality = 80 } = options;
+  
+  // If it's an Unsplash URL, append optimization params
+  if (url.includes('images.unsplash.com')) {
+    const baseUrl = url.split('?')[0];
+    return `${baseUrl}?auto=format&fit=crop&q=${quality}&w=${width}`;
+  }
+  
+  return url;
+}

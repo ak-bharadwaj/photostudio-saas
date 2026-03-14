@@ -79,11 +79,11 @@ const STATUS_CFG: Record<string, {
   color: string;
   bg: string;
 }> = {
-  DRAFT: { variant: 'default', label: 'Draft', color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
-  SENT: { variant: 'info', label: 'Awaiting Payment', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
-  PAID: { variant: 'success', label: 'Fully Paid', color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-  PARTIALLY_PAID: { variant: 'warning', label: 'Partially Paid', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-  OVERDUE: { variant: 'danger', label: 'Overdue', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
+  DRAFT: { variant: 'default', label: 'Draft', color: '#4b5563', bg: 'rgba(75,85,99,0.1)' },
+  SENT: { variant: 'info', label: 'Awaiting Payment', color: '#2563eb', bg: 'rgba(37,99,235,0.1)' },
+  PAID: { variant: 'success', label: 'Fully Paid', color: '#059669', bg: 'rgba(5,150,105,0.1)' },
+  PARTIALLY_PAID: { variant: 'warning', label: 'Partially Paid', color: '#d97706', bg: 'rgba(217,119,6,0.1)' },
+  OVERDUE: { variant: 'danger', label: 'Overdue', color: '#dc2626', bg: 'rgba(220,38,38,0.1)' },
 };
 
 export default function InvoiceDetailPage() {
@@ -350,8 +350,8 @@ export default function InvoiceDetailPage() {
               <div>
                 <span className="text-[10px] font-black tracking-widest uppercase text-foreground-tertiary block mb-4">LATEST STATUS</span>
                 <div 
-                  className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest shadow-xl border"
-                  style={{ backgroundColor: status.bg, borderColor: `${status.color}33`, color: status.color }}
+                  className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest shadow-xl border"
+                  style={{ backgroundColor: status.bg, borderColor: `${status.color}44`, color: status.color }}
                 >
                   <div className="h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: status.color }} />
                   {status.label}

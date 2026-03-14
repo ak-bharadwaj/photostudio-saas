@@ -154,7 +154,7 @@ export class AdminService {
   }
 
   // Studio Management
-  async getAllStudios(page = 1, limit = 20, status?: string, tier?: string, search?: string) {
+  async getAllStudios(page = 1, limit = 1000, status?: string, tier?: string, search?: string) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.StudioWhereInput = {};
@@ -204,7 +204,7 @@ export class AdminService {
       where: { id },
       include: {
         users: {
-          take: 50,
+          take: 1000,
           orderBy: { createdAt: 'desc' },
           select: {
             id: true,

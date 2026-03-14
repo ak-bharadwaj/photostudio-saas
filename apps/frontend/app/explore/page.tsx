@@ -14,7 +14,7 @@ import {
     X,
 } from 'lucide-react';
 import { marketplaceApi } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getOptimizedImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -92,8 +92,8 @@ function ExploreContent() {
             <header className="glass-ultra sticky top-0 z-50 py-5 px-6 sm:px-10 border-b border-white/10 backdrop-blur-xl">
                 <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-6">
                     <Link href="/" className="flex items-center gap-3 group shrink-0">
-                        <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform">
-                            <Building2 className="text-white h-4 w-4" />
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform bg-white/5">
+                            <Image src="/logo.png" alt="ReviewsFeedback Logo" width={36} height={36} className="object-contain" unoptimized />
                         </div>
                         <span className="text-lg font-black tracking-tighter hidden sm:inline" style={{ fontFamily: 'var(--font-serif)' }}>
                             ReviewsFeedback
@@ -114,7 +114,7 @@ function ExploreContent() {
 
                     <div className="hidden lg:flex items-center gap-4 shrink-0">
                         <Link href="/login" className="text-xs font-bold text-foreground/40 uppercase tracking-widest hover:text-foreground transition-colors">Login</Link>
-                        <Button onClick={() => router.push('/portal/register')} className="h-10 px-6 rounded-xl text-[10px] font-black tracking-widest uppercase bg-foreground text-background hover:opacity-80">
+                        <Button onClick={() => router.push('/portal/register')} className="h-10 px-6 rounded-xl text-[11px] font-black tracking-widest uppercase bg-foreground text-background hover:opacity-80">
                             List Your Business
                         </Button>
                     </div>
@@ -207,7 +207,7 @@ function ExploreContent() {
                 {/* Results header */}
                 <div className="flex items-end justify-between mb-8">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/60 mb-2">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-primary/60 mb-2">
                             {isLoading ? 'Searching...' : `${results.length} results`}
                             {selectedLocation && ` in ${selectedLocation}`}
                         </p>
@@ -232,11 +232,12 @@ function ExploreContent() {
                                 <div className="relative h-64 overflow-hidden bg-foreground/5">
                                     {service.coverImage ? (
                                         <Image
-                                            src={service.coverImage}
+                                            src={getOptimizedImageUrl(service.coverImage, { width: 800, quality: 75 })}
                                             fill
                                             className="object-cover transform transition-transform duration-700 group-hover:scale-105"
                                             alt={service.name}
                                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                            unoptimized
                                         />
                                     ) : (
                                         <div className="absolute inset-0 flex items-center justify-center bg-foreground/5">
@@ -269,7 +270,14 @@ function ExploreContent() {
                                         <div className="flex items-center gap-2">
                                             <div className="h-8 w-8 rounded-full border border-white/20 overflow-hidden shrink-0 relative">
                                                 {service.studio.logoUrl ? (
-                                                    <Image src={service.studio.logoUrl} fill className="object-cover" alt={service.studio.name} />
+                                                    <Image 
+                                                        src={service.studio.logoUrl} 
+                                                        fill 
+                                                        className="object-cover" 
+                                                        alt={service.studio.name} 
+                                                        unoptimized
+                                                        onError={(e: any) => { e.currentTarget.src = "https://images.unsplash.com/photo-1554046920-90dcac824bd6?auto=format&fit=crop&w=100&q=80" }}
+                                                    />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center bg-primary text-white text-xs font-black">
                                                         {service.studio.name.charAt(0).toUpperCase()}
@@ -277,7 +285,7 @@ function ExploreContent() {
                                                 )}
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-bold text-white leading-none">{service.studio.name}</p>
+                                                <p className="text-[11px] font-bold text-white leading-none">{service.studio.name}</p>
                                                 {(service.studio.address || service.studio.city) && (
                                                     <p className="flex items-center gap-0.5 text-[9px] text-white/60 mt-0.5">
                                                         <MapPin size={8} /> 
@@ -287,7 +295,7 @@ function ExploreContent() {
                                             </div>
                                         </div>
                                         {service.studio.avgRating > 0 && (
-                                            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-yellow-400 px-2 py-1 rounded-lg text-[10px] font-bold">
+                                            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm text-yellow-400 px-2 py-1 rounded-lg text-[11px] font-bold">
                                                 <Star className="h-3 w-3 fill-current" />
                                                 {service.studio.avgRating.toFixed(1)}
                                             </div>
@@ -316,7 +324,7 @@ function ExploreContent() {
                                             >
                                                 <Plus className="h-4 w-4" />
                                             </button>
-                                            <div className="h-9 px-4 rounded-lg bg-foreground text-background flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+                                            <div className="h-9 px-4 rounded-lg bg-foreground text-background flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
                                                 <span>View</span>
                                                 <ArrowRight className="h-3 w-3" />
                                             </div>

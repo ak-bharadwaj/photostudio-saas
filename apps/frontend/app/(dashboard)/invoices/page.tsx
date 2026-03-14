@@ -53,12 +53,12 @@ export default function InvoicesPage() {
   const { addToast } = useToast();
   const abortRef = useRef<AbortController | null>(null);
 
-  const loadInvoices = useCallback(async () => {
+  const loadInvoices = useCallback(async (silent = false) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params: Record<string, string | number> = { limit: PAGE_SIZE, page };
       if (statusFilter) params.status = statusFilter;
       if (searchTerm.trim()) params.search = searchTerm.trim();
@@ -79,16 +79,27 @@ export default function InvoicesPage() {
       setStats(statsRes.data || { totalRevenue: 0, pendingRevenue: 0 });
     } catch (e) {
       if ((e as { name?: string }).name === 'CanceledError') return;
-      const error = e as { response?: { data?: { message?: string } } };
-      addToast('error', error.response?.data?.message || 'Failed to load invoices');
+      if (!silent) {
+        const error = e as { response?: { data?: { message?: string } } };
+        addToast('error', error.response?.data?.message || 'Failed to load invoices');
+      }
     } finally {
-      if (!abortRef.current?.signal.aborted) setIsLoading(false);
+      if (!abortRef.current?.signal.aborted && !silent) setIsLoading(false);
     }
   }, [statusFilter, searchTerm, page, addToast]);
 
   useEffect(() => {
     loadInvoices();
-    return () => abortRef.current?.abort();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadInvoices(true);
+    }, 30000);
+
+    return () => {
+      abortRef.current?.abort();
+      clearInterval(interval);
+    };
   }, [loadInvoices]);
 
   // Reset to page 1 whenever the status filter or search term changes
@@ -168,17 +179,17 @@ export default function InvoicesPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-10">
         <Card className="card-luxury p-8">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Total Invoices</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Total Invoices</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">{meta.total}</div>
         </Card>
 
         <Card className="card-luxury p-8 border-l-4 border-l-[var(--success)]">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Revenue (this page)</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Revenue (this page)</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">{formatCurrency(totalRevenue)}</div>
         </Card>
 
         <Card className="card-luxury p-8 border-l-4 border-l-[var(--warning)]">
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Pending (this page)</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--foreground-tertiary)] mb-3">Pending (this page)</div>
           <div className="text-4xl font-black text-[var(--foreground)] font-heading">{formatCurrency(pendingAmount)}</div>
         </Card>
       </div>
@@ -326,7 +337,7 @@ export default function InvoicesPage() {
                         </div>
                         <div>
                           <p className="font-bold text-sm tracking-tight">{invoice.invoiceNumber}</p>
-                          <p className="text-[10px] text-foreground-tertiary font-black uppercase tracking-widest truncate max-w-[120px]">
+                          <p className="text-[11px] text-foreground-tertiary font-black uppercase tracking-widest truncate max-w-[120px]">
                             {invoice.customer.name}
                           </p>
                         </div>
@@ -337,11 +348,11 @@ export default function InvoicesPage() {
                     </div>
                     <div className="px-4 py-3 border-b border-border/5 bg-surface-0/50 flex items-center justify-between">
                       <div>
-                        <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest mb-1">Total Amount</p>
+                        <p className="text-[11px] font-black text-foreground-tertiary uppercase tracking-widest mb-1">Total Amount</p>
                         <p className="text-lg font-black text-foreground tabular-nums">{formatCurrency(Number(invoice.total || 0))}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest mb-1">Due Date</p>
+                        <p className="text-[11px] font-black text-foreground-tertiary uppercase tracking-widest mb-1">Due Date</p>
                         <p className="text-xs font-bold text-foreground">{invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</p>
                       </div>
                     </div>

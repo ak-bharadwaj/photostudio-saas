@@ -655,7 +655,7 @@ export default function SettingsPage() {
                       <span className="h-5 w-5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: theme.primaryColor }} />
                       <span className="h-5 w-5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: theme.accentColor }} />
                     </div>
-                    <span className="text-[10px] font-bold text-[var(--foreground-secondary)] group-hover:text-[var(--primary)] text-center leading-tight">{theme.name}</span>
+                    <span className="text-[11px] font-bold text-[var(--foreground-secondary)] group-hover:text-[var(--primary)] text-center leading-tight">{theme.name}</span>
                     {/* Active indicator */}
                     {brandingForm.primaryColor === theme.primaryColor && brandingForm.accentColor === theme.accentColor && (
                       <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--primary)]" />
@@ -826,7 +826,7 @@ export default function SettingsPage() {
               <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-0)]">
                 <label className="text-xs font-black text-[var(--foreground-tertiary)] uppercase tracking-widest">Access Level</label>
                 <div className="mt-1 flex items-center gap-2">
-                  <div className="px-2 py-0.5 rounded bg-[var(--primary)] text-white text-[10px] font-bold uppercase tracking-tighter"> {user?.role || 'STUDIO_OWNER'} </div>
+                  <div className="px-2 py-0.5 rounded bg-[var(--primary)] text-white text-[11px] font-bold uppercase tracking-tighter"> {user?.role || 'STUDIO_OWNER'} </div>
                   <p className="text-lg font-bold text-[var(--foreground)] capitalize">Administrator</p>
                 </div>
               </div>

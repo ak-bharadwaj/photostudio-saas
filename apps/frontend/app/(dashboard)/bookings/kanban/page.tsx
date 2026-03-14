@@ -118,7 +118,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           <h4 className="font-semibold text-sm text-[var(--foreground)] leading-snug hover:text-[var(--primary)] transition-colors line-clamp-1">
             {booking.customer.name}
           </h4>
-          <Badge variant={STATUS_VARIANT[booking.status]} className="text-[10px] shrink-0">
+          <Badge variant={STATUS_VARIANT[booking.status]} className="text-[11px] shrink-0">
             {booking.status.replace('_', ' ')}
           </Badge>
         </div>

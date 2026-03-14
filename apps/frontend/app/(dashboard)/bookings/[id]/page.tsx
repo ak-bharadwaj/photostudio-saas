@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 
 import { Modal } from '@/components/ui/modal';
 import { Select, Textarea, Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading';
 import { useToast } from '@/components/ui/toast';
-import { bookingsApi } from '@/lib/api';
+import { bookingsApi, invoicesApi } from '@/lib/api';
 import { formatDate, formatCurrency, getBookingStatusBadge } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -19,7 +20,7 @@ import {
   FileText,
   Trash2,
   MessageSquare,
-  DollarSign,
+  IndianRupee,
   Send,
   Clock,
   CheckCircle2,
@@ -36,6 +37,7 @@ interface Booking {
   cancellationReason?: string;
   quoteAmount?: number;
   quoteNotes?: string;
+  quoteRejectionNotes?: string;
   customer: {
     id: string | number;
     name: string;
@@ -74,37 +76,50 @@ export default function BookingDetailsPage() {
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
   const [isSendingQuote, setIsSendingQuote] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+
+  // Reschedule
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [isRescheduling, setIsRescheduling] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    loadBooking(ctrl);
-    return () => ctrl.abort();
+    loadBooking(true);
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadBooking(true, true);
+    }, 30000);
+
+    return () => {
+      abortRef.current?.abort();
+      clearInterval(interval);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  const loadBooking = async (ctrl: AbortController) => {
+  const loadBooking = async (forceLoad = false, silent = false) => {
+    if (!forceLoad && !silent) return; // Prevent extra calls
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const response = await bookingsApi.getOne(params.id as string);
-      if (ctrl.signal.aborted) return;
+      if (abortRef.current?.signal.aborted) return;
       setBooking(response.data);
     } catch (error: unknown) {
       if ((error as { name?: string }).name === 'CanceledError') return;
-      addToast('error', 'Failed to load booking details');
-      router.push('/bookings');
+      if (!silent) {
+        addToast('error', 'Failed to load booking details');
+        router.push('/bookings');
+      }
     } finally {
-      if (!ctrl.signal.aborted) setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   const refresh = () => {
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    loadBooking(ctrl);
+    loadBooking(true);
   };
 
   const handleStatusUpdate = async () => {
@@ -172,6 +187,50 @@ export default function BookingDetailsPage() {
     }
   };
 
+  const handleGenerateInvoice = async () => {
+    if (!booking) return;
+    setGeneratingInvoice(true);
+    try {
+      const unitPrice = Number(booking.service.price);
+      await invoicesApi.create({
+        bookingId: booking.id.toString(),
+        customerId: booking.customer.id.toString(),
+        lineItems: [{
+          description: booking.service.name,
+          quantity: 1,
+          rate: unitPrice,
+          amount: unitPrice,
+        }],
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      addToast('success', 'Invoice generated successfully!');
+      router.push('/invoices');
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to generate invoice');
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!booking || !newDate) return;
+    setIsRescheduling(true);
+    try {
+      await bookingsApi.update(booking.id.toString(), {
+        scheduledAt: new Date(newDate).toISOString(),
+      });
+      addToast('success', 'Booking rescheduled successfully!');
+      setIsRescheduleModalOpen(false);
+      loadBooking(true);
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to reschedule');
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -206,6 +265,7 @@ export default function BookingDetailsPage() {
     { value: 'CONFIRMED', label: 'Confirmed' },
     { value: 'IN_PROGRESS', label: 'In Progress' },
     { value: 'COMPLETED', label: 'Completed' },
+    { value: 'CANCELLED', label: 'Cancelled' },
   ];
 
   const canSendQuote = booking.status === 'INQUIRY' || booking.status === 'PENDING' || booking.status === 'QUOTED';
@@ -243,8 +303,33 @@ export default function BookingDetailsPage() {
                   {booking.status === 'QUOTED' ? 'Update Quote' : 'Send Quote'}
                 </Button>
               )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNewDate(booking.scheduledAt.slice(0, 16));
+                  setIsRescheduleModalOpen(true);
+                }}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Reschedule
+              </Button>
               <Button variant="outline" onClick={() => setIsStatusModalOpen(true)}>
                 Update Status
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleGenerateInvoice}
+                disabled={generatingInvoice}
+                className="text-[var(--success)]"
+              >
+                {generatingInvoice ? (
+                  <LoadingSpinner className="h-4 w-4" />
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Invoice
+                  </>
+                )}
               </Button>
               <Button variant="danger" onClick={() => setIsCancelModalOpen(true)}>
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -267,7 +352,7 @@ export default function BookingDetailsPage() {
             >
               <div className="flex items-start gap-4">
                 <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#7c3aed,#db2777)' }}>
-                  <DollarSign className="h-5 w-5 text-white" />
+                  <IndianRupee className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -282,6 +367,13 @@ export default function BookingDetailsPage() {
                     <Clock className="h-3 w-3" />
                     Awaiting client response — they can accept or reject from their booking page.
                   </p>
+                  {booking.quoteRejectionNotes && (
+                    <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 mb-1">Customer Requested Adjustment</p>
+                       <p className="text-sm font-medium italic text-amber-900 dark:text-amber-100">&quot;{booking.quoteRejectionNotes}&quot;</p>
+                       <p className="text-[10px] text-amber-600/60 mt-2">Update the quote below to respond.</p>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => {
@@ -326,7 +418,7 @@ export default function BookingDetailsPage() {
                   )}
                   <div className="flex items-center gap-4 mt-2">
                     <p className="text-sm text-[var(--foreground)]">
-                      <span className="font-medium">Price:</span> {formatCurrency(booking?.service?.price || 0)}
+                      <span className="font-medium">Price:</span> {formatCurrency(booking.quoteAmount ?? (booking?.service?.price || 0))}
                     </p>
                     {booking?.service?.duration && (
                       <p className="text-sm text-[var(--foreground)]">
@@ -431,7 +523,7 @@ export default function BookingDetailsPage() {
               <div className="space-y-2">
                 {[
                   { status: 'INQUIRY', label: 'Inquiry received', icon: FileText, done: true },
-                  { status: 'QUOTED', label: 'Quote sent to client', icon: DollarSign, done: ['QUOTED','CONFIRMED','IN_PROGRESS','COMPLETED'].includes(booking.status) },
+                  { status: 'QUOTED', label: 'Quote sent to client', icon: IndianRupee, done: ['QUOTED','CONFIRMED','IN_PROGRESS','COMPLETED'].includes(booking.status) },
                   { status: 'CONFIRMED', label: 'Client accepted', icon: CheckCircle2, done: ['CONFIRMED','IN_PROGRESS','COMPLETED'].includes(booking.status) },
                   { status: 'IN_PROGRESS', label: 'Session in progress', icon: Clock, done: ['IN_PROGRESS','COMPLETED'].includes(booking.status) },
                   { status: 'COMPLETED', label: 'Completed', icon: CheckCircle2, done: booking.status === 'COMPLETED' },
@@ -488,6 +580,7 @@ export default function BookingDetailsPage() {
         <div className="space-y-4">
           {/* Amount */}
           <Input
+            id="quote-amount-input"
             label="Quote Amount"
             type="number"
             min="0"
@@ -496,11 +589,12 @@ export default function BookingDetailsPage() {
             onChange={(e) => setQuoteAmount(e.target.value)}
             placeholder="e.g. 450.00"
             helperText="Enter the price you're quoting for this session"
-            leftIcon={<DollarSign className="h-4 w-4" />}
+            leftIcon={<IndianRupee className="h-4 w-4" />}
           />
 
           {/* Notes */}
           <Textarea
+            id="quote-notes-input"
             label="Quote Notes (Optional)"
             value={quoteNotes}
             onChange={(e) => setQuoteNotes(e.target.value)}
@@ -584,9 +678,9 @@ export default function BookingDetailsPage() {
             placeholder="Provide a reason for cancellation..."
             helperText="Optional"
           />
-          <div className="flex items-center justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 mt-4">
             <Button variant="outline" onClick={() => setIsCancelModalOpen(false)}>
-              Keep Booking
+              Back
             </Button>
             <Button
               variant="danger"
@@ -594,7 +688,36 @@ export default function BookingDetailsPage() {
               isLoading={isUpdating}
               disabled={isUpdating}
             >
-              Cancel Booking
+              Confirm Cancellation
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Reschedule Modal ── */}
+      <Modal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => setIsRescheduleModalOpen(false)}
+        title="Reschedule Booking"
+        description="Change the scheduled date and time for this booking"
+      >
+        <div className="space-y-4">
+          <Input
+            label="New Date & Time"
+            type="datetime-local"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+          />
+          <div className="flex items-center justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setIsRescheduleModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReschedule}
+              isLoading={isRescheduling}
+              disabled={!newDate || isRescheduling}
+            >
+              Save Changes
             </Button>
           </div>
         </div>

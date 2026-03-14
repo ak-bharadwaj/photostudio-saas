@@ -84,7 +84,7 @@ export default function PartnerRegisterPage() {
           </div>
 
           <div className="space-y-6">
-            <Badge className="bg-foreground/5 text-foreground/60 border-none py-1 px-4 text-[10px] font-bold tracking-widest uppercase rounded-none">Partner With Us</Badge>
+            <Badge className="bg-foreground/5 text-foreground/60 border-none py-1 px-4 text-[11px] font-bold tracking-widest uppercase rounded-none">Partner With Us</Badge>
             <h1 className="text-6xl xl:text-8xl font-light text-foreground leading-[0.9] tracking-tighter" style={{ fontFamily: 'var(--font-serif)' }}>
               List your <br />
               <span className="italic text-foreground/50">Business on</span> <br />
@@ -105,7 +105,7 @@ export default function PartnerRegisterPage() {
           ].map(({ icon: Icon, text }) => (
             <div key={text} className="flex items-center gap-3 p-4 bg-foreground/5 border border-foreground/5 group-hover:bg-foreground/10 transition-all">
               <Icon className="h-4 w-4 text-foreground/30" />
-              <span className="text-foreground/60 text-[10px] font-bold tracking-widest uppercase">{text}</span>
+              <span className="text-foreground/60 text-[11px] font-bold tracking-widest uppercase">{text}</span>
             </div>
           ))}
         </div>
@@ -137,7 +137,7 @@ export default function PartnerRegisterPage() {
                 <div className="pt-4">
                   <Button 
                     type="submit" 
-                    className="w-full h-14 bg-foreground text-background rounded-none text-[10px] font-bold uppercase tracking-widest hover:opacity-90 transition-all group"
+                    className="w-full h-14 bg-foreground text-background rounded-none text-[11px] font-bold uppercase tracking-widest hover:opacity-90 transition-all group"
                     isLoading={loading}
                     disabled={loading}
                   >
@@ -171,7 +171,7 @@ export default function PartnerRegisterPage() {
               </div>
               <div className="pt-8">
                 <Link href="/">
-                  <Button className="h-14 px-10 border border-foreground/10 hover:bg-foreground hover:text-background transition-all rounded-none text-[10px] font-bold uppercase tracking-widest">
+                  <Button className="h-14 px-10 border border-foreground/10 hover:bg-foreground hover:text-background transition-all rounded-none text-[11px] font-bold uppercase tracking-widest">
                     Back to Homepage
                   </Button>
                 </Link>

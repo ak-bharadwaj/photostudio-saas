@@ -46,7 +46,8 @@ interface Booking {
   scheduledAt: string;
   status: string;
   customer: { name: string };
-  service: { name: string };
+  service: { name: string; price: number };
+  quoteAmount?: number;
 }
 interface Invoice {
   id: number;
@@ -63,13 +64,13 @@ interface Invoice {
 function MetricSlot({ label, value, trend, trendUp, index = 0 }: { label: string; value: string | number; trend?: string; trendUp?: boolean; index?: number }) {
   return (
     <div className="p-6 border-r border-b border-border/40 last:border-r-0 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-      <p className="text-[10px] font-black uppercase tracking-[.2em] text-foreground-tertiary mb-3 flex items-center gap-2">
+      <p className="text-[11px] font-black uppercase tracking-[.2em] text-foreground-tertiary mb-3 flex items-center gap-2">
         <Activity className="h-3 w-3" /> {label}
       </p>
       <div className="flex items-end justify-between">
         <h3 className="text-4xl font-black tracking-tighter tabular-nums leading-none">{value}</h3>
         {trend && (
-          <span className={`text-[10px] font-black px-2 py-0.5 rounded ${trendUp ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+          <span className={`text-[11px] font-black px-2 py-0.5 rounded ${trendUp ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
             {trend}
           </span>
         )}
@@ -89,9 +90,9 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { addToast } = useToast();
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const [bookingsRes, customersRes, invoicesRes, invoiceStatsRes] = await Promise.all([
         bookingsApi.getAll({ limit: 6 }),
         customersApi.getAll({ limit: 1 }),
@@ -111,13 +112,22 @@ export default function DashboardPage() {
       setRecentInvoices(invoicesRes.data?.data || []);
     } catch (error) {
       console.error('Dashboard load failed', error);
-      addToast('error', 'Failed to synchronize dashboard telemetry');
+      if (!silent) addToast('error', 'Failed to synchronize dashboard telemetry');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [addToast]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { 
+    loadData();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   if (isLoading) {
     return (
@@ -142,7 +152,7 @@ export default function DashboardPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-primary shadow-glow-primary animate-pulse" />
-            <span className="text-[10px] font-black tracking-[.4em] uppercase text-foreground-tertiary hidden sm:block">PARTNER COMMAND CENTER / v2.4</span>
+            <span className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-tertiary hidden sm:block">PARTNER COMMAND CENTER / v2.4</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tighter leading-none" style={{ fontFamily: 'var(--font-heading)' }}>
             Welcome, <span className="text-outline-luxury">{user?.name?.split(' ')[0].toUpperCase()}</span>.
@@ -151,12 +161,12 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-3">
           <Link href="/settings">
-            <Button variant="outline" size="sm" className="rounded-full px-4 sm:px-6 border-border-strong text-[10px] font-black group">
+            <Button variant="outline" size="sm" className="rounded-full px-4 sm:px-6 border-border-strong text-[11px] font-black group">
               <Command className="h-3 w-3 mr-2 group-hover:rotate-12 transition-transform" /> <span className="hidden sm:inline">COMMANDS</span><span className="sm:hidden">Settings</span>
             </Button>
           </Link>
           <Link href="/bookings?create=1">
-            <Button variant="primary" size="sm" className="rounded-full px-5 sm:px-8 shadow-glow-primary text-[10px] font-black tracking-widest">
+            <Button variant="primary" size="sm" className="rounded-full px-5 sm:px-8 shadow-glow-primary text-[11px] font-black tracking-widest">
               <span className="hidden sm:inline">INITIATE BOOKING </span><span className="sm:hidden">New</span><Plus className="ml-1 sm:ml-2 h-4 w-4" strokeWidth={3} />
             </Button>
           </Link>
@@ -180,7 +190,7 @@ export default function DashboardPage() {
             <h2 className="text-xs font-black tracking-[.3em] uppercase text-foreground-tertiary flex items-center gap-3">
               <Calendar className="h-4 w-4 text-primary" /> UPCOMING BOOKINGS
             </h2>
-            <Link href="/bookings" className="text-[10px] font-black text-primary hover:underline underline-offset-4 tracking-tighter">VIEW ALL</Link>
+            <Link href="/bookings" className="text-[11px] font-black text-primary hover:underline underline-offset-4 tracking-tighter">VIEW ALL</Link>
           </div>
 
           <div className="border border-border/40 rounded-[32px] overflow-hidden bg-surface-0">
@@ -189,11 +199,11 @@ export default function DashboardPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border/40 bg-surface-1">
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">CLIENT</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">SERVICE</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">SCHEDULED</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">STATUS</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary text-right">ACTION</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">CLIENT</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">SERVICE</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">SCHEDULED</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">STATUS</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary text-right">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/20">
@@ -208,7 +218,7 @@ export default function DashboardPage() {
                       <td className="px-6 py-5 font-medium text-sm text-foreground-secondary">{b.service.name}</td>
                       <td className="px-6 py-5 text-xs font-black text-foreground-tertiary tabular-nums">{formatDate(b.scheduledAt)}</td>
                       <td className="px-6 py-5">
-                        <Badge variant="outline" className="rounded-full text-[10px] px-3 font-bold border-primary/20 text-primary bg-primary/5">{b.status}</Badge>
+                        <Badge variant="outline" className="rounded-full text-[11px] px-3 font-bold border-primary/20 text-primary bg-primary/5">{b.status}</Badge>
                       </td>
                       <td className="px-6 py-5 text-right">
                         <Link href={`/bookings/${b.id}`}>
@@ -232,7 +242,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="rounded-full text-[10px] px-2 font-bold border-primary/20 text-primary bg-primary/5">{b.status}</Badge>
+                    <Badge variant="outline" className="rounded-full text-[11px] px-2 font-bold border-primary/20 text-primary bg-primary/5">{b.status}</Badge>
                     <Link href={`/bookings/${b.id}`}>
                       <Button variant="ghost" size="sm" className="rounded-xl h-8 w-8 p-0"><ChevronRight className="h-4 w-4" /></Button>
                     </Link>
@@ -246,7 +256,7 @@ export default function DashboardPage() {
             <h2 className="text-xs font-black tracking-[.3em] uppercase text-foreground-tertiary flex items-center gap-3">
               <FileText className="h-4 w-4 text-primary" /> RECENT INVOICES
             </h2>
-            <Link href="/invoices" className="text-[10px] font-black text-primary hover:underline underline-offset-4 tracking-tighter">VIEW ALL</Link>
+            <Link href="/invoices" className="text-[11px] font-black text-primary hover:underline underline-offset-4 tracking-tighter">VIEW ALL</Link>
           </div>
 
           <div className="border border-border/40 rounded-[32px] overflow-hidden bg-surface-0">
@@ -255,11 +265,11 @@ export default function DashboardPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border/40 bg-surface-1">
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">INV #</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">CLIENT</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">AMOUNT</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary">STATUS</th>
-                    <th className="px-6 py-5 text-[10px] font-black tracking-widest text-foreground-tertiary text-right">DATE</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">INV #</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">CLIENT</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">AMOUNT</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary">STATUS</th>
+                    <th className="px-6 py-5 text-[11px] font-black tracking-widest text-foreground-tertiary text-right">DATE</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/20">
@@ -271,7 +281,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-5 font-black text-sm tabular-nums">{formatCurrency(inv.totalAmount)}</td>
                       <td className="px-6 py-5">
-                        <Badge {...getInvoiceStatusBadge(inv.status)} className="rounded-full text-[10px] px-3 font-bold">{inv.status}</Badge>
+                        <Badge {...getInvoiceStatusBadge(inv.status)} className="rounded-full text-[11px] px-3 font-bold">{inv.status}</Badge>
                       </td>
                       <td className="px-6 py-5 text-xs font-black text-foreground-tertiary tabular-nums text-right">{formatDate(inv.dueDate)}</td>
                     </tr>
@@ -287,7 +297,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-bold text-primary">{inv.invoiceNumber}</p>
                     <p className="text-xs font-medium truncate">{inv.customer?.name} · {formatCurrency(inv.totalAmount)}</p>
                   </div>
-                  <Badge {...getInvoiceStatusBadge(inv.status)} className="rounded-full text-[10px] px-2 font-bold">{inv.status}</Badge>
+                  <Badge {...getInvoiceStatusBadge(inv.status)} className="rounded-full text-[11px] px-2 font-bold">{inv.status}</Badge>
                 </div>
               ))}
             </div>
@@ -306,11 +316,11 @@ export default function DashboardPage() {
                 <Zap className="h-20 w-20 text-primary fill-primary" />
               </div>
               <div>
-                <span className="text-[10px] font-black tracking-[.2em] text-white/40 uppercase">MARKETPLACE STATUS</span>
+                <span className="text-[11px] font-black tracking-[.2em] text-white/40 uppercase">MARKETPLACE STATUS</span>
                 <h3 className="text-2xl font-black mt-2">Go Global.</h3>
               </div>
               <Link href="/my-studio">
-                <Button variant="outline" size="sm" className="rounded-full border-white/20 text-white hover:bg-white hover:text-black text-[10px] font-black w-fit">
+                <Button variant="outline" size="sm" className="rounded-full border-white/20 text-white hover:bg-white hover:text-black text-[11px] font-black w-fit">
                   MANAGE PUBLIC PROFILE <ArrowRight className="ml-2 h-3 w-3" />
                 </Button>
               </Link>
@@ -318,7 +328,7 @@ export default function DashboardPage() {
 
             <div className="border border-border/40 rounded-[32px] p-8 space-y-8 bg-surface-0 shadow-sm">
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest">RAPID ACTIONS</p>
+                <p className="text-[11px] font-black text-foreground-tertiary uppercase tracking-widest">RAPID ACTIONS</p>
                 <p className="text-xs font-medium text-foreground-tertiary">Frequent operational workflows</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -342,7 +352,7 @@ function QuickActionButton({ icon: Icon, label, href }: { icon: any, label: stri
       <div className="h-10 w-10 rounded-2xl bg-surface-1 flex items-center justify-center mb-3 group-hover:bg-primary transition-all">
         <Icon className="h-4 w-4 text-foreground-tertiary group-hover:text-white" />
       </div>
-      <span className="text-[10px] font-black tracking-tighter text-foreground-tertiary group-hover:text-primary">{label}</span>
+      <span className="text-[11px] font-black tracking-tighter text-foreground-tertiary group-hover:text-primary">{label}</span>
     </Link>
   )
 }

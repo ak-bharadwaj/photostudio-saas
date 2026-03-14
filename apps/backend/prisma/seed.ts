@@ -54,7 +54,42 @@ async function main() {
       })
     )
   );
-  console.log('✅ Created/Updated ${categories.length} categories');
+  console.log(`✅ Created/Updated ${categories.length} categories`);
+
+  // Create Test Studio
+  console.log('📸 Creating test studio...');
+  await prisma.studio.upsert({
+    where: { slug: 'test-studio' },
+    update: {},
+    create: {
+      name: 'Test Luxury Studio',
+      slug: 'test-studio',
+      email: 'test@example.com',
+      phone: '+919876543210',
+      city: 'Kurnool',
+      state: 'Andhra Pradesh',
+      status: 'ACTIVE',
+      brandingConfig: {
+        themePreset: 'noir-luxury',
+        primaryColor: '#000000',
+        accentColor: '#D4AF37',
+        headerText: 'Test Luxury Studio',
+        tagline: 'Excellence in Photography'
+      } as any
+    }
+  });
+
+  // Promote user to admin
+  console.log('👑 Promoting dornipaduakshith@gmail.com...');
+  await prisma.admin.upsert({
+    where: { email: 'dornipaduakshith@gmail.com' },
+    update: {},
+    create: {
+      email: 'dornipaduakshith@gmail.com',
+      name: 'Akshith D',
+      passwordHash: adminPassword
+    }
+  });
 
   console.log('\n🎉 Database seed completed successfully!');
   console.log('\n📝 Admin Credentials:');

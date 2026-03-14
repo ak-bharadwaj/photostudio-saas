@@ -183,32 +183,42 @@ export class PublicService {
     }
 
     // Find or create customer + create booking atomically in one transaction
-    // Using upsert keyed on (studioId, phone) eliminates the non-atomic
-    // find-then-create race condition that could produce duplicate customers.
     const booking = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        const customer = await tx.customer.upsert({
+        // Search by phone OR email first to find existing customer in this studio
+        let customer = await tx.customer.findFirst({
           where: {
-            studioId_phone: {
-              studioId: studio.id,
-              phone: dto.customerPhone,
-            },
-          },
-          create: {
             studioId: studio.id,
-            globalUserId: globalUserId || undefined,
-            name: dto.customerName,
-            email: dto.customerEmail,
-            phone: dto.customerPhone,
-          },
-          update: {
-            // Only update globalUserId when we have one — never overwrite an existing
-            // link with undefined (which would NULL it out in Prisma).
-            ...(globalUserId ? { globalUserId } : {}),
-            name: dto.customerName,
-            email: dto.customerEmail || undefined,
+            OR: [
+              { phone: dto.customerPhone },
+              { email: dto.customerEmail },
+            ],
           },
         });
+
+        if (customer) {
+          // Update existing customer info with new details
+          customer = await tx.customer.update({
+            where: { id: customer.id },
+            data: {
+              globalUserId: globalUserId || customer.globalUserId || undefined,
+              name: dto.customerName,
+              email: dto.customerEmail || customer.email,
+              phone: dto.customerPhone || customer.phone,
+            },
+          });
+        } else {
+          // Create new customer
+          customer = await tx.customer.create({
+            data: {
+              studioId: studio.id,
+              globalUserId: globalUserId || undefined,
+              name: dto.customerName,
+              email: dto.customerEmail,
+              phone: dto.customerPhone,
+            },
+          });
+        }
 
         const newBooking = await tx.booking.create({
           data: {

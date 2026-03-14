@@ -358,7 +358,7 @@ export default function SettingsPage() {
                 <ThemeIcon className="h-5 w-5" />
                 {label}
                 {label === 'Dark' && (
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#f59e0b20', color: '#fbbf24' }}>
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#f59e0b20', color: '#fbbf24' }}>
                     Soon
                   </span>
                 )}

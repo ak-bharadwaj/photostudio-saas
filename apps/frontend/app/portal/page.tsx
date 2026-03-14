@@ -38,6 +38,7 @@ interface Booking {
   status: string;
   scheduledAt: string;
   service: { name: string; price: number };
+  quoteAmount?: number;
   studio: { name: string; slug: string; logoUrl?: string };
 }
 
@@ -63,11 +64,12 @@ export default function CustomerPortalPage() {
   const [studios, setStudios] = useState<StudioRegistry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     const token = safeGetItem('accessToken');
     const guestPhone = safeGetItem('customer_guest_phone');
 
     try {
+      if (!silent) setLoading(true);
       let bookings, invoices, myStudios;
 
       if (token) {
@@ -85,9 +87,10 @@ export default function CustomerPortalPage() {
         setStudios(myStudios.data || []);
       } else if (guestPhone) {
         // Guest mode fallback
+        const guestEmail = safeGetItem('customer_guest_email') || '';
         [bookings, invoices] = await Promise.all([
-          axios.get(`${API_URL}/customer-portal/bookings`, { params: { phone: guestPhone } }),
-          axios.get(`${API_URL}/customer-portal/invoices`, { params: { phone: guestPhone } })
+          axios.get(`${API_URL}/customer-portal/bookings`, { params: { phone: guestPhone, email: guestEmail } }),
+          axios.get(`${API_URL}/customer-portal/invoices`, { params: { phone: guestPhone, email: guestEmail } })
         ]);
         setData({
           customer: bookings.data?.customer || { name: 'Guest' },
@@ -99,14 +102,21 @@ export default function CustomerPortalPage() {
       }
     } catch (err) {
       console.error('Portal load failed', err);
-      addToast('error', 'Failed to load portal data');
+      if (!silent) addToast('error', 'Failed to load portal data');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [router, addToast]);
 
   useEffect(() => {
     fetchData();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   if (loading) {
@@ -136,11 +146,11 @@ export default function CustomerPortalPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-16">
           <div className="space-y-8 animate-cinematic">
             <div className="flex items-center gap-4">
-              <Badge className="bg-primary/10 text-primary border-primary/20 py-1 px-4 rounded-full font-black tracking-widest uppercase text-[10px]">
+              <Badge className="bg-primary/10 text-primary border-primary/20 py-1 px-4 rounded-full font-black tracking-widest uppercase text-[11px]">
                 COLLECTIVE MEMBER
               </Badge>
               <div className="h-px w-12 bg-border-strong" />
-              <span className="text-[10px] font-black tracking-[.4em] uppercase text-foreground-secondary/70">DASHBOARD</span>
+              <span className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-secondary/70">DASHBOARD</span>
             </div>
             <h1 className="text-5xl md:text-8xl font-black leading-[0.9] tracking-tighter" style={{ fontFamily: 'var(--font-heading)' }}>
               {firstName && firstName !== 'CUSTOMER' ? (
@@ -160,7 +170,7 @@ export default function CustomerPortalPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:mb-4 animate-cinematic" style={{ animationDelay: '200ms' }}>
             <div className="glass-ultra p-10 flex flex-col justify-between h-48 group hover:border-primary/50 transition-all duration-700 shadow-2xl relative overflow-hidden">
               <div className="absolute -top-4 -right-4 h-24 w-24 bg-primary/10 blur-2xl rounded-full" />
-              <span className="text-[10px] font-black tracking-[.3em] uppercase text-foreground-tertiary">ACTIVE BOOKINGS</span>
+              <span className="text-[11px] font-black tracking-[.3em] uppercase text-foreground-tertiary">ACTIVE BOOKINGS</span>
               <div className="flex items-end gap-3">
                 <span className="text-6xl font-black tracking-tighter">{data.bookings.length}</span>
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mb-2">
@@ -170,7 +180,7 @@ export default function CustomerPortalPage() {
             </div>
             <div className="glass-ultra p-10 flex flex-col justify-between h-48 group hover:border-accent/50 transition-all duration-700 shadow-2xl relative overflow-hidden">
               <div className="absolute -top-4 -right-4 h-24 w-24 bg-accent/10 blur-2xl rounded-full" />
-              <span className="text-[10px] font-black tracking-[.3em] uppercase text-foreground-tertiary">STATEMENTS</span>
+              <span className="text-[11px] font-black tracking-[.3em] uppercase text-foreground-tertiary">STATEMENTS</span>
               <div className="flex items-end gap-3">
                 <span className="text-6xl font-black tracking-tighter">{data.invoices.length}</span>
                 <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center mb-2">
@@ -219,8 +229,8 @@ export default function CustomerPortalPage() {
                 ))
               ) : (
                 <div className="p-12 rounded-[2.5rem] border-2 border-dashed border-border/50 text-center glass-ultra">
-                  <p className="text-[10px] font-black text-foreground-tertiary uppercase tracking-widest">NO COLLABORATIONS YET</p>
-                  <Link href="/explore" className="mt-4 block text-[10px] font-black text-primary uppercase underline underline-offset-4">START YOUR JOURNEY</Link>
+                  <p className="text-[11px] font-black text-foreground-tertiary uppercase tracking-widest">NO COLLABORATIONS YET</p>
+                  <Link href="/explore" className="mt-4 block text-[11px] font-black text-primary uppercase underline underline-offset-4">START YOUR JOURNEY</Link>
                 </div>
               )}
             </div>
@@ -238,7 +248,7 @@ export default function CustomerPortalPage() {
               <div>
                 <h3 className="text-2xl font-black leading-tight mb-2">Unlock Growth Perks.</h3>
                 <p className="text-xs text-white/60 mb-6">Gain access to limited-edition consulting slots and VIP business coverage.</p>
-                <Button variant="primary" size="sm" className="rounded-full w-full bg-primary hover:bg-primary/90 text-[10px] font-black tracking-[.2em] uppercase">UPGRADE PLAN</Button>
+                <Button variant="primary" size="sm" className="rounded-full w-full bg-primary hover:bg-primary/90 text-[11px] font-black tracking-[.2em] uppercase">UPGRADE PLAN</Button>
               </div>
             </div>
           </div>
@@ -253,7 +263,7 @@ export default function CustomerPortalPage() {
               <h2 className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-tertiary flex items-center gap-3">
                 <Star className="h-4 w-4 text-gold" /> RECENT BOOKINGS
               </h2>
-              <Link href="/portal/bookings" className="group flex items-center gap-2 text-[10px] font-black text-primary hover:text-primary-dark transition-colors tracking-widest uppercase">
+              <Link href="/portal/bookings" className="group flex items-center gap-2 text-[11px] font-black text-primary hover:text-primary-dark transition-colors tracking-widest uppercase">
                 All Bookings <ChevronRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -291,7 +301,7 @@ export default function CustomerPortalPage() {
                         </div>
                         <div className="flex flex-col">
                           <span className="text-[9px] font-black text-foreground-tertiary uppercase tracking-widest mb-2">INVESTMENT</span>
-                          <span className="text-lg font-black tracking-tighter">{formatCurrency(booking.service.price)}</span>
+                          <span className="text-lg font-black tracking-tighter">{formatCurrency(booking.quoteAmount ?? booking.service.price)}</span>
                         </div>
                       </div>
 
@@ -303,7 +313,7 @@ export default function CustomerPortalPage() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          className="rounded-xl h-12 px-6 text-[10px] font-black tracking-widest border border-border group/btn hover:bg-primary hover:text-white hover:border-primary transition-all shadow-md"
+                          className="rounded-xl h-12 px-6 text-[11px] font-black tracking-widest border border-border group/btn hover:bg-primary hover:text-white hover:border-primary transition-all shadow-md"
                           onClick={() => router.push(`/portal/bookings/${booking.id}`)}
                         >
                           OPEN SUITE <ArrowRight className="ml-2 h-3.5 w-3.5 transform group-hover/btn:translate-x-1 transition-transform" />
@@ -336,7 +346,7 @@ export default function CustomerPortalPage() {
               <h2 className="text-[11px] font-black tracking-[.4em] uppercase text-foreground-tertiary flex items-center gap-3">
                 <Wallet className="h-4 w-4" /> BILLING HISTORY
               </h2>
-              <Link href="/portal/invoices" className="group flex items-center gap-2 text-[10px] font-black text-primary hover:text-primary-dark transition-colors tracking-widest uppercase">
+              <Link href="/portal/invoices" className="group flex items-center gap-2 text-[11px] font-black text-primary hover:text-primary-dark transition-colors tracking-widest uppercase">
                 All Statements <ChevronRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -349,27 +359,27 @@ export default function CustomerPortalPage() {
                       <FileText className="h-6 w-6 text-foreground-tertiary opacity-40 group-hover:text-primary transition-colors" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase mb-1">REFERENCE</p>
+                      <p className="text-[11px] font-black text-foreground-tertiary tracking-widest uppercase mb-1">REFERENCE</p>
                       <p className="text-sm font-black tracking-tight">#{invoice.invoiceNumber}</p>
                     </div>
                     <div className="hidden lg:block">
-                      <p className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase mb-1">PARTNER</p>
+                      <p className="text-[11px] font-black text-foreground-tertiary tracking-widest uppercase mb-1">PARTNER</p>
                       <p className="text-sm font-black tracking-tight">{invoice.studio.name}</p>
                     </div>
                     <div className="hidden sm:block">
-                      <p className="text-[10px] font-black text-foreground-tertiary tracking-widest uppercase mb-1">ISSUED</p>
+                      <p className="text-[11px] font-black text-foreground-tertiary tracking-widest uppercase mb-1">ISSUED</p>
                       <p className="text-xs font-black tracking-tight">{formatDate(invoice.createdAt)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-10 mt-6 md:mt-0 border-t md:border-t-0 pt-6 md:pt-0 border-border/30">
                     <div className="text-right">
-                      <p className="text-[10px] font-black text-primary tracking-widest uppercase mb-1">{invoice.status}</p>
+                      <p className="text-[11px] font-black text-primary tracking-widest uppercase mb-1">{invoice.status}</p>
                       <p className="text-2xl font-black tracking-tighter tabular-nums">{formatCurrency(invoice.total)}</p>
                     </div>
                     <Button
                       variant="primary"
                       size="sm"
-                      className="rounded-xl h-12 px-8 text-[10px] font-black tracking-widest uppercase"
+                      className="rounded-xl h-12 px-8 text-[11px] font-black tracking-widest uppercase"
                       onClick={() => router.push(`/portal/invoices/${invoice.id}`)}
                     >
                       VIEW

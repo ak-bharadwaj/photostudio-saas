@@ -49,6 +49,7 @@ export class InvoiceController {
     @Query("page", new ParseIntPipe({ optional: true })) page?: number,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("status") status?: InvoiceStatus,
+    @Query("search") search?: string,
   ) {
     if (!user.studioId) {
       throw new ForbiddenException("User must belong to a studio");
@@ -62,6 +63,7 @@ export class InvoiceController {
       pageNum,
       limitNum,
       status,
+      search,
     );
   }
 

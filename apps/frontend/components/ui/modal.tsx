@@ -62,26 +62,35 @@ export const Modal: React.FC<ModalProps> = ({
     [onClose],
   );
 
+  // Handle basic modal behavior (scroll, initial focus)
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement as HTMLElement;
-      document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
 
-      // Focus first focusable element in modal
+      // Focus first focusable element in modal ONLY when it opens
       requestAnimationFrame(() => {
         const focusable = contentRef.current?.querySelector<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         focusable?.focus();
       });
-    }
 
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-      previousFocusRef.current?.focus();
-    };
+      return () => {
+        document.body.style.overflow = '';
+        previousFocusRef.current?.focus();
+      };
+    }
+  }, [isOpen]);
+
+  // Handle keydown events separately
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
   }, [isOpen, handleKeyDown]);
 
   if (!isOpen) return null;

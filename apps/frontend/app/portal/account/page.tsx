@@ -135,7 +135,7 @@ export default function AccountPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="h-3.5 w-3.5" style={{ color: '#db2777' }} />
-            <span className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.3)' }}>My Profile</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.3)' }}>My Profile</span>
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white">Account Settings</h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
@@ -202,7 +202,7 @@ export default function AccountPage() {
                 ].map(({ label, value }) => (
                   <div key={label} className="flex flex-col items-center py-3 px-2" style={{ background: 'var(--surface-0)' }}>
                     <p className="text-xs font-black text-[var(--foreground)]">{value}</p>
-                    <p className="text-[10px] text-[var(--foreground-tertiary)] mt-0.5">{label}</p>
+                    <p className="text-[11px] text-[var(--foreground-tertiary)] mt-0.5">{label}</p>
                   </div>
                 ))}
               </div>

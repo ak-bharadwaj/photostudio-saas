@@ -293,10 +293,10 @@ function CustomersPage() {
                       </Link>
                     </div>
                     <div className="px-4 py-3 flex gap-4">
-                      <div className="flex flex-1 items-center gap-2 text-[10px] font-bold text-foreground-tertiary">
+                      <div className="flex flex-1 items-center gap-2 text-[11px] font-bold text-foreground-tertiary">
                         <Mail className="h-3 w-3 opacity-40 text-primary" /> EMAIL
                       </div>
-                      <div className="flex flex-1 items-center gap-2 text-[10px] font-bold text-foreground-tertiary">
+                      <div className="flex flex-1 items-center gap-2 text-[11px] font-bold text-foreground-tertiary">
                         <Phone className="h-3 w-3 opacity-40 text-primary" /> PHONE
                       </div>
                     </div>

@@ -198,7 +198,7 @@ export default function ReviewsPage() {
       </div>
       <div className="text-2xl font-black text-foreground tabular-nums">{value}</div>
       <div className="text-xs font-semibold text-foreground-secondary mt-0.5">{label}</div>
-      {sub && <div className="text-[10px] text-foreground-tertiary mt-1">{sub}</div>}
+      {sub && <div className="text-[11px] text-foreground-tertiary mt-1">{sub}</div>}
     </div>
   );
 
@@ -276,7 +276,7 @@ export default function ReviewsPage() {
                     />
                   </div>
                   <span className="text-xs font-bold text-foreground-tertiary w-8 text-right tabular-nums">{count}</span>
-                  <span className="text-[10px] text-foreground-tertiary w-8 text-right tabular-nums">{pct}%</span>
+                  <span className="text-[11px] text-foreground-tertiary w-8 text-right tabular-nums">{pct}%</span>
                 </div>
               );
             })}
@@ -373,7 +373,7 @@ export default function ReviewsPage() {
 
                     <div className="flex items-center gap-2 mb-2">
                       <StarRow rating={review.rating} />
-                      <span className="text-[10px] font-bold text-foreground-tertiary flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-foreground-tertiary flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatDate(review.createdAt)}
                       </span>
@@ -385,7 +385,7 @@ export default function ReviewsPage() {
 
                     {/* Booking link */}
                     {review.booking && (
-                      <div className="mt-2 text-[10px] font-semibold text-foreground-tertiary flex items-center gap-1">
+                      <div className="mt-2 text-[11px] font-semibold text-foreground-tertiary flex items-center gap-1">
                         <span className="text-primary/60">Session:</span>
                         {review.booking.service.name} · {formatDate(review.booking.scheduledAt, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
@@ -428,7 +428,7 @@ export default function ReviewsPage() {
                     {/* Full comment */}
                     {review.comment && (
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-foreground-tertiary mb-2">Customer Comment</div>
+                        <div className="text-[11px] font-black uppercase tracking-widest text-foreground-tertiary mb-2">Customer Comment</div>
                         <p className="text-sm text-foreground-secondary leading-relaxed">&ldquo;{review.comment}&rdquo;</p>
                       </div>
                     )}
@@ -436,7 +436,7 @@ export default function ReviewsPage() {
                     {/* Full reply */}
                     {review.reply && (
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Your Reply</div>
+                        <div className="text-[11px] font-black uppercase tracking-widest text-primary mb-2">Your Reply</div>
                         <div className="p-3 bg-white border-l-2 border-primary rounded-r text-sm text-foreground-secondary">
                           {review.reply}
                         </div>
@@ -446,7 +446,7 @@ export default function ReviewsPage() {
                     {/* Reply form */}
                     {isReplying ? (
                       <div className="space-y-3">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-foreground-secondary">
+                        <div className="text-[11px] font-black uppercase tracking-widest text-foreground-secondary">
                           {review.reply ? 'Update Reply' : 'Write a Reply'}
                         </div>
                         <textarea

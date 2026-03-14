@@ -91,7 +91,7 @@ function ShareBtn({ icon: Icon, label, onClick, color }: {
       <div className="h-9 w-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110" style={{ background: color + '18' }}>
         <Icon className="h-4 w-4" style={{ color }} />
       </div>
-      <span className="text-[10px] font-semibold text-[var(--foreground-tertiary)]">{label}</span>
+      <span className="text-[11px] font-semibold text-[var(--foreground-tertiary)]">{label}</span>
     </button>
   );
 }
@@ -311,7 +311,7 @@ export default function MyStudioPage() {
                       <pre className="whitespace-pre-wrap break-all">{embedCode}</pre>
                       <button
                         onClick={copyEmbed}
-                        className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-all duration-200"
+                        className="absolute top-2 right-2 flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md transition-all duration-200"
                         style={{
                           color: embedCopied ? '#10b981' : 'var(--primary)',
                           background: embedCopied ? 'rgba(16,185,129,0.1)' : 'rgba(124,58,237,0.1)',
@@ -417,7 +417,7 @@ export default function MyStudioPage() {
                   </div>
                 </div>
                 {quotedBookings.length > 0 && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-500 border border-violet-500/20">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-500/15 text-violet-500 border border-violet-500/20">
                     {quotedBookings.length} open
                   </span>
                 )}
@@ -465,7 +465,7 @@ export default function MyStudioPage() {
                   <QRDisplay url={bookingUrl} />
                   <div className="text-center">
                     <p className="text-xs font-semibold text-[var(--foreground-secondary)]">{studioName}</p>
-                    <p className="text-[10px] text-[var(--foreground-tertiary)] mt-0.5">Scan to book an appointment</p>
+                    <p className="text-[11px] text-[var(--foreground-tertiary)] mt-0.5">Scan to book an appointment</p>
                   </div>
                   <a
                     href={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(bookingUrl)}&bgcolor=ffffff&color=7c3aed&margin=20`}
