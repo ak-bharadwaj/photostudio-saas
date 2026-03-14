@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Inter, Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
@@ -21,6 +21,31 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const playfair = Playfair_Display({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["400", "700", "900"],
+  style: ["normal", "italic"],
+});
+
+const inter = Inter({
+  variable: "--font-ui",
+  subsets: ["latin"],
+  weight: ["100", "400", "700", "900"],
+});
+
+const outfit = Outfit({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["100", "400", "700", "900"],
+});
+
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  weight: ["200", "400", "700", "800"],
+});
+
 export const metadata: Metadata = {
   title: "ReviewsFeedback - Enterprise Feedback & Review OS",
   description: "The enterprise-grade operating system for modern business feedback, reviews, and customer engagement.",
@@ -32,8 +57,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.png", sizes: "64x64", type: "image/png" },
+      { url: "/logo.png", sizes: "any", type: "image/png" },
+      { url: "/logo.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo.png", sizes: "192x192", type: "image/png" },
     ],
+    apple: [{ url: "/logo.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/logo.png",
   },
 };
 
@@ -59,14 +88,14 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#3b82f6" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/png" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@100..900&family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://images.unsplash.com" />
+        <link rel="preconnect" href="https://res.cloudinary.com" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${inter.variable} ${outfit.variable} ${jakarta.variable} antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider>

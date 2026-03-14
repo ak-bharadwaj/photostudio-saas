@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=Inter:wght@100..900&display=swap');
 @import "tailwindcss";
 
 /* ============================================================================
@@ -9,8 +8,14 @@
 /* ----------------------------------------------------------------------------
    1. DESIGN TOKENS — Light Mode
    ---------------------------------------------------------------------------- */
-:root {
+html {
   scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+:root {
   /* --- Atelier Minimalist Palette (Studio Ebony & Warm Champagne) --- */
   --background: #FDFCF0;
   /* Warm Champagne */
@@ -40,8 +45,8 @@
 
   /* --- Color System Helpers --- */
   --background-secondary: #F5F3E6;
-  --foreground-secondary: #4A4A4A;
-  --foreground-tertiary: #717171;
+  --foreground-secondary: #333333;
+  --foreground-tertiary: #555555;
   --glass-base-rgb: 253, 252, 240;
   --glass-border-rgb: 8, 8, 8;
 }
@@ -59,8 +64,8 @@
   --primary-rgb: 253, 252, 240;
 
   --background-secondary: #0C0C0C;
-  --foreground-secondary: #8E8E8E;
-  --foreground-tertiary: #A1A1A1;
+  --foreground-secondary: #E0E0E0;
+  --foreground-tertiary: #A0A0A0;
   --glass-base-rgb: 12, 12, 12;
   --glass-border-rgb: 253, 252, 240;
 }
@@ -555,9 +560,10 @@ body {
 /* Glassmorphism cards */
 .glass-luxury {
   background: rgba(var(--glass-base-rgb), 0.82);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(var(--glass-border-rgb), 0.18);
+  will-change: backdrop-filter;
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.05),
     0 8px 24px rgba(0, 0, 0, 0.06),
@@ -729,6 +735,7 @@ body {
 .stagger-reveal>* {
   opacity: 0;
   transform: translateY(20px);
+  will-change: transform, opacity;
   animation: reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

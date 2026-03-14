@@ -86,7 +86,7 @@ const Navbar = () => {
                         <Link
                             key={item.name}
                             href={`/#${item.id}`}
-                            className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/50 hover:text-foreground transition-colors"
+                            className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground/50 hover:text-foreground transition-colors"
                         >
                             {item.name}
                         </Link>
@@ -96,7 +96,7 @@ const Navbar = () => {
                     <div className="flex items-center gap-3">
                         {authUser ? (
                             <div className="flex items-center gap-6">
-                                <div className="hidden lg:flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">
+                                <div className="hidden lg:flex items-center gap-6 text-[11px] font-black uppercase tracking-[0.2em] text-foreground/40">
                                     <Link href="/portal/bookings" className="hover:text-foreground transition-colors">My Bookings</Link>
                                     <Link href="/portal/invoices" className="hover:text-foreground transition-colors">Statements</Link>
                                 </div>
@@ -126,13 +126,13 @@ const Navbar = () => {
                                 <Button
                                     onClick={() => router.push(`/portal/login?mode=customer&returnTo=${encodeURIComponent(window.location.pathname)}`)}
                                     variant="ghost"
-                                    className="text-[10px] font-bold uppercase tracking-widest px-4 h-10 border border-foreground/10 text-foreground/70 hover:bg-foreground/5 hover:text-foreground rounded-none"
+                                    className="text-[11px] font-bold uppercase tracking-widest px-4 h-10 border border-foreground/10 text-foreground/70 hover:bg-foreground/5 hover:text-foreground rounded-none"
                                 >
                                     Login
                                 </Button>
                                 <Button
                                     onClick={() => router.push('/login')}
-                                    className="text-[10px] font-bold uppercase tracking-widest rounded-none bg-foreground text-background hover:bg-amber-50 px-5 h-10 transition-all"
+                                    className="text-[11px] font-bold uppercase tracking-widest rounded-none bg-foreground text-background hover:bg-amber-50 px-5 h-10 transition-all"
                                 >
                                     Partner Access
                                 </Button>
@@ -141,8 +141,15 @@ const Navbar = () => {
                     </div>
                 </div>
 
-                {/* Mobile */}
                 <div className="md:hidden flex items-center gap-4">
+                    {authUser && (
+                        <div 
+                            onClick={() => router.push('/portal')}
+                            className="h-8 w-8 rounded-full bg-foreground text-background flex items-center justify-center text-[11px] font-black cursor-pointer shadow-md"
+                        >
+                            {authUser.name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                    )}
                     <ThemeToggle />
                     <button
                         className="text-foreground p-1 hover:text-amber-400 transition-colors"
@@ -189,21 +196,21 @@ const Navbar = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-black uppercase tracking-widest text-foreground">{authUser.name}</p>
-                                        <p className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Logged In Account</p>
+                                        <p className="text-[11px] font-bold text-foreground/40 uppercase tracking-widest">Logged In Account</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <Link 
                                         href="/portal/bookings" 
                                         onClick={() => setMobileMenuOpen(false)}
-                                        className="flex items-center justify-center h-12 bg-foreground/5 text-[10px] font-black uppercase tracking-widest text-foreground rounded-xl"
+                                        className="flex items-center justify-center h-12 bg-foreground/5 text-[11px] font-black uppercase tracking-widest text-foreground rounded-xl"
                                     >
                                         My Bookings
                                     </Link>
                                     <Link 
                                         href="/portal/invoices" 
                                         onClick={() => setMobileMenuOpen(false)}
-                                        className="flex items-center justify-center h-12 bg-foreground/5 text-[10px] font-black uppercase tracking-widest text-foreground rounded-xl"
+                                        className="flex items-center justify-center h-12 bg-foreground/5 text-[11px] font-black uppercase tracking-widest text-foreground rounded-xl"
                                     >
                                         Statements
                                     </Link>
@@ -220,7 +227,7 @@ const Navbar = () => {
                                         localStorage.removeItem('refreshToken');
                                         window.location.reload();
                                     }}
-                                    className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500/60 mt-2"
+                                    className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-500/60 mt-2"
                                 >
                                     Sign Out of Account
                                 </button>
@@ -268,7 +275,7 @@ const Hero = () => {
             {/* Cinematic Edge-to-Edge Background */}
             <div className="absolute inset-0 z-0">
                 <Image
-                    src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=85&w=2000"
+                    src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=75&w=1280"
                     alt="High-end business cinematic background"
                     fill
                     className="object-cover opacity-60"
@@ -285,7 +292,7 @@ const Hero = () => {
             </div>
 
             <div className="relative z-20 max-w-5xl mx-auto px-5 w-full text-center flex flex-col items-center">
-                <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.4em] text-foreground/60 mb-6 animate-luxury-in">
+                <p className="text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.4em] text-foreground/60 mb-6 animate-luxury-in">
                     The Modern Enterprise Feedback Platform
                 </p>
 
@@ -329,7 +336,7 @@ const Hero = () => {
                       { icon: CheckCircle, text: 'Instant Insight Delivery' },
                       { icon: CheckCircle, text: 'Transparent Outcomes' }
                     ].map(({ icon: Icon, text }) => (
-                      <span key={text} className="flex items-center gap-2 text-[10px] sm:text-xs text-foreground/70 font-bold uppercase tracking-widest">
+                      <span key={text} className="flex items-center gap-2 text-[11px] sm:text-xs text-foreground/70 font-bold uppercase tracking-widest">
                         <Icon size={14} className="text-amber-400/80" />
                         {text}
                       </span>
@@ -357,7 +364,7 @@ const HowItWorks = () => {
     return (
         <section id="how-it-works" className="py-20 sm:py-32 bg-background-alt text-foreground reveal border-y border-foreground/5">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/20 mb-4">Simple Process</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-foreground/20 mb-4">Simple Process</p>
             <h2 className="text-3xl sm:text-5xl font-light tracking-tight mb-12 sm:mb-16" style={{ fontFamily: 'var(--font-serif)' }}>
                 How it works
             </h2>
@@ -431,7 +438,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                     <div className="max-w-7xl mx-auto px-5 sm:px-8 relative z-10">
                         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12 sm:mb-16">
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-3 flex items-center gap-3">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-3 flex items-center gap-3">
                                     <span className="w-8 h-[1px] bg-amber-500/50"></span>
                                     Find Your Style
                                 </p>
@@ -453,12 +460,12 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                         className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-white/5"
                                     >
                                         <Image
-                                            src={cat.imageUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=600"}
+                                            src={cat.imageUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=75&w=400"}
                                             fill
                                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                             className="object-cover group-hover:scale-110 transition-all duration-1000 ease-out opacity-80 group-hover:opacity-100"
                                             alt={cat.name}
-                                            unoptimized={!!(!cat.imageUrl || (cat.imageUrl && (cat.imageUrl.includes('unsplash.com') || cat.imageUrl.includes('cloudinary.com'))))}
+                                            unoptimized
                                             onError={(e: any) => {
                                                 e.target.src = "https://images.unsplash.com/photo-1533158326339-7f3cf2404354?auto=format&fit=crop&q=80&w=600";
                                             }}
@@ -466,7 +473,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                                         <div className="absolute bottom-0 left-0 right-0 p-6 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
                                             <h3 className="text-white text-xl sm:text-2xl font-light tracking-tight mb-2" style={{ fontFamily: 'var(--font-serif)' }}>{cat.name}</h3>
-                                            <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                                            <p className="text-white/60 text-[11px] font-semibold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
                                                 <span className="flex items-center gap-2 whitespace-nowrap">
                                                     Explore <ArrowUpRight size={14} className="text-amber-400" />
                                                 </span>
@@ -491,7 +498,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                     
                     <div className="max-w-7xl mx-auto px-5 sm:px-8 relative z-10">
                         <div className="mb-12 sm:mb-16">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-3 flex items-center gap-3">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-3 flex items-center gap-3">
                                 <span className="w-8 h-[1px] bg-amber-500/50"></span>
                                 Premium Packages
                             </p>
@@ -510,12 +517,12 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                     >
                                         <div className="aspect-[4/3] relative overflow-hidden bg-white/5">
                                             <Image
-                                                src={service.coverImage || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=800"}
+                                                src={service.coverImage || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=75&w=600"}
                                                 fill
                                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                                 className="object-cover group-hover:scale-110 transition-transform duration-1000 ease-out"
                                                 alt={service.name}
-                                                unoptimized={!!(!service.coverImage || (service.coverImage && (service.coverImage.includes('unsplash.com') || service.coverImage.includes('cloudinary.com'))))}
+                                                unoptimized
                                                 onError={(e: any) => {
                                                     e.target.src = "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=800";
                                                 }}
@@ -527,7 +534,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                                 <Heart className={`h-4 w-4 ${isInWishlist(service.id) ? 'fill-current text-amber-400' : ''}`} />
                                             </button>
                                             <div className="absolute bottom-4 left-4">
-                                                <span className="text-[10px] font-bold uppercase tracking-widest bg-black/40 backdrop-blur-md border border-white/10 text-white px-3 py-1.5 rounded-full">
+                                                <span className="text-[11px] font-bold uppercase tracking-widest bg-black/40 backdrop-blur-md border border-white/10 text-white px-3 py-1.5 rounded-full">
                                                     {service.category?.name || 'Service'}
                                                 </span>
                                             </div>
@@ -587,7 +594,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                 <section id="studios" className="py-20 sm:py-32 bg-background border-t border-foreground/5 relative overflow-hidden reveal-up">
                     <div className="max-w-7xl mx-auto px-5 sm:px-8 relative z-10">
                         <div className="mb-12 sm:mb-16">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-3 flex items-center gap-3">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-3 flex items-center gap-3">
                                 <span className="w-8 h-[1px] bg-amber-500/50"></span>
                                 Elite Professionals
                             </p>
@@ -613,6 +620,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                                                 sizes="(max-width: 640px) 100vw, 160px"
                                                 className="object-cover group-hover:scale-110 transition-all duration-700"
                                                 alt={studio.name}
+                                                unoptimized
                                                 onError={(e: any) => {
                                                     e.target.src = "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300";
                                                 }}
@@ -655,7 +663,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                 {reviews.length > 0 && (
                     <section className="py-20 sm:py-32 bg-background-alt border-t border-foreground/5">
                         <div className="max-w-7xl mx-auto px-5 sm:px-8">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-8">Customer Reviews</p>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-foreground/40 mb-8">Customer Reviews</p>
                             <div className="max-w-3xl">
                                 <p className="text-xl sm:text-3xl font-light leading-relaxed italic mb-8" style={{ fontFamily: 'var(--font-serif)' }}>
                                     &ldquo;{reviews[0].comment}&rdquo;
@@ -672,7 +680,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                 <section className="py-20 sm:py-32 bg-white text-black">
                     <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-8">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-black/40 mb-4">Own a Business?</p>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-black/40 mb-4">Own a Business?</p>
                             <h2 className="text-3xl sm:text-5xl font-light tracking-tight" style={{ fontFamily: 'var(--font-serif)' }}>
                                 List your business and<br />
                                 <span className="italic text-black/60">maximize your reputation.</span>
@@ -724,7 +732,7 @@ export default function HomeContent({ initialData }: { initialData?: any }) {
                             </div>
                         </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-8 border-t border-foreground/5 text-[10px] text-foreground/30 uppercase tracking-widest">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-8 border-t border-foreground/5 text-[11px] text-foreground/30 uppercase tracking-widest">
                         <p>© 2026 ReviewsFeedback. All rights reserved.</p>
                         <p>Empowering modern businesses.</p>
                     </div>
