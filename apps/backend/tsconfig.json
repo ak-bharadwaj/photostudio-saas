@@ -22,8 +22,9 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
     "strictBindCallApply": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "rootDir": "src"
   },
-  "include": ["src/**/*", "prisma/**/*.ts"],
-  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts", "e2e_verify.ts"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts", "e2e_verify.ts", "prisma"]
 }
