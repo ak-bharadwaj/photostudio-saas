@@ -3,23 +3,30 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  NotFoundException,
+  Logger,
 } from "@nestjs/common";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
+import * as crypto from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
+import { NotificationService } from "../notification/notification.service";
 import { AdminLoginDto, AdminCreateDto } from "./dto/admin-auth.dto";
 import { UserLoginDto, UserRegisterDto } from "./dto/user-auth.dto";
 import { JwtPayload } from "./strategies/jwt.strategy";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
     private cacheService: CacheService,
+    private notificationService: NotificationService,
   ) {}
 
   // ============================================
@@ -524,5 +531,64 @@ export class AuthService {
     hashedPassword: string,
   ): Promise<boolean> {
     return bcrypt.compare(password, hashedPassword);
+  }
+
+  // ============================================
+  // PASSWORD RESET FLOW
+  // ============================================
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Security: Don't reveal if user exists. Just log it.
+      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
+      return;
+    }
+
+    if (user.provider !== "local" && !user.passwordHash) {
+       this.logger.log(`Password reset requested for OAuth user: ${email}. Allowing them to set a password.`);
+    }
+
+    // Generate a secure random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    
+    // Store in Redis/Cache for 1 hour (3600 seconds)
+    await this.cacheService.set(`password_reset:${resetToken}`, user.id, 3600);
+
+    const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+    const resetUrl = `${frontendUrl}/portal/reset-password?token=${resetToken}`;
+
+    // Send email
+    await this.notificationService.sendPasswordResetEmail(user.email!, user.name, resetUrl);
+    this.logger.log(`Password reset email sent to ${email}`);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const userId = await this.cacheService.get<string>(`password_reset:${token}`);
+    
+    if (!userId) {
+      throw new BadRequestException("Invalid or expired reset token.");
+    }
+
+    const newHash = await this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { 
+        passwordHash: newHash,
+        // If they were OAuth only, they now have a local password too
+      },
+    });
+
+    // Clean up used token
+    await this.cacheService.del(`password_reset:${token}`);
+    
+    // Invalidate sessions
+    await this.cacheService.del(`refresh_token:${userId}`);
+    
+    this.logger.log(`Password successfully reset for user ID: ${userId}`);
   }
 }

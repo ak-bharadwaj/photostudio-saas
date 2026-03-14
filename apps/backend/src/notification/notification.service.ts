@@ -714,4 +714,57 @@ export class NotificationService {
       throw error;
     }
   }
+
+  async sendPasswordResetEmail(email: string, name: string, resetUrl: string) {
+    if (!this.resend) {
+      this.logger.warn("Resend not configured, skipping email");
+      return;
+    }
+
+    try {
+      const result = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: email,
+        subject: "Reset Your Password - ReviewsFeedback",
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Reset Password</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
+                <h1 style="color: #2c3e50; margin-top: 0;">Password Reset Request</h1>
+                 <p>Hi ${this.esc(name)},</p>
+                 <p>We received a request to reset your password for your <strong>ReviewsFeedback</strong> account.</p>
+                 
+                 <div style="text-align: center; margin: 30px 0;">
+                   <a href="${this.esc(resetUrl)}" style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset My Password</a>
+                 </div>
+
+                 <p>If you didn't request this, you can safely ignore this email. This link will expire in 1 hour.</p>
+                 
+                 <p style="word-break: break-all; color: #7f8c8d; font-size: 12px;">
+                   If you're having trouble clicking the button, copy and paste this URL into your browser:<br>
+                   ${this.esc(resetUrl)}
+                 </p>
+
+                <p style="color: #7f8c8d; font-size: 14px; margin-top: 30px;">
+                  Best regards,<br>The ReviewsFeedback Team
+                </p>
+              </div>
+            </body>
+          </html>
+        `,
+      });
+
+      this.logger.log(`Password reset email sent to ${email}: ${result.data?.id}`);
+      return result;
+    } catch (error: unknown) {
+      this.logger.error("Failed to send password reset email", error);
+      throw error;
+    }
+  }
 }

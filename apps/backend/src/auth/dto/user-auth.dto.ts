@@ -57,3 +57,21 @@ export class ChangePasswordDto {
   @MinLength(8)
   newPassword: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail()
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.trim().toLowerCase())
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
+  newPassword: string;
+}

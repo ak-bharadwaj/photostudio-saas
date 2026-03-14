@@ -241,6 +241,17 @@ function LoginContent() {
                             </button>
                         </div>
 
+                        {activeTab === 'login' && (
+                            <div className="flex justify-end px-2">
+                                <Link 
+                                    href="/portal/forgot-password"
+                                    className="text-[10px] font-bold uppercase tracking-widest text-foreground/40 hover:text-amber-500 transition-colors"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
+                        )}
+
                         <Button
                             type="submit"
                             className="w-full h-14 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-amber-400/20 mt-2"

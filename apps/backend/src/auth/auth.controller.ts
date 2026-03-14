@@ -16,7 +16,13 @@ import { Throttle } from "@nestjs/throttler";
 import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { AdminLoginDto, AdminCreateDto } from "./dto/admin-auth.dto";
-import { UserLoginDto, UserRegisterDto, ChangePasswordDto } from "./dto/user-auth.dto";
+import {
+  UserLoginDto,
+  UserRegisterDto,
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from "./dto/user-auth.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { Public } from "./decorators/public.decorator";
 import { CurrentUser } from "./decorators/current-user.decorator";
@@ -182,5 +188,23 @@ export class AuthController {
       dto.currentPassword,
       dto.newPassword,
     );
+  }
+
+  @Public()
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
+    return { message: "If an account exists, a reset link has been sent." };
+  }
+
+  @Public()
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.token, dto.newPassword);
+    return { message: "Password has been reset successfully." };
   }
 }
