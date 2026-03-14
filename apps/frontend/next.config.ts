@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Output standalone for Docker
-  output: 'standalone',
-  
   reactStrictMode: true,
   
   // Disable x-powered-by header for security
@@ -17,7 +14,7 @@ const nextConfig: NextConfig = {
   images: {
     // Disable Vercel's default API image optimization to dramatically reduce cost/usage limits.
     // Instead, we will directly serve them or rely on an external CDN (e.g. Cloudflare Images/R2)
-    unoptimized: false,
+    unoptimized: true,
     // Cache optimised images for 24 h — critical to stay within Vercel's 1,000/month limit
     minimumCacheTTL: 86400,
     // Prefer AVIF, fall back to WebP
