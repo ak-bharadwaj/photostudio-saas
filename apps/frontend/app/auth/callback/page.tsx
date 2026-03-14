@@ -68,10 +68,14 @@ export default function AuthCallbackPage() {
       .then((data) => {
         const user = data?.user ?? data;
         const role: string = user?.role ?? '';
-        if (role === 'STUDIO_OWNER' || role === 'ADMIN') {
+        
+        // If the user is a platform admin, send them to the admin panel
+        if (role === 'ADMIN' || user?.isAdmin) {
+          router.replace('/admin');
+        } else if (role === 'STUDIO_OWNER') {
           router.replace('/dashboard');
         } else {
-          // Customers go to the home page by default, unless returnTo was set
+          // Customers go to the home page by default
           router.replace('/');
         }
       })

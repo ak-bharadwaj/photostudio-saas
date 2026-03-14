@@ -33,6 +33,11 @@ export default function DashboardLayout({
     if (!user && !isLoading) {
       loadUser();
     }
+
+    // If an admin lands in the studio dashboard, push them to the admin panel
+    if (user && user.isAdmin && !isLoading) {
+      router.push('/admin');
+    }
   }, [user, isLoading, loadUser, router]);
 
   if (!mounted || isLoading) {
