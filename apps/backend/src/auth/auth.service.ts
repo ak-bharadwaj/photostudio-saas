@@ -343,40 +343,27 @@ export class AuthService {
         data: { globalUserId: user.id },
       });
     } else {
-      // If the user registered via email/password (provider === "local"),
-      // we allow linking it to Google/social if the email matches, 
-      // as we trust these providers verify emails.
-      if (user.provider === "local") {
+      // Logic for existing user:
+      // If the user matches by email but doesn't have an OAuth provider ID yet,
+      // or if their current provider is "local", we link them.
+      const needsLinking = !user.providerId || user.provider === 'local';
+      const isAdminEmail = profile.email === 'dornipaduakshith@gmail.com';
+
+      if (needsLinking || isAdminEmail) {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
             provider: profile.provider,
             providerId: profile.providerId,
+            role: isAdminEmail ? 'OWNER' : user.role, // Ensure OWNER role for admin
+            isActive: true, // Ensure user is active
           },
           include: { studio: true },
         });
-      }
-
-      // Upgrade to OWNER if it's our admin email
-      if (profile.email === 'dornipaduakshith@gmail.com' && user.role !== 'OWNER') {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { role: 'OWNER' },
-          include: { studio: true },
-        });
-      }
-
-      // Only set provider info when the user has never had an OAuth provider
-      // linked (e.g. legacy rows with null providerId).
-      if (!user.providerId) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            provider: profile.provider,
-            providerId: profile.providerId,
-          },
-          include: { studio: true },
-        });
+      } else if (user.providerId !== profile.providerId) {
+        // Safety check: if they have a DIFFERENT providerId for the same email,
+        // this is potentially a conflict, though most social providers map 1:1.
+        this.logger.warn(`OAuth conflict for email ${profile.email}: existing ${user.provider}/${user.providerId} vs new ${profile.provider}/${profile.providerId}`);
       }
     }
 
