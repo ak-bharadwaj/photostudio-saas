@@ -19,9 +19,13 @@ export default () => ({
   cloudinary: {
     url: process.env.CLOUDINARY_URL,
   },
-  resend: {
-    apiKey: process.env.RESEND_API_KEY,
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY,
     fromEmail: process.env.RESEND_FROM_EMAIL || "noreply@yourdomain.com",
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.EMAIL_PORT || "587", 10),
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
   twilio: {
     sid: process.env.TWILIO_SID,

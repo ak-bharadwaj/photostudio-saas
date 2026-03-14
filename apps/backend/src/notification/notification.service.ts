@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Resend } from "resend";
+import * as nodemailer from "nodemailer";
 
 interface BookingConfirmationEmailData {
   to: string;
@@ -66,7 +67,8 @@ interface FollowUpEmailData {
 
 @Injectable()
 export class NotificationService {
-  private resend!: Resend;
+  private resend!: Resend | null;
+  private transporter!: nodemailer.Transporter | null;
   private readonly logger = new Logger(NotificationService.name);
   private readonly fromEmail: string;
 
@@ -99,26 +101,81 @@ export class NotificationService {
   }
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>("resend.apiKey");
+    const apiKey = this.configService.get<string>("email.resendApiKey");
     this.fromEmail =
-      this.configService.get<string>("resend.fromEmail") ||
+      this.configService.get<string>("email.fromEmail") ||
       "noreply@yourdomain.com";
 
-    if (!apiKey) {
-      this.logger.warn(
-        "Resend API key not configured. Email notifications will not be sent.",
-      );
-    } else {
+    // Initialize Resend if API key is present
+    if (apiKey) {
       this.resend = new Resend(apiKey);
+    } else {
+      this.resend = null;
+    }
+
+    // Initialize Nodemailer if SMTP config is present
+    const smtpUser = this.configService.get<string>("email.user");
+    const smtpPass = this.configService.get<string>("email.pass");
+    const smtpHost = this.configService.get<string>("email.host");
+    const smtpPort = this.configService.get<number>("email.port");
+
+    if (smtpUser && smtpPass) {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+      this.logger.log("Nodemailer SMTP transporter initialized");
+    } else {
+      this.transporter = null;
+      if (!apiKey) {
+        this.logger.warn(
+          "Neither Resend nor SMTP configured. Email notifications will not be sent.",
+        );
+      }
+    }
+  }
+
+  private async sendEmail(options: { to: string; subject: string; html: string }) {
+    if (this.transporter) {
+      try {
+        const info = await this.transporter.sendMail({
+          from: `ReviewsFeedback <${this.fromEmail}>`,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+        });
+        this.logger.log(`Email sent via SMTP to ${options.to}: ${info.messageId}`);
+        return { data: { id: info.messageId } };
+      } catch (error) {
+        this.logger.error("Failed to send email via SMTP", error);
+        throw error;
+      }
+    } else if (this.resend) {
+      try {
+        const result = await this.resend.emails.send({
+          from: `ReviewsFeedback <${this.fromEmail}>`,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+        });
+        this.logger.log(`Email sent via Resend to ${options.to}: ${result.data?.id}`);
+        return result;
+      } catch (error) {
+        this.logger.error("Failed to send email via Resend", error);
+        throw error;
+      }
+    } else {
+      this.logger.warn("No email provider configured, skipping email");
+      return null;
     }
   }
 
   async sendBookingConfirmation(data: BookingConfirmationEmailData) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     try {
       const formattedDate = data.scheduledDate.toLocaleString("en-US", {
         weekday: "long",
@@ -129,8 +186,7 @@ export class NotificationService {
         minute: "2-digit",
       });
 
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: data.to,
         subject: `Booking Confirmation - ${data.studioName}`,
         html: `
@@ -171,9 +227,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(
-        `Booking confirmation email sent to ${data.to}: ${result.data?.id}`,
-      );
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send booking confirmation email", error);
@@ -182,11 +235,6 @@ export class NotificationService {
   }
 
   async sendBookingStatusUpdate(data: BookingStatusUpdateEmailData) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     try {
       const formattedDate = data.scheduledDate.toLocaleString("en-US", {
         weekday: "long",
@@ -236,8 +284,7 @@ export class NotificationService {
         color: "#95a5a6",
       };
 
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: data.to,
         subject: `${statusInfo.title} - ${data.studioName}`,
         html: `
@@ -271,9 +318,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(
-        `Booking status update email sent to ${data.to}: ${result.data?.id}`,
-      );
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send booking status update email", error);
@@ -282,11 +326,6 @@ export class NotificationService {
   }
 
   async sendInvoice(data: InvoiceEmailData) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     try {
       const formattedDueDate = data.dueDate
         ? data.dueDate.toLocaleDateString("en-US", {
@@ -296,8 +335,7 @@ export class NotificationService {
           })
         : "Upon receipt";
 
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: data.to,
         subject: `Invoice ${data.invoiceNumber} - ${data.studioName}`,
         html: `
@@ -340,7 +378,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(`Invoice email sent to ${data.to}: ${result.data?.id}`);
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send invoice email", error);
@@ -354,11 +391,6 @@ export class NotificationService {
     ownerName: string,
     slug: string,
   ) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     const frontendUrl = this.configService.get<string>("FRONTEND_URL");
     if (!frontendUrl) {
       this.logger.error(
@@ -368,8 +400,7 @@ export class NotificationService {
     const baseUrl = frontendUrl ?? "";
 
     try {
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: email,
         subject: `Welcome to Photo Studio SaaS - ${studioName}`,
         html: `
@@ -415,9 +446,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(
-        `Studio welcome email sent to ${email}: ${result.data?.id}`,
-      );
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send studio welcome email", error);
@@ -429,11 +457,6 @@ export class NotificationService {
    * Send booking reminder (1 day before event)
    */
   async sendBookingReminder(booking: BookingReminderData) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     try {
       if (!booking.customer.email) {
         this.logger.warn(
@@ -454,8 +477,7 @@ export class NotificationService {
         },
       );
 
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: booking.customer.email,
         subject: `Reminder: Your ${booking.service.name} session tomorrow`,
         html: `
@@ -504,9 +526,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(
-        `Booking reminder sent to ${booking.customer.email}: ${result.data?.id}`,
-      );
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send booking reminder", error);
@@ -518,11 +537,6 @@ export class NotificationService {
    * Send payment reminder for overdue invoices
    */
   async sendPaymentReminder(invoice: PaymentReminderData) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     const frontendUrl = this.configService.get<string>("FRONTEND_URL");
     if (!frontendUrl) {
       this.logger.error(
@@ -554,8 +568,7 @@ export class NotificationService {
       );
       const remainingAmount = Number(invoice.total) - paidAmount;
 
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: invoice.customer.email,
         subject: `Payment Reminder - Invoice #${invoice.invoiceNumber}`,
         html: `
@@ -611,9 +624,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(
-        `Payment reminder sent to ${invoice.customer.email}: ${result.data?.id}`,
-      );
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send payment reminder", error);
@@ -625,11 +635,6 @@ export class NotificationService {
    * Send follow-up email after booking completion
    */
   async sendFollowUpEmail(booking: FollowUpEmailData) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     const frontendUrl = this.configService.get<string>("FRONTEND_URL");
     if (!frontendUrl) {
       this.logger.error(
@@ -646,8 +651,7 @@ export class NotificationService {
         return;
       }
 
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: booking.customer.email,
         subject: `Thank you for choosing ${booking.studio.name}!`,
         html: `
@@ -705,9 +709,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(
-        `Follow-up email sent to ${booking.customer.email}: ${result.data?.id}`,
-      );
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send follow-up email", error);
@@ -716,14 +717,8 @@ export class NotificationService {
   }
 
   async sendPasswordResetEmail(email: string, name: string, resetUrl: string) {
-    if (!this.resend) {
-      this.logger.warn("Resend not configured, skipping email");
-      return;
-    }
-
     try {
-      const result = await this.resend.emails.send({
-        from: this.fromEmail,
+      const result = await this.sendEmail({
         to: email,
         subject: "Reset Your Password - ReviewsFeedback",
         html: `
@@ -760,7 +755,6 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(`Password reset email sent to ${email}: ${result.data?.id}`);
       return result;
     } catch (error: unknown) {
       this.logger.error("Failed to send password reset email", error);
