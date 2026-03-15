@@ -456,6 +456,13 @@ export const adminApi = {
   deletePartner: (id: string) =>
     api.delete(`/admin/studios/${id}`),
 
+  // Studio Requests
+  getRequests: () => 
+    api.get('/studio-requests'),
+    
+  updateRequestStatus: (id: string, status: string) =>
+    api.patch(`/studio-requests/${id}/status`, { status }),
+
   // Analytics
   getAnalytics: () =>
     api.get('/admin/analytics'),
