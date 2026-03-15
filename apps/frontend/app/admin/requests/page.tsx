@@ -67,7 +67,7 @@ export default function AdminRequestsPage() {
       case 'APPROVED':
         return <Badge className="bg-success/10 text-success border-success/20">Approved</Badge>;
       case 'REJECTED':
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Rejected</Badge>;
+        return <Badge className="bg-danger/10 text-danger border-danger/20">Rejected</Badge>;
       default:
         return <Badge className="bg-gold/10 text-gold border-gold/20">Pending</Badge>;
     }
@@ -99,7 +99,7 @@ export default function AdminRequestsPage() {
       </div>
 
       {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-[var(--radius-md)]">
+        <div className="bg-danger/10 text-danger p-4 rounded-[var(--radius-md)] text-sm">
           {error}
         </div>
       )}
@@ -159,13 +159,14 @@ export default function AdminRequestsPage() {
                 <div className="flex gap-3 pt-4 border-t border-[var(--border-light)]">
                   <Button
                     onClick={() => handleUpdateStatus(request.id, 'APPROVED')}
-                    className="flex-1 bg-success hover:bg-success/90 text-white gap-2"
+                    variant="success"
+                    className="flex-1 gap-2"
                   >
                     <CheckCircle2 className="h-4 w-4" /> Approve
                   </Button>
                   <Button
                     onClick={() => handleUpdateStatus(request.id, 'REJECTED')}
-                    variant="destructive"
+                    variant="danger"
                     className="flex-1 gap-2"
                   >
                     <XCircle className="h-4 w-4" /> Reject

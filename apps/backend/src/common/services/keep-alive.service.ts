@@ -9,31 +9,18 @@ export class KeepAliveService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    this.logger.log("Keep-Alive Service initialized. (Schedule: 05:00 - 23:30)");
+    this.logger.log("Keep-Alive Service initialized. Running 24/7.");
     this.startPinging();
   }
 
   private startPinging() {
+    // Initial ping
+    this.ping();
+    
+    // Scheduled pings
     setInterval(async () => {
-      if (this.shouldBeActive()) {
-        await this.ping();
-      }
+      await this.ping();
     }, this.PING_INTERVAL);
-  }
-
-  private shouldBeActive(): boolean {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinutes = now.getMinutes();
-
-    // Start at 5:00 AM
-    if (currentHour < 5) return false;
-
-    // Stop at 11:30 PM (Hour 23, Minute 30)
-    if (currentHour === 23 && currentMinutes > 30) return false;
-    if (currentHour > 23) return false;
-
-    return true;
   }
 
   private async ping() {
