@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 @Injectable()
 export class KeepAliveService implements OnModuleInit {
   private readonly logger = new Logger(KeepAliveService.name);
-  private readonly PING_INTERVAL = 10000; // 10 seconds
+  private readonly PING_INTERVAL = 9 * 60 * 1000; // 9 minutes
 
   constructor(private readonly configService: ConfigService) {}
 
