@@ -56,7 +56,29 @@ function ExploreContent() {
         load();
     }, []);
 
+    // Sync state with URL search params when they change (browser back/forward or home search)
     useEffect(() => {
+        const q = searchParams.get('q') || '';
+        const cat = searchParams.get('category') || '';
+        const loc = searchParams.get('location') || '';
+        
+        if (q !== query) setQuery(q);
+        if (cat !== selectedCategory) setSelectedCategory(cat);
+        if (loc !== selectedLocation) setSelectedLocation(loc);
+    }, [searchParams]);
+
+    // Update URL when state changes (interactive filters)
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (query) params.append('q', query);
+        if (selectedCategory) params.append('category', selectedCategory);
+        if (selectedLocation) params.append('location', selectedLocation);
+        
+        const newUrl = `/explore${params.toString() ? `?${params.toString()}` : ''}`;
+        
+        // Use replace to avoid cluttered history while typing
+        window.history.replaceState(null, '', newUrl);
+
         const fetchResults = async () => {
             setIsLoading(true);
             try {
@@ -66,9 +88,10 @@ function ExploreContent() {
                     location: selectedLocation || undefined,
                     limit: 24,
                 });
-                setResults(res.data.items);
+                setResults(res.data?.items || []);
             } catch (err) {
                 console.error('Search failed', err);
+                setResults([]);
             } finally {
                 setIsLoading(false);
             }

@@ -260,13 +260,18 @@ const Navbar = () => {
 const Hero = () => {
     const router = useRouter();
     const [location, setLocation] = useState('');
-    const [category, setCategory] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         const params = new URLSearchParams();
-        if (location) params.append('location', location);
-        if (category) params.append('q', category);
+        if (location.trim()) params.append('location', location.trim());
+        if (searchQuery.trim()) params.append('q', searchQuery.trim());
         router.push(`/explore?${params.toString()}`);
     };
 
@@ -303,30 +308,34 @@ const Hero = () => {
 
                 {/* Glassmorphism Search Bar */}
                 <form onSubmit={handleSearch} className="w-full max-w-3xl mt-8 p-2 sm:p-3 bg-foreground/10 backdrop-blur-xl border border-foreground/20 rounded-2xl flex flex-col sm:flex-row gap-3 shadow-2xl animate-luxury-in delay-200">
-                    <div className="flex-1 flex items-center bg-background/20 rounded-xl px-4 py-3 border border-foreground/5">
+                    <div className="flex-1 flex items-center bg-background/20 rounded-xl px-4 py-3 border border-foreground/5 focus-within:border-amber-500/50 transition-colors">
                         <MapPin size={18} className="text-foreground/50 mr-3" />
                         <input 
                             type="text" 
+                            name="location"
                             placeholder="Location (e.g., Kurnool)" 
                             className="bg-transparent border-none outline-none text-foreground placeholder:text-foreground/50 w-full text-sm font-medium"
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
-                            suppressHydrationWarning
                         />
                     </div>
-                    <div className="flex-1 flex items-center bg-background/20 rounded-xl px-4 py-3 border border-foreground/5">
+                    <div className="flex-1 flex items-center bg-background/20 rounded-xl px-4 py-3 border border-foreground/5 focus-within:border-amber-500/50 transition-colors">
                         <MessageSquare size={18} className="text-foreground/50 mr-3" />
                         <input 
                             type="text" 
+                            name="q"
                             placeholder="Service (e.g., Wedding, Professional)" 
                             className="bg-transparent border-none outline-none text-foreground placeholder:text-foreground/50 w-full text-sm font-medium"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            suppressHydrationWarning
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <Button type="submit" className="h-[52px] px-8 bg-foreground text-background hover:bg-amber-50 transition-all text-xs font-bold uppercase tracking-widest rounded-xl whitespace-nowrap">
-                        Search
+                    <Button 
+                        type="submit" 
+                        disabled={!isMounted}
+                        className="h-[52px] px-8 bg-foreground text-background hover:bg-amber-400 hover:text-foreground transition-all text-xs font-bold uppercase tracking-widest rounded-xl whitespace-nowrap shadow-lg active:scale-95"
+                    >
+                        Search Now
                     </Button>
                 </form>
 
@@ -370,9 +379,9 @@ const HowItWorks = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-16">
                 {[
-                    { num: '01', title: 'Find Partners', desc: 'Identify businesses and services that align with your growth objectives.' },
-                    { num: '02', title: 'Engage Today', desc: 'Book consultations or services, and initiate the feedback protocol instantly.' },
-                    { num: '03', title: 'Collect & Thrive', desc: 'Execute the project and receive detailed feedback and review analytics.' },
+                    { num: '01', title: 'Discover Partners', desc: 'Explore a curated selection of elite businesses verified for professional excellence and quality.' },
+                    { num: '02', title: 'Secure Engagement', desc: 'Book services instantly with transparent pricing, real-time availability, and secure enterprise tools.' },
+                    { num: '03', title: 'Impactful Feedback', desc: 'Complete your project and share high-fidelity reviews that drive business growth and elevate standards.' },
                 ].map(step => (
                     <div key={step.num} className="flex flex-col gap-4 border-t border-foreground/10 pt-8">
                         <span className="text-xs font-bold tracking-[0.3em] text-foreground/30">{step.num}</span>
