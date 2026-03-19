@@ -4,38 +4,47 @@ import { Redis } from "ioredis";
 @Injectable()
 export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
-  private redis: Redis | null;
+  private redis: Redis | null = null;
   private memoryCache = new Map<string, { value: string; expiry: number }>();
 
   constructor() {
     const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
-    // Check if it's a placeholder
-    if (redisUrl.includes("********")) {
+    // Skip connection if variables are clearly unpopulated placeholders
+    if (
+      !process.env.REDIS_URL ||
+      redisUrl === "undefined" ||
+      redisUrl === "null" ||
+      redisUrl.includes("<REPLACE_ME>")
+    ) {
       this.logger.warn(
-        "Redis URL contains placeholders. Using in-memory fallback.",
+        "Redis URL is not configured. Using in-memory fallback.",
       );
-      this.redis = null;
       return;
     }
 
     try {
       this.redis = new Redis(redisUrl, {
+        connectTimeout: 10000,
+        maxRetriesPerRequest: 1,
         retryStrategy: (times) => {
           if (times > 3) {
             this.logger.error(
               "Redis max retries reached. Switching to in-memory fallback.",
             );
-            return null; // Stop retrying
+            return null;
           }
           return Math.min(times * 50, 2000);
         },
-        maxRetriesPerRequest: 3,
+        // Support rediss:// (TLS) common in cloud providers like Upstash/Render
+        tls: redisUrl.startsWith("rediss")
+          ? { rejectUnauthorized: false }
+          : undefined,
       });
 
       this.redis.on("error", (error) => {
         this.logger.error(
-          "Redis error, using in-memory fallback:",
+          "Redis connection error, using in-memory fallback:",
           error.message,
         );
       });
@@ -48,6 +57,7 @@ export class CacheService implements OnModuleDestroy {
       this.redis = null;
     }
   }
+
 
   async onModuleDestroy() {
     if (this.redis) {
