@@ -20,11 +20,7 @@ RUN pnpm install --frozen-lockfile
 # Copy backend source code
 COPY apps/backend ./apps/backend
 
-# Comment out the database URL to bypass Prisma validation during build
-RUN sed -i 's/url.*=.*env("DATABASE_URL")/\/\/ url = env("DATABASE_URL")/' apps/backend/prisma/schema.prisma
-
-# Generate Prisma Client and Build
-RUN cd apps/backend && npx prisma generate
+# Build the project (includes prisma generate via package.json build script)
 RUN pnpm --filter backend build
 
 # --- Runner Stage ---
@@ -55,13 +51,14 @@ COPY apps/backend/package.json ./apps/backend/
 # This creates a reliable node_modules structure in the runner
 RUN pnpm install --prod --frozen-lockfile
 
-# 3. Copy built files, prisma schema and scripts
+# 3. Copy built files, prisma schema, config and scripts
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY apps/backend/prisma.config.js ./apps/backend/
+
 COPY apps/backend/scripts ./apps/backend/scripts
 
-# 4. Restore the database URL for production and generate client
-RUN sed -i 's/\/\/ url.*=.*env("DATABASE_URL")/url = env("DATABASE_URL")/' apps/backend/prisma/schema.prisma
+# 4. Generate Prisma Client again in the runner (with config file present)
 RUN cd apps/backend && npx prisma generate
 
 ENV NODE_ENV=production

@@ -1,0 +1,103 @@
+﻿ M .github/workflows/keep-alive.yml
+ M apps/backend/Dockerfile
+ M apps/backend/nest-cli.json
+ M apps/backend/prisma/schema.prisma
+ M apps/backend/reset-test-data.js
+ M apps/backend/src/admin/admin.controller.ts
+ M apps/backend/src/admin/admin.module.ts
+ M apps/backend/src/admin/admin.service.ts
+ M apps/backend/src/analytics/analytics.service.ts
+ D apps/backend/src/app.controller.spec.ts
+ M apps/backend/src/app.controller.ts
+ M apps/backend/src/auth/auth.controller.ts
+ D apps/backend/src/auth/auth.service.spec.ts
+ M apps/backend/src/auth/auth.service.ts
+ M apps/backend/src/auth/decorators/roles.decorator.ts
+ M apps/backend/src/auth/decorators/skip-subscription-check.decorator.ts
+ M apps/backend/src/auth/guards/subscription.guard.ts
+ M apps/backend/src/booking/booking.controller.ts
+ D apps/backend/src/booking/booking.service.spec.ts
+ M apps/backend/src/booking/booking.service.ts
+ M apps/backend/src/booking/dto/booking.dto.ts
+ M apps/backend/src/common/filters/global-exception.filter.ts
+ M apps/backend/src/common/interfaces/user-payload.interface.ts
+ M apps/backend/src/common/middleware/csrf.middleware.ts
+ M apps/backend/src/common/services/keep-alive.service.ts
+ D apps/backend/src/common/tenant/prisma-tenant-extension.spec.ts
+ M apps/backend/src/common/tenant/prisma-tenant.extension.ts
+ M apps/backend/src/customer-portal/customer-portal.controller.ts
+ M apps/backend/src/customer-portal/portal.controller.ts
+ M apps/backend/src/customer/customer.service.ts
+ M apps/backend/src/invoice/dto/invoice.dto.ts
+ M apps/backend/src/invoice/invoice.controller.ts
+ M apps/backend/src/invoice/invoice.service.ts
+ M apps/backend/src/main.ts
+ M apps/backend/src/notification/notification.module.ts
+ M apps/backend/src/notification/notification.service.ts
+ M apps/backend/src/payment/dto/payment.dto.ts
+ M apps/backend/src/payment/payment.service.ts
+ M apps/backend/src/pdf/pdf.service.ts
+ M apps/backend/src/portfolio/portfolio.service.ts
+ M apps/backend/src/prisma/prisma.service.ts
+ M apps/backend/src/public/dto/public-booking.dto.ts
+ M apps/backend/src/public/public.controller.ts
+ M apps/backend/src/public/public.service.ts
+ M apps/backend/src/queue/queue.service.ts
+ M apps/backend/src/review/review.service.ts
+ M apps/backend/src/service/service.service.ts
+ M apps/backend/src/studio-request/studio-request.service.ts
+ M apps/backend/src/studio/dto/studio.dto.ts
+ M apps/backend/src/studio/studio.service.ts
+ M apps/backend/src/upload/upload.service.ts
+ M apps/backend/src/user/dto/create-user.dto.ts
+ M apps/backend/src/user/dto/update-user.dto.ts
+ M apps/backend/src/user/user.service.ts
+ D apps/backend/test/analytics.e2e-spec.ts
+ D apps/backend/test/app.e2e-spec.ts
+ D apps/backend/test/auth.e2e-spec.ts
+ D apps/backend/test/bargaining.e2e-spec.ts
+ D apps/backend/test/booking.e2e-spec.ts
+ D apps/backend/test/customer.e2e-spec.ts
+ D apps/backend/test/invoice.e2e-spec.ts
+ D apps/backend/test/jest-e2e.json
+ D apps/backend/test/payment.e2e-spec.ts
+ D apps/backend/test/portal.e2e-spec.ts
+ D apps/backend/test/service.e2e-spec.ts
+ D apps/backend/test/studio-admin.e2e-spec.ts
+ D apps/backend/test/user.e2e-spec.ts
+ M apps/frontend/app/(dashboard)/bookings/[id]/page.tsx
+ M apps/frontend/app/(dashboard)/dashboard/page.tsx
+ M apps/frontend/app/(dashboard)/invoices/new/page.tsx
+ M apps/frontend/app/(dashboard)/invoices/page.tsx
+ M apps/frontend/app/(dashboard)/settings/page.tsx
+ M apps/frontend/app/admin/layout.tsx
+ M apps/frontend/app/portal/bookings/[id]/page.tsx
+ M apps/frontend/app/portal/bookings/page.tsx
+ M apps/frontend/app/portal/invoices/[id]/page.tsx
+ M apps/frontend/app/portal/invoices/page.tsx
+ M apps/frontend/app/studio/[slug]/StudioContent.tsx
+ M apps/frontend/components/marketplace/cart-drawer.tsx
+ M apps/frontend/context/cart-context.tsx
+ D apps/frontend/e2e/auth.spec.ts
+ D apps/frontend/e2e/booking.spec.ts
+ D apps/frontend/e2e/dashboard.spec.ts
+ D apps/frontend/e2e/responsive.spec.ts
+ M apps/frontend/package.json
+ D apps/frontend/playwright.config.ts
+ M pnpm-lock.yaml
+ M render.yaml
+?? apps/backend/backend_lint_check.txt
+?? apps/backend/check-studio-script.js
+?? apps/backend/fix-duplicates.js
+?? apps/backend/get-services.js
+?? apps/backend/prisma/add_booking_items.sql
+?? apps/backend/scripts/
+?? apps/backend/tsconfig.build.tsbuildinfo
+?? apps/backend/tsconfig.tsbuildinfo
+?? apps/frontend/app/admin/users/
+?? apps/frontend/app/widget/
+?? apps/frontend/frontend_errors.txt
+?? apps/frontend/frontend_errors_v2.txt
+?? backend_file_list.txt
+?? changed_files.txt
+
