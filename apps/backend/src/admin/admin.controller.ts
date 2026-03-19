@@ -76,10 +76,10 @@ export class AdminController {
     @Query("search") search?: string,
   ) {
     const parsedPage = page ? parseInt(page, 10) : 1;
-    const parsedLimit = limit ? parseInt(limit, 10) : 1000;
+    const parsedLimit = limit ? parseInt(limit, 10) : 10000;
     return this.adminService.getAllStudios(
       isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage,
-      isNaN(parsedLimit) || parsedLimit < 1 ? 1000 : parsedLimit,
+      isNaN(parsedLimit) || parsedLimit < 1 ? 10000 : parsedLimit,
       status,
       tier,
       search,
@@ -134,9 +134,9 @@ export class AdminController {
   @UseGuards(JwtAuthGuard)
   @Get("activities")
   async getRecentActivities(@Query("limit") limit?: string) {
-    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const parsedLimit = limit ? parseInt(limit, 10) : 1000;
     return this.adminService.getRecentActivities(
-      isNaN(parsedLimit) || parsedLimit < 1 ? 20 : Math.min(parsedLimit, 100),
+      isNaN(parsedLimit) || parsedLimit < 1 ? 1000 : parsedLimit,
     );
   }
 
@@ -150,10 +150,10 @@ export class AdminController {
     @Query("search") search?: string,
   ) {
     const parsedPage = page ? parseInt(page, 10) : 1;
-    const parsedLimit = limit ? parseInt(limit, 10) : 100;
+    const parsedLimit = limit ? parseInt(limit, 10) : 1000;
     return this.adminService.getAllUsers(
       isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage,
-      isNaN(parsedLimit) || parsedLimit < 1 ? 100 : parsedLimit,
+      isNaN(parsedLimit) || parsedLimit < 1 ? 1000 : parsedLimit,
       role,
       search,
     );

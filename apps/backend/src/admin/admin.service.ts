@@ -161,7 +161,7 @@ export class AdminService {
   // Studio Management
   async getAllStudios(
     page = 1,
-    limit = 1000,
+    limit = 10000,
     status?: string,
     tier?: string,
     search?: string,
@@ -420,7 +420,7 @@ export class AdminService {
     };
   }
 
-  async getRecentActivities(limit = 20) {
+  async getRecentActivities(limit = 1000) {
     const recentStudios = await this.prisma.studio.findMany({
       take: limit,
       orderBy: { createdAt: "desc" },
@@ -447,7 +447,7 @@ export class AdminService {
   }
 
   // User Management
-  async getAllUsers(page = 1, limit = 100, role?: string, search?: string) {
+  async getAllUsers(page = 1, limit = 1000, role?: string, search?: string) {
     const skip = (page - 1) * limit;
     const where: Prisma.UserWhereInput = {};
     if (role) where.role = role as any;
