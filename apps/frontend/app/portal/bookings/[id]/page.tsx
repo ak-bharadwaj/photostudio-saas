@@ -28,7 +28,8 @@ import {
   Info,
   ExternalLink,
   History,
-  X
+  X,
+  FolderDown
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -38,6 +39,26 @@ const safeGetItem = (key: string): string | null => {
   if (typeof window === 'undefined') return null;
   try { return localStorage.getItem(key); } catch { return null; }
 };
+
+interface BookingItem {
+  id: string;
+  serviceId: string;
+  originalPrice: number;
+  quotedAmount: number | null;
+  service: {
+    id: string;
+    name: string;
+    description?: string;
+    durationMinutes: number;
+  };
+}
+
+interface ServiceQuote {
+  serviceId: string;
+  serviceName: string;
+  originalPrice: number;
+  quotedAmount: number | null;
+}
 
 interface Booking {
   id: string;
@@ -49,7 +70,11 @@ interface Booking {
   quoteAmount?: number;
   quoteNotes?: string;
   quoteRejectionNotes?: string;
+  deliveryUrl?: string;
   service: { name: string; price: number; durationMinutes: number; description?: string };
+
+  bookingItems?: BookingItem[];
+  serviceQuotes?: ServiceQuote[];
   studio: { 
     name: string; 
     email: string; 
@@ -58,6 +83,7 @@ interface Booking {
     logoUrl?: string;
     address?: string;
     city?: string;
+    currency?: string;
   };
   statusLogs: Array<{
     id: string;
@@ -266,7 +292,9 @@ export default function BookingDetailPage() {
             </div>
             
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-tight">
-              {booking.service.name}
+              {booking.bookingItems && booking.bookingItems.length > 0 
+                ? booking.bookingItems.map(item => item.service.name).join(' + ')
+                : booking.service.name}
             </h1>
             
             <div className="flex items-center gap-4">
@@ -292,8 +320,30 @@ export default function BookingDetailPage() {
                <Info className="h-3 w-3" />
              </div>
               <div className="text-4xl font-black tracking-tighter">
-                {formatCurrency(booking.quoteAmount || booking.service.price)}
+                {formatCurrency(
+                  booking.quoteAmount || 
+                  (booking.bookingItems && booking.bookingItems.length > 0 
+                    ? booking.bookingItems.reduce((acc, item) => acc + (Number(item.originalPrice) || 0), 0)
+                    : Number(booking.service.price || 0)),
+                  booking.studio.currency
+                )}
               </div>
+              
+              {/* Service Breakdown for multi-service */}
+              {booking.bookingItems && booking.bookingItems.length > 1 && (
+                <div className="space-y-1.5 pt-2">
+                  {booking.bookingItems.map(item => (
+                    <div key={item.id} className="flex justify-between items-center text-[10px] font-bold text-foreground-tertiary">
+                      <span className="truncate max-w-[140px]">{item.service.name}</span>
+                      <span>{formatCurrency(
+                        item.quotedAmount ?? item.originalPrice,
+                        booking.studio.currency
+                      )}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {booking.status === 'QUOTED' && !booking.quoteRejectionNotes && (
                 <div className="flex gap-2 pt-2">
                   <Button 
@@ -319,7 +369,9 @@ export default function BookingDetailPage() {
               <div className="h-px w-full bg-border/30" />
              <div className="flex items-center gap-3 text-xs font-bold text-foreground-secondary">
                <Clock className="h-4 w-4 text-primary" />
-               {booking.service.durationMinutes} Minute Appointment
+               {booking.bookingItems && booking.bookingItems.length > 0 
+                ? booking.bookingItems.reduce((acc, item) => acc + (Number(item.service.durationMinutes) || 0), 0)
+                : Number(booking.service.durationMinutes || 0)} Minute Appointment
              </div>
           </div>
         </div>
@@ -353,7 +405,7 @@ export default function BookingDetailPage() {
                 </div>
               )}
 
-              {booking.moodboardUrl && (
+               {booking.moodboardUrl && (
                 <div className="space-y-4">
                    <label className="text-[11px] font-black uppercase tracking-widest text-primary">Reference Material</label>
                    <a 
@@ -376,7 +428,34 @@ export default function BookingDetailPage() {
                 </div>
               )}
 
+              {booking.deliveryUrl && (
+                <div className="space-y-4 pt-10 border-t border-border mt-10">
+                   <div className="p-8 rounded-[2rem] bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/10 dark:border-indigo-500/20">
+                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                       <div className="max-w-md">
+                         <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-2">
+                           <FolderDown className="h-5 w-5" /> Your Final Deliverables
+                         </h3>
+                         <p className="text-sm text-foreground-secondary">
+                           Your partner has securely shared your finished files (Google Drive/Pixieset). Click the link to view or download them.
+                         </p>
+                       </div>
+                       <a
+                         href={booking.deliveryUrl}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         className="h-12 px-8 rounded-full font-black tracking-widest bg-indigo-500 hover:bg-indigo-600 text-white flex items-center justify-center shrink-0 transition-all shadow-glow hover:-translate-y-1"
+                         style={{ textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}
+                       >
+                         OPEN DRIVE
+                       </a>
+                     </div>
+                   </div>
+                </div>
+              )}
+
               {booking.status === 'COMPLETED' && !booking.review && (
+
                 <div className="pt-10 border-t border-border">
                    <h3 className="text-xl font-black mb-6">Leave Your Feedback</h3>
                    <div className="space-y-6">
@@ -524,12 +603,48 @@ export default function BookingDetailPage() {
                 <span className="text-[10px] font-black tracking-[.3em] uppercase text-primary mb-2 block">
                   {quoteAction === 'accept' ? 'CONFIRM YOUR BOOKING' : quoteAction === 'negotiate' ? 'DISCUSS QUOTE' : 'REJECT QUOTE'}
                 </span>
-                <h3 className="text-2xl font-black text-white">{booking.service.name}</h3>
+                <h3 className="text-2xl font-black text-white">
+                  {booking.bookingItems && booking.bookingItems.length > 0 
+                    ? booking.bookingItems.map(item => item.service.name).join(' + ')
+                    : booking.service.name}
+                </h3>
                 <div className="mt-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                  <p className="text-[9px] font-black text-white/40 tracking-widest uppercase mb-1">PARTNER QUOTE</p>
-                  <p className="text-2xl font-black tracking-tighter text-white">
-                    {formatCurrency(booking.quoteAmount || booking.service.price)}
-                  </p>
+                  <p className="text-[9px] font-black text-white/40 tracking-widest uppercase mb-2">QUOTATION BREAKDOWN</p>
+                  
+                  {booking.serviceQuotes && booking.serviceQuotes.length > 0 ? (
+                    <div className="space-y-2 mb-4">
+                      {booking.serviceQuotes.map((q, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs">
+                          <span className="text-white/60">{q.serviceName}</span>
+                          <span className="font-bold text-white">{formatCurrency(q.quotedAmount ?? q.originalPrice, booking.studio.currency)}</span>
+                        </div>
+                      ))}
+                      <div className="h-px bg-white/10 my-2" />
+                    </div>
+                  ) : booking.bookingItems && booking.bookingItems.length > 1 && (
+                    <div className="space-y-2 mb-4">
+                       {booking.bookingItems.map(item => (
+                        <div key={item.id} className="flex justify-between items-center text-xs">
+                          <span className="text-white/60">{item.service.name}</span>
+                          <span className="font-bold text-white">{formatCurrency(item.quotedAmount ?? item.originalPrice, booking.studio.currency)}</span>
+                        </div>
+                      ))}
+                      <div className="h-px bg-white/10 my-2" />
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center">
+                    <p className="text-[9px] font-black text-white/40 tracking-widest uppercase">TOTAL AMOUNT</p>
+                    <p className="text-2xl font-black tracking-tighter text-white">
+                      {formatCurrency(
+                        booking.quoteAmount || 
+                        (booking.bookingItems && booking.bookingItems.length > 0 
+                          ? booking.bookingItems.reduce((acc, item) => acc + (Number(item.originalPrice) || 0), 0)
+                          : Number(booking.service.price || 0)),
+                        booking.studio.currency
+                      )}
+                    </p>
+                  </div>
                   {booking.quoteNotes && (
                     <p className="mt-2 text-sm text-white/60 border-t border-white/5 pt-2 italic">
                       &quot;{booking.quoteNotes}&quot;

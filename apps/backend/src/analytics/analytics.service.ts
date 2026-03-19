@@ -150,12 +150,16 @@ export class AnalyticsService {
         if (serviceData) {
           serviceData.bookings += 1;
           booking.invoices.forEach(
-            (invoice: { total: unknown; status: string; payments: Array<{ amount: unknown }> }) => {
+            (invoice: {
+              total: unknown;
+              status: string;
+              payments: Array<{ amount: unknown }>;
+            }) => {
               if (invoice.status === "PAID") {
-                serviceData.revenue += Number(invoice.total);
+                serviceData.revenue += Number(invoice.total || 0);
               } else {
                 invoice.payments.forEach((payment: { amount: unknown }) => {
-                  serviceData.revenue += Number(payment.amount);
+                  serviceData.revenue += Number(payment.amount || 0);
                 });
               }
             },
@@ -239,7 +243,7 @@ export class AnalyticsService {
 
     const totalRevenue = payments.reduce(
       (sum: number, payment: { amount: unknown }) =>
-        sum + Number(payment.amount),
+        sum + Number(payment.amount || 0),
       0,
     );
 
@@ -299,7 +303,8 @@ export class AnalyticsService {
         where: {
           studioId,
           status: "PAID",
-          updatedAt: { // Using updatedAt as a proxy for payment/completion date
+          updatedAt: {
+            // Using updatedAt as a proxy for payment/completion date
             gte: startDate,
             lte: endDate,
           },

@@ -2,10 +2,15 @@ import { Controller, Get, Logger } from "@nestjs/common";
 import { AppService } from "./app.service";
 import { Public } from "./auth/decorators/public.decorator";
 
+import { PrismaService } from "./prisma/prisma.service";
+
 @Controller()
 export class AppController {
   private readonly logger = new Logger(AppController.name);
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Public()
   @Get()

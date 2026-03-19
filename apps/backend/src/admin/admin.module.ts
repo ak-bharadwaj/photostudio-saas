@@ -1,13 +1,15 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { PrismaModule } from "../prisma/prisma.module";
 import { CacheModule } from "../cache/cache.module";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
   imports: [
+    forwardRef(() => AuthModule),
     PrismaModule,
     CacheModule,
     JwtModule.registerAsync({

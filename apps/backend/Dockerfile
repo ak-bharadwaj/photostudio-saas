@@ -20,10 +20,11 @@ RUN pnpm install --frozen-lockfile
 # Copy backend source code
 COPY apps/backend ./apps/backend
 
-# Generate Prisma Client
-RUN cd apps/backend && npx prisma generate
+# Comment out the database URL to bypass Prisma validation during build
+RUN sed -i 's/url.*=.*env("DATABASE_URL")/\/\/ url = env("DATABASE_URL")/' apps/backend/prisma/schema.prisma
 
-# Build the application
+# Generate Prisma Client and Build
+RUN cd apps/backend && npx prisma generate
 RUN pnpm --filter backend build
 
 # --- Runner Stage ---
@@ -54,18 +55,21 @@ COPY apps/backend/package.json ./apps/backend/
 # This creates a reliable node_modules structure in the runner
 RUN pnpm install --prod --frozen-lockfile
 
-# 3. Copy built files and prisma schema
+# 3. Copy built files, prisma schema and scripts
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY apps/backend/scripts ./apps/backend/scripts
 
-# 4. Generate Prisma Client again in the runner to ensure it's matched with the prod node_modules
+# 4. Restore the database URL for production and generate client
+RUN sed -i 's/\/\/ url.*=.*env("DATABASE_URL")/url = env("DATABASE_URL")/' apps/backend/prisma/schema.prisma
 RUN cd apps/backend && npx prisma generate
 
 ENV NODE_ENV=production
 RUN mkdir -p apps/backend/public/uploads
+RUN chmod +x apps/backend/scripts/start.sh
 
 WORKDIR /app/apps/backend
 EXPOSE 3001
 
-# Run the app
-CMD ["node", "dist/main"]
+# Run the app with migrations
+CMD ["sh", "scripts/start.sh"]

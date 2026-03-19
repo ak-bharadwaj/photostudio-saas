@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -299,7 +299,7 @@ function StepIndicator({
               </div>
               <span
                 className="text-[9px] font-black uppercase tracking-[0.3em] block absolute -bottom-8 whitespace-nowrap"
-                style={{ color: isActive ? (isDark ? '#fff' : brand.primaryColor) : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)') }}
+                style={{ color: isActive ? (isDark ? '#fff' : brand.primaryColor) : (isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)') }}
               >
                 {s.title}
               </span>
@@ -760,9 +760,10 @@ function PortfolioItemCard({ item, index, primaryColor }: { item: PortfolioItem,
 
 
 
-export function StudioContent({ initialStudio }: { initialStudio: any }) {
+export function StudioContent({ initialStudio, isWidget }: { initialStudio: any; isWidget?: boolean }) {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { addToast } = useToast();
   const [studio, setStudio] = useState<Studio | null>(initialStudio);
   const [loading, setLoading] = useState(!initialStudio);
@@ -784,16 +785,10 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
   });
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'book' | 'history' | 'account'>('book');
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'book' | 'account'>('book');
+  const [activeServiceTab, setActiveServiceTab] = useState<'services' | 'reviews'>('services');
   const [profileEdits, setProfileEdits] = useState({ name: '', email: '' });
   const [savingProfile, setSavingProfile] = useState(false);
-  const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
-  const [counterOfferId, setCounterOfferId] = useState<string | null>(null);
-  const [counterOfferAmount, setCounterOfferAmount] = useState('');
-  const [counterOfferNote, setCounterOfferNote] = useState('');
   const [sendingCounter, setSendingCounter] = useState(false);
   const [highlightedOccasion, setHighlightedOccasion] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -868,41 +863,6 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     [],
   );
 
-  const fetchStudioHistory = useCallback(async () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
-
-    historyAbortRef.current?.abort();
-    const ctrl = new AbortController();
-    historyAbortRef.current = ctrl;
-    setLoadingHistory(true);
-    try {
-      const slug = params.slug as string;
-      const [bRes, iRes] = await Promise.all([
-        axios.get(`${API_URL}/portal/bookings`, {
-          params: { studioSlug: slug },
-          headers: { Authorization: `Bearer ${token}` },
-          signal: ctrl.signal,
-        }),
-        axios.get(`${API_URL}/portal/invoices`, {
-          params: { studioSlug: slug },
-          headers: { Authorization: `Bearer ${token}` },
-          signal: ctrl.signal,
-        }),
-      ]);
-      if (ctrl.signal.aborted) return;
-      const bList = bRes.data?.data ?? bRes.data;
-      const iList = iRes.data?.data ?? iRes.data;
-      setBookings(Array.isArray(bList) ? bList : []);
-      setInvoices(Array.isArray(iList) ? iList : []);
-    } catch (err: unknown) {
-      if ((err as { name?: string }).name === 'CanceledError') return;
-      const e = err as { response?: { data?: { message?: string } } };
-      addToast('error', e.response?.data?.message || 'Failed to load your history');
-    } finally {
-      if (!ctrl.signal.aborted) setLoadingHistory(false);
-    }
-  }, [params.slug, addToast]);
 
   const loadStudio = useCallback(async () => {
     studioAbortRef.current?.abort();
@@ -917,12 +877,14 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
       setStudio(studioData);
 
       const serviceId = searchParams.get('service');
+      const serviceIdsStr = searchParams.get('services');
       const occasion = searchParams.get('occasion');
 
-      if (serviceId && studioData.services) {
-        const service = studioData.services.find((s: Service) => s.id === serviceId);
-        if (service) {
-          setSelectedServices([service]);
+      if ((serviceId || serviceIdsStr) && studioData.services) {
+        const ids = serviceIdsStr ? serviceIdsStr.split(',') : [serviceId];
+        const services = studioData.services.filter((s: Service) => ids.includes(s.id));
+        if (services.length > 0) {
+          setSelectedServices(services);
           setStep(2);
         }
       } else {
@@ -979,11 +941,6 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     };
   }, [params.slug, searchParams, fetchMe, loadStudio]);
 
-  useEffect(() => {
-    if (activeTab === 'history' && authUser) {
-      fetchStudioHistory();
-    }
-  }, [activeTab, authUser, fetchStudioHistory]);
 
   // Inject studio font into <head> — beats any CSS specificity including Tailwind base styles.
   // Using a uniquely-id'd <style> tag in document.head is the only reliable way in Next.js
@@ -1032,82 +989,12 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setAuthUser(null);
-    setBookings([]);
-    setInvoices([]);
     setActiveTab('book');
     addToast('success', 'Signed out successfully.');
   };
 
-  const handleAcceptQuote = async (bId: string) => {
-    try {
-      await portalApi.acceptQuote(bId);
-      addToast('success', 'Quote accepted! We will finalize your booking.');
-      fetchStudioHistory();
-    } catch {
-      addToast('error', 'Failed to accept quote.');
-    }
-  };
 
-  const handleRejectQuote = (bId: string) => {
-    setRejectConfirmId(bId);
-  };
-
-  const confirmRejectQuote = async () => {
-    if (!rejectConfirmId) return;
-    const id = rejectConfirmId;
-    setRejectConfirmId(null);
-    try {
-      await portalApi.rejectQuote(id);
-      addToast('success', 'Quote rejected.');
-      fetchStudioHistory();
-    } catch {
-      addToast('error', 'Failed to reject quote.');
-    }
-  };
-
-  const handleSendCounterOffer = async () => {
-    if (!counterOfferId || !counterOfferAmount) return;
-    const amount = parseFloat(counterOfferAmount);
-    if (isNaN(amount) || amount <= 0) {
-      addToast('error', 'Please enter a valid amount.');
-      return;
-    }
-    setSendingCounter(true);
-    try {
-      await portalApi.negotiateQuote(counterOfferId, `Proposed adjustment: ${formatCurrency(amount)}${counterOfferNote ? ' — ' + counterOfferNote : ''}`);
-      addToast('success', `Counter-offer of ${formatCurrency(amount)} sent! The partner will review and respond.`);
-      setCounterOfferId(null);
-      setCounterOfferAmount('');
-      setCounterOfferNote('');
-      fetchStudioHistory();
-    } catch {
-      addToast('error', 'Failed to send counter-offer.');
-    } finally {
-      setSendingCounter(false);
-    }
-  };
-
-  const handleSubmitReview = async () => {
-    if (!reviewBookingId) return;
-    setSubmittingReview(true);
-    try {
-      await portalApi.createReview(reviewBookingId, {
-        rating: reviewRating,
-        comment: reviewComment,
-      });
-      addToast('success', 'Thanks for your feedback!');
-      setReviewBookingId(null);
-      setReviewComment('');
-      setReviewRating(5);
-      fetchStudioHistory();
-    } catch {
-      addToast('error', 'Failed to submit review.');
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  const loadTimeSlots = async (serviceId: string, date: string) => {
+  const loadTimeSlots = async (serviceId: string, date: string, duration?: number) => {
     slotsAbortRef.current?.abort();
     const ctrl = new AbortController();
     slotsAbortRef.current = ctrl;
@@ -1115,7 +1002,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     try {
       const response = await axios.get(
         `${API_URL}/public/studios/${params.slug}/services/${serviceId}/available-slots`,
-        { params: { date }, signal: ctrl.signal },
+        { params: { date, duration }, signal: ctrl.signal },
       );
       if (ctrl.signal.aborted) return;
       setTimeSlots(response.data?.slots || []);
@@ -1146,10 +1033,11 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
     setSelectedTime('');
-    // Use the first selected service to fetch available slots
+    // Use the first selected service + total duration to fetch available slots
     const firstService = selectedServices[0];
+    const totalDuration = selectedServices.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
     if (firstService && date) {
-      loadTimeSlots(firstService.id, date);
+      loadTimeSlots(firstService.id, date, totalDuration);
     }
   };
 
@@ -1165,19 +1053,19 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
     }
     setSubmitting(true);
     try {
+      // Single booking with all services
+      const res = await axios.post(`${API_URL}/public/studios/${params.slug}/bookings`, {
+        customerName: customerData.name,
+        customerEmail: customerData.email || undefined,
+        customerPhone: customerData.phone,
+        serviceIds: selectedServices.map(s => s.id),
+        scheduledAt: selectedTime,
+        customerNotes: customerData.notes || undefined,
+        acceptedTerms: acceptedTerms,
+      });
+
       const bookingIds: string[] = [];
-      for (const service of selectedServices) {
-        const res = await axios.post(`${API_URL}/public/studios/${params.slug}/bookings`, {
-          customerName: customerData.name,
-          customerEmail: customerData.email || undefined,
-          customerPhone: customerData.phone,
-          serviceId: service.id,
-          scheduledAt: selectedTime,
-          customerNotes: customerData.notes || undefined,
-          acceptedTerms: acceptedTerms,
-        });
-        if (res.data?.id) bookingIds.push(res.data.id);
-      }
+      if (res.data?.id) bookingIds.push(res.data.id);
       setBookingIds(bookingIds);
       setStep(4);
       
@@ -1198,6 +1086,28 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
       addToast('error', e.response?.data?.message || 'Failed to submit booking');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewBookingId) return;
+    setSubmittingReview(true);
+    try {
+      await portalApi.createReview(reviewBookingId, {
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+      addToast('success', 'Review submitted successfully!');
+      setReviewBookingId(null);
+      setReviewComment('');
+      setReviewRating(5);
+      // Refresh studio data to show the new review in the list
+      loadStudio();
+    } catch (error) {
+      const e = error as { response?: { data?: { message?: string } } };
+      addToast('error', e.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -1303,7 +1213,9 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
       {/* ================================================================ */}
       {/*  HERO HEADER                                                       */}
       {/* ================================================================ */}
-      <header className="relative z-10 overflow-hidden" style={{ minHeight: brand.themePreset === 'alabaster-minimal' || brand.themePreset === 'monochrome-pro' ? '70vh' : '95vh', display: 'flex', flexDirection: 'column' }}>
+      {!isWidget && (
+        <header className="relative z-10 overflow-hidden" style={{ minHeight: brand.themePreset === 'alabaster-minimal' || brand.themePreset === 'monochrome-pro' ? '70vh' : '95vh', display: 'flex', flexDirection: 'column' }}>
+
 
         {/* Noir Luxury: Gold horizontal rule hero */}
         {brand.themePreset === 'noir-luxury' && (
@@ -1379,17 +1291,14 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
           {authUser ? (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  if (activeTab === 'book') setActiveTab('history');
-                  else setActiveTab('book');
-                }}
+                onClick={() => router.push('/portal/bookings')}
                 className={cn(
                   "hidden sm:flex items-center gap-2 px-4 py-2 border transition-all text-[10px] font-black uppercase tracking-widest",
                   brand.themePreset === 'monochrome-pro' ? "rounded-none border-black" : "rounded-full"
                 )}
                 style={{ borderColor, color: textPrimary }}
               >
-                {activeTab === 'book' ? 'My History' : 'Back to Shop'}
+                My Bookings
               </button>
               <div className={cn(
                 "flex items-center gap-2 px-3 py-1.5 border",
@@ -1812,6 +1721,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
         {/* bottom fade */}
         <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent, ${isDark ? '#050508' : brand.themePreset === 'alabaster-minimal' ? '#FDFCF0' : '#ffffff'})` }} />
       </header>
+      )}
 
       {/* ================================================================ */}
       {/*  TAB NAV — theme-aware                                            */}
@@ -1827,7 +1737,6 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
           <div className="flex h-full gap-0">
             {([
               { id: 'book' as const, label: 'Book', icon: BookOpen },
-              { id: 'history' as const, label: 'My Bookings', icon: History },
               { id: 'account' as const, label: 'Account', icon: User },
             ] as const).map(({ id, label, icon: Icon }) => (
               <button
@@ -1847,6 +1756,18 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                 <span className="sm:hidden">{label.split(' ')[0]}</span>
               </button>
             ))}
+            {/* My Bookings — always navigates to customer portal dashboard */}
+            <button
+              onClick={() => router.push('/portal/bookings')}
+              className={cn(
+                'flex items-center gap-2 px-4 sm:px-6 h-full text-xs font-bold uppercase tracking-[0.15em] border-b-2 transition-all duration-200 border-transparent opacity-30 hover:opacity-60',
+              )}
+              style={{ color: textPrimary }}
+            >
+              <History className="h-3.5 w-3.5" />
+              <span className="hidden sm:block">My Bookings</span>
+              <span className="sm:hidden">Bookings</span>
+            </button>
           </div>
           <span className="text-[11px] font-bold uppercase tracking-widest opacity-30" style={{ color: textPrimary }}>
             {studio.services?.length || 0} Services
@@ -2071,7 +1992,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   const reviews = [...studio.reviews].sort(
                     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                   );
-                  const avg = reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
+                  const avg = reviews.reduce((acc, r) => acc + Number(r.rating || 0), 0) / reviews.length;
                   const dist = [5, 4, 3, 2, 1].map((s) => ({
                     star: s,
                     count: reviews.filter((r) => r.rating === s).length,
@@ -2287,7 +2208,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                             <div className="text-xs mt-0.5" style={{ color: textSecondary }}>Share your experience — go to Bookings tab to leave a review.</div>
                           </div>
                           <button
-                            onClick={() => setActiveTab('history')}
+                            onClick={() => router.push('/portal/bookings')}
                             className="shrink-0 px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all hover:opacity-90"
                             style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: btnRadius }}
                           >
@@ -2335,7 +2256,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                 {/* Services summary */}
                 <div
                   className="p-4 mb-8 border space-y-2"
-                  style={{ borderColor: hexAlpha(brand.primaryColor, '30'), borderRadius: '4px', backgroundColor: hexAlpha(brand.primaryColor, '06') }}
+                  style={{ borderColor: borderColor, borderRadius: '4px', backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}
                 >
                   {selectedServices.map((svc) => {
                     const SvcIcon = getOccasionIcon(svc.occasion);
@@ -2356,9 +2277,9 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                   })}
                   {selectedServices.length > 1 && (
                     <div className="flex justify-between items-center pt-2 border-t mt-2" style={{ borderColor }}>
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Total</span>
+                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Total Amount</span>
                       <span className="font-black text-base" style={{ color: textPrimary }}>
-                        {formatCurrency(selectedServices.reduce((sum, s) => sum + Number(s.price), 0))}
+                        {formatCurrency(selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0))}
                       </span>
                     </div>
                   )}
@@ -2553,7 +2474,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                     <div className="flex justify-between items-center pt-3 border-t border-border">
                       <span className="text-foreground font-black text-sm">Total</span>
                       <span className="text-lg font-black" style={{ color: brand.primaryColor }}>
-                        {formatCurrency(selectedServices.reduce((sum, s) => sum + Number(s.price), 0))}
+                        {formatCurrency(selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0))}
                       </span>
                     </div>
                   </div>
@@ -2675,7 +2596,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                     You&apos;re All Set.
                   </h2>
                   <p className="text-sm" style={{ color: textSecondary }}>
-                    {bookingIds.length > 1 ? `${bookingIds.length} bookings submitted` : 'Booking submitted'} to <strong style={{ color: textPrimary }}>{studio.name}</strong> — they&apos;ll be in touch shortly.
+                    {selectedServices.length > 1 ? `${selectedServices.length} services booked` : 'Booking submitted'} to <strong style={{ color: textPrimary }}>{studio.name}</strong> — they&apos;ll be in touch shortly.
                   </p>
                   <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 text-xs font-mono rounded theme-bg" style={{ color: textSecondary }}>
                     Ref: <span className="font-bold" style={{ color: textPrimary }}>{bookingIds[0]?.slice(-8).toUpperCase() ?? ''}</span>
@@ -2707,8 +2628,8 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                           </div>
                         ))}
                         {selectedServices.length > 1 && (
-                          <div className="text-sm font-black mt-1" style={{ color: brand.primaryColor }}>
-                            Total: {formatCurrency(selectedServices.reduce((sum, s) => sum + Number(s.price), 0))}
+                          <div className="text-sm font-black mt-1" style={{ color: textPrimary }}>
+                            Total: {formatCurrency(selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0))}
                           </div>
                         )}
                       </div>
@@ -2782,7 +2703,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
                     Book Another
                   </button>
                   <button
-                    onClick={() => setActiveTab('history')}
+                    onClick={() => router.push('/portal/bookings')}
                     className="flex-1 py-3.5 text-white font-black text-sm tracking-wider uppercase transition-all hover:opacity-90 flex items-center justify-center gap-2"
                     style={{ backgroundColor: brand.primaryColor, borderRadius: btnRadius }}
                   >
@@ -2798,344 +2719,6 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
         {/* ============================================================== */}
         {/*  HISTORY TAB                                                    */}
         {/* ============================================================== */}
-        {activeTab === 'history' && (
-          <div className="animate-fade-in max-w-3xl">
-            {!authUser ? (
-              <div className="py-24 text-center border border-dashed rounded-3xl" style={{ borderColor }}>
-                <Users className="h-12 w-12 mx-auto mb-6" style={{ color: textSecondary, opacity: 0.3 }} />
-                <h2
-                  className="leading-tight tracking-tight mb-3"
-                  style={{
-                    fontSize: '2.5rem',
-                    fontWeight: 900,
-                    color: textPrimary,
-                    fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
-                  }}
-                >
-                  Sign in to see history
-                </h2>
-                <p className="mb-10 text-sm max-w-sm mx-auto leading-relaxed" style={{ color: textSecondary }}>
-                  Your quotes, invoices, and booking history are linked to your email address. Sign in to track everything in one place.
-                </p>
-                <button
-                  onClick={handleGoogleSignIn}
-                  className="px-10 py-4 font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
-                  style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: '1rem' }}
-                >
-                  <Chrome className="h-4 w-4 mr-2 inline-block" />
-                  Sign in with Google
-                </button>
-              </div>
-            ) : loadingHistory ? (
-              <div className="space-y-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="theme-card h-24 w-full rounded-2xl animate-pulse animate-shimmer" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-12">
-                {/* Bookings */}
-                <div>
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <div className="text-xs font-black uppercase tracking-[0.2em] mb-1" style={{ color: brand.primaryColor }}>
-                        History
-                      </div>
-                      <h2
-                        className="leading-tight tracking-tight"
-                        style={{
-                          fontSize: '3rem',
-                          fontWeight: 900,
-                          color: textPrimary,
-                          fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
-                        }}
-                      >
-                        My Bookings
-                      </h2>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('book')}
-                      className="flex items-center gap-2 px-5 py-2.5 font-black text-xs uppercase tracking-wider transition-all hover:opacity-90"
-                      style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: btnRadius }}
-                    >
-                      <Camera className="h-3.5 w-3.5" />
-                      New Booking
-                    </button>
-                  </div>
-
-                  {bookings.length === 0 ? (
-                    <div className="py-12 text-center border border-dashed" style={{ borderColor }}>
-                      <BookOpen className="h-8 w-8 mx-auto mb-3" style={{ color: textSecondary, opacity: 0.15 }} />
-                      <p className="font-bold text-sm mb-1" style={{ color: textSecondary, opacity: 0.5 }}>No bookings yet</p>
-                      <p className="text-xs" style={{ color: textSecondary, opacity: 0.3 }}>Your bookings with {studio.name} will appear here.</p>
-                      <button
-                        onClick={() => setActiveTab('book')}
-                        className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 font-black text-xs uppercase tracking-wider transition-all hover:opacity-90"
-                        style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: btnRadius }}
-                      >
-                        Book an Appointment
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {bookings.map((b) => (
-                        <div
-                          key={b.id}
-                          className="p-5 border transition-all duration-200"
-                          style={{
-                            borderColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '40') : borderColor,
-                            borderRadius: '4px',
-                            backgroundColor: b.status === 'QUOTED' ? hexAlpha(brand.primaryColor, '04') : isDark ? 'rgba(255,255,255,0.02)' : '#fff',
-                          }}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3 min-w-0">
-                              <div
-                                className="h-10 w-10 flex items-center justify-center shrink-0 rounded"
-                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '12') }}
-                              >
-                                <Camera className="h-5 w-5" style={{ color: brand.primaryColor }} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-black text-sm truncate" style={{ color: textPrimary }}>{b.service.name}</div>
-                                <div className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: textSecondary, opacity: 0.6 }}>
-                                  <Calendar className="h-3 w-3 shrink-0" />
-                                  {safeFormatDate(b.scheduledAt, {
-                                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-                                    hour: '2-digit', minute: '2-digit',
-                                  })}
-                                </div>
-                                <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: textSecondary, opacity: 0.5 }}>
-                                  <Clock className="h-3 w-3" />
-                                  {b.service.durationMinutes} min
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0 space-y-1.5">
-                              <StatusBadge status={b.status} primaryColor={brand.primaryColor} />
-                              <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
-                                {formatCurrency(b.quoteAmount || b.service?.price || 0)}
-                              </div>
-                              {b.status === 'COMPLETED' && (
-                                b.review ? (
-                                  <div className="flex items-center justify-end gap-1 mt-1">
-                                    <Star className="h-3 w-3 fill-current mt-[1px]" style={{ color: brand.primaryColor }} />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: brand.primaryColor }}>
-                                      {b.review.rating}/5
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-end gap-1 mt-2">
-                                    <div className="text-[9px] font-black uppercase tracking-widest" style={{ color: textSecondary, opacity: 0.5 }}>Rate experience</div>
-                                    <div className="flex items-center gap-0.5">
-                                      {[1, 2, 3, 4, 5].map((star) => (
-                                        <button
-                                          key={star}
-                                          onClick={() => { setReviewRating(star); setReviewBookingId(b.id); }}
-                                          className="hover:scale-125 transition-transform"
-                                        >
-                                          <Star
-                                            className="h-3.5 w-3.5 text-black/15 transition-colors"
-                                            style={{ '--hover-color': brand.primaryColor } as React.CSSProperties}
-                                            onMouseEnter={(e) => (e.currentTarget.style.color = brand.primaryColor, e.currentTarget.style.fill = brand.primaryColor)}
-                                            onMouseLeave={(e) => (e.currentTarget.style.color = '', e.currentTarget.style.fill = 'none')}
-                                          />
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Quote actions */}
-                          {b.status === 'QUOTED' && (
-                            <div className="mt-4 pt-4 border-t border-black/8">
-                              <div
-                                className="p-4 border mb-4"
-                                style={{
-                                  borderColor: hexAlpha(brand.primaryColor, '25'),
-                                  borderRadius: '4px',
-                                  backgroundColor: hexAlpha(brand.primaryColor, '05'),
-                                }}
-                              >
-                                <div className="flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-2" style={{ color: brand.primaryColor }}>
-                                  <Sparkles className="h-3.5 w-3.5" />
-                                  Partner Quote
-                                </div>
-                                {b.quoteNotes && (
-                                  <p className="text-sm italic border-l-2 pl-3 mb-3" style={{ borderColor: hexAlpha(brand.primaryColor, '40'), color: textSecondary, opacity: 0.7 }}>
-                                    &quot;{b.quoteNotes}&quot;
-                                  </p>
-                                )}
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-semibold" style={{ color: textSecondary, opacity: 0.5 }}>Quoted Amount</span>
-                                  <span className="text-2xl font-black" style={{ color: textPrimary }}>{formatCurrency(b.quoteAmount)}</span>
-                                </div>
-                              </div>
-
-                              {counterOfferId === b.id && (
-                                <div className="space-y-3 mb-3 p-4 border rounded" style={{ borderColor, backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)' }}>
-                                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: textSecondary }}>Your Counter-Offer</p>
-                                  <div className="flex items-center gap-2 border rounded px-3 py-2.5" style={{ borderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }}>
-                                    <span className="text-sm font-semibold" style={{ color: textSecondary }}>₹</span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      className="flex-1 bg-transparent text-sm font-black outline-none"
-                                      style={{ color: textPrimary }}
-                                      placeholder="Your proposed amount"
-                                      value={counterOfferAmount}
-                                      onChange={(e) => setCounterOfferAmount(e.target.value)}
-                                    />
-                                  </div>
-                                  <textarea
-                                    rows={2}
-                                    className="w-full border rounded px-3 py-2.5 text-sm outline-none resize-none"
-                                    style={{ borderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff', color: textPrimary }}
-                                    placeholder="Optional note..."
-                                    value={counterOfferNote}
-                                    onChange={(e) => setCounterOfferNote(e.target.value)}
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={handleSendCounterOffer}
-                                      disabled={sendingCounter || !counterOfferAmount || parseFloat(counterOfferAmount) <= 0}
-                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 font-black text-xs uppercase tracking-wider transition-all hover:opacity-90 disabled:opacity-40"
-                                      style={{ backgroundColor: brand.primaryColor, color: getContrastColor(brand.primaryColor), borderRadius: btnRadius }}
-                                    >
-                                      {sendingCounter ? (
-                                        <span className="h-3.5 w-3.5 rounded-full border-2 animate-spin" style={{ borderColor: `${getContrastColor(brand.primaryColor)}40`, borderTopColor: getContrastColor(brand.primaryColor) }} />
-                                      ) : (
-                                        <ThumbsUp className="h-3.5 w-3.5" />
-                                      )}
-                                      Send Counter
-                                    </button>
-                                    <button
-                                      onClick={() => { setCounterOfferId(null); setCounterOfferAmount(''); setCounterOfferNote(''); }}
-                                      className="px-4 border font-semibold text-sm transition-all hover:opacity-70"
-                                      style={{ borderRadius: btnRadius, borderColor, color: textSecondary }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleAcceptQuote(b.id)}
-                                  className="flex-1 flex items-center justify-center gap-2 py-2.5 font-black text-xs uppercase tracking-wider text-white transition-all hover:opacity-90"
-                                  style={{ backgroundColor: '#16a34a', borderRadius: btnRadius }}
-                                >
-                                  <ThumbsUp className="h-3.5 w-3.5" />
-                                  Accept
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setCounterOfferId(counterOfferId === b.id ? null : b.id);
-                                    setCounterOfferAmount(b.quoteAmount && !isNaN(Number(b.quoteAmount)) ? (Number(b.quoteAmount) * 0.9).toFixed(0) : '');
-                                    setCounterOfferNote('');
-                                  }}
-                                  disabled={(b.negotiationRounds ?? 0) >= 3}
-                                  className={cn(
-                                    "px-4 border py-2.5 font-bold text-xs transition-all relative group",
-                                    (b.negotiationRounds ?? 0) >= 3 ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"
-                                  )}
-                                  style={{ borderRadius: btnRadius, borderColor, color: textSecondary }}
-                                >
-                                  {(b.negotiationRounds ?? 0) >= 3 ? 'Limit Reached' : (
-                                    <>
-                                      Counter
-                                      <span className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
-                                        Round {b.negotiationRounds || 0} of 3
-                                      </span>
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => handleRejectQuote(b.id)}
-                                  className="px-4 border py-2.5 font-bold transition-all hover:opacity-70"
-                                  style={{ borderRadius: btnRadius, borderColor: '#ef444450', color: '#ef4444' }}
-                                >
-                                  <ThumbsDown className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Invoices */}
-                <div>
-                  <div className="mb-8">
-                    <div className="text-xs font-black uppercase tracking-[0.2em] mb-1" style={{ color: brand.primaryColor }}>
-                      Billing
-                    </div>
-                    <h2
-                      className="leading-tight tracking-tight"
-                      style={{
-                        fontSize: '1.8rem',
-                        fontWeight: 900,
-                        color: textPrimary,
-                        fontFamily: `"${brand.fontFamily}", DM Sans, sans-serif`,
-                      }}
-                    >
-                      Invoices
-                    </h2>
-                  </div>
-
-                  {invoices.length === 0 ? (
-                    <div className="py-10 text-center border border-dashed border-black/10">
-                      <Receipt className="h-7 w-7 text-black/15 mx-auto mb-2" />
-                      <p className="text-sm font-bold text-black/25">No invoices yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {invoices.map((inv) => (
-                        <div
-                          key={inv.id}
-                          className="p-4 border border-[#e0e0d8] bg-white hover:border-black/20 transition-all"
-                          style={{ borderRadius: '4px' }}
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div
-                                className="h-9 w-9 rounded flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: hexAlpha(brand.primaryColor, '12') }}
-                              >
-                                <Receipt className="h-4 w-4" style={{ color: brand.primaryColor }} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-black text-xs font-mono" style={{ color: textPrimary }}>
-                                   #{inv.id.slice(-8).toUpperCase()}
-                                 </div>
-                                 <div className="text-xs mt-0.5" style={{ color: textSecondary, opacity: 0.6 }}>
-                                   {safeFormatDate(inv.createdAt)}
-                                 </div>
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0 space-y-1">
-                              <StatusBadge status={inv.status} primaryColor={brand.primaryColor} />
-                              <div className="text-sm font-black block" style={{ color: brand.primaryColor }}>
-                                {formatCurrency(inv.total)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ============================================================== */}
         {/*  ACCOUNT TAB                                                    */}
@@ -3245,16 +2828,6 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
           </div>
         )}
 
-        {/* Reject Quote Dialogue */}
-        <ConfirmDialog
-          isOpen={!!rejectConfirmId}
-          onClose={() => setRejectConfirmId(null)}
-          onConfirm={confirmRejectQuote}
-          title="Reject this Quote?"
-          description="This booking will be cancelled. You can always book a new engagement later."
-          confirmLabel="Reject Quote"
-          variant="danger"
-        />
 
         {/* Review Modal */}
         {reviewBookingId && (
@@ -3339,8 +2912,10 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
       {/* ================================================================ */}
       {/*  FOOTER                                                           */}
       {/* ================================================================ */}
+      {!isWidget && (
       <footer
         className="border-t mt-20 py-10 relative z-10"
+
         style={{ borderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}
       >
         <div className="max-w-7xl mx-auto px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -3375,6 +2950,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
           </div>
         </div>
       </footer>
+      )}
 
 
       {/* ---------------------------------------------------------- */}
@@ -3403,7 +2979,7 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
               <div className="shrink-0 text-right">
                 <div className="text-[10px] font-black tracking-widest text-white/30 mb-1">TOTAL INVESTMENT</div>
                 <div className="text-2xl font-black text-white tabular-nums">
-                  {formatCurrency(selectedServices.reduce((sum, s) => sum + Number(s.price), 0))}
+                  {formatCurrency(selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0))}
                 </div>
               </div>
               <button
@@ -3420,15 +2996,6 @@ export function StudioContent({ initialStudio }: { initialStudio: any }) {
         )
       }
 
-      <ConfirmDialog
-        isOpen={!!rejectConfirmId}
-        onClose={() => setRejectConfirmId(null)}
-        onConfirm={confirmRejectQuote}
-        title="Reject Quote"
-        description="Are you sure you want to reject this quote? This action cannot be undone."
-        confirmLabel="Reject Quote"
-        variant="danger"
-      />
     </div >
   );
 }

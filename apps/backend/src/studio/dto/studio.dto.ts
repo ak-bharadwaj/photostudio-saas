@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
-import { SubscriptionTier, StudioStatus } from '@prisma/client';
+import { SubscriptionTier, StudioStatus } from "@prisma/client";
 
 export class BrandingConfigDto {
   @IsString()
@@ -215,4 +215,31 @@ export class UpdateStudioDto {
   @IsEnum(StudioStatus)
   @IsOptional()
   status?: StudioStatus;
+
+  @IsString()
+  @IsOptional()
+  smtpHost?: string;
+
+  @Type(() => Number)
+  @IsOptional()
+  smtpPort?: number;
+
+  @IsString()
+  @IsOptional()
+  smtpUser?: string;
+
+  @IsString()
+  @IsOptional()
+  smtpPassword?: string;
+
+  @IsEmail()
+  @IsOptional()
+  smtpFromEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  smtpFromName?: string;
+
+  @IsOptional()
+  smtpSecure?: boolean;
 }

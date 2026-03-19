@@ -31,3 +31,11 @@ services:
         sync: false
       - key: CLOUDINARY_URL
         sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: TWILIO_SID
+        sync: false
+      - key: TWILIO_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false

@@ -154,7 +154,7 @@ export default function InvoicesPage() {
 
   // Stats: computed from current page data — shown as "on this page" context
   // Full aggregate stats come from the meta total count
-  const getPaid = (inv: Invoice) => (inv.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+  const getPaid = (inv: Invoice) => (inv.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
   // Global stats from API
   const totalRevenue = stats.totalRevenue;

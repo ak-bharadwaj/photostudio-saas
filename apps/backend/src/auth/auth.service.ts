@@ -103,12 +103,16 @@ export class AuthService {
       throw new UnauthorizedException("Email or phone is required");
     }
 
-    const whereClause: any = dto.email ? { email: dto.email } : { phone: dto.phone };
+    const whereClause: any = dto.email
+      ? { email: dto.email }
+      : { phone: dto.phone };
 
     // Run both DB lookups in parallel to eliminate timing oracle that would
     // reveal whether an email belongs to an admin vs. a regular user.
     const [admin, user]: [any, any] = await Promise.all([
-      dto.email ? this.prisma.admin.findUnique({ where: { email: dto.email } }) : Promise.resolve(null),
+      dto.email
+        ? this.prisma.admin.findUnique({ where: { email: dto.email } })
+        : Promise.resolve(null),
       this.prisma.user.findUnique({
         where: whereClause,
         include: { studio: true },
@@ -163,10 +167,7 @@ export class AuthService {
     }
 
     // Check studio status for non-admins (allow ACTIVE, TRIAL, and EXPIRED)
-    if (
-      user.studio &&
-      user.studio.status === "SUSPENDED"
-    ) {
+    if (user.studio && user.studio.status === "SUSPENDED") {
       throw new UnauthorizedException("Studio is suspended");
     }
 
@@ -252,17 +253,23 @@ export class AuthService {
       throw new UnauthorizedException("Email or phone is required");
     }
 
-    const whereClause: any = dto.email ? { email: dto.email } : { phone: dto.phone };
+    const whereClause: any = dto.email
+      ? { email: dto.email }
+      : { phone: dto.phone };
 
     const existingUser = await this.prisma.user.findUnique({
       where: whereClause,
     });
 
     if (existingUser) {
-      if (existingUser.provider !== 'local') {
-          throw new ConflictException(`You previously signed up with ${existingUser.provider}. Please log in using that method.`);
+      if (existingUser.provider !== "local") {
+        throw new ConflictException(
+          `You previously signed up with ${existingUser.provider}. Please log in using that method.`,
+        );
       }
-      throw new ConflictException("User with this email or phone already exists");
+      throw new ConflictException(
+        "User with this email or phone already exists",
+      );
     }
 
     const passwordHash = await this.hashPassword(dto.password);
@@ -377,7 +384,7 @@ export class AuthService {
       // Logic for existing user:
       // If the user matches by email but doesn't have an OAuth provider ID yet,
       // or if their current provider is "local", we link them.
-      const needsLinking = !user.providerId || user.provider === 'local';
+      const needsLinking = !user.providerId || user.provider === "local";
 
       if (needsLinking) {
         user = await this.prisma.user.update({
@@ -392,7 +399,9 @@ export class AuthService {
       } else if (user.providerId !== profile.providerId) {
         // Safety check: if they have a DIFFERENT providerId for the same email,
         // this is potentially a conflict, though most social providers map 1:1.
-        this.logger.warn(`OAuth conflict for email ${profile.email}: existing ${user.provider}/${user.providerId} vs new ${profile.provider}/${profile.providerId}`);
+        this.logger.warn(
+          `OAuth conflict for email ${profile.email}: existing ${user.provider}/${user.providerId} vs new ${profile.provider}/${profile.providerId}`,
+        );
       }
     }
 
@@ -566,31 +575,42 @@ export class AuthService {
 
     if (!user) {
       // Security: Don't reveal if user exists. Just log it.
-      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
+      this.logger.warn(
+        `Password reset requested for non-existent email: ${email}`,
+      );
       return;
     }
 
     if (user.provider !== "local" && !user.passwordHash) {
-       this.logger.log(`Password reset requested for OAuth user: ${email}. Allowing them to set a password.`);
+      this.logger.log(
+        `Password reset requested for OAuth user: ${email}. Allowing them to set a password.`,
+      );
     }
 
     // Generate a secure random token
     const resetToken = crypto.randomBytes(32).toString("hex");
-    
+
     // Store in Redis/Cache for 15 minutes (900 seconds)
     await this.cacheService.set(`password_reset:${resetToken}`, user.id, 900);
 
-    const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
     const resetUrl = `${frontendUrl}/portal/reset-password?token=${resetToken}`;
 
     // Send email
-    await this.notificationService.sendPasswordResetEmail(user.email!, user.name, resetUrl);
+    await this.notificationService.sendPasswordResetEmail(
+      user.email!,
+      user.name,
+      resetUrl,
+    );
     this.logger.log(`Password reset email sent to ${email}`);
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const userId = await this.cacheService.get<string>(`password_reset:${token}`);
-    
+    const userId = await this.cacheService.get<string>(
+      `password_reset:${token}`,
+    );
+
     if (!userId) {
       throw new BadRequestException("Invalid or expired reset token.");
     }
@@ -599,7 +619,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { 
+      data: {
         passwordHash: newHash,
         // If they were OAuth only, they now have a local password too
       },
@@ -607,10 +627,10 @@ export class AuthService {
 
     // Clean up used token
     await this.cacheService.del(`password_reset:${token}`);
-    
+
     // Invalidate sessions
     await this.cacheService.del(`refresh_token:${userId}`);
-    
+
     this.logger.log(`Password successfully reset for user ID: ${userId}`);
   }
 }

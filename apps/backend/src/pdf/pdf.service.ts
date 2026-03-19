@@ -82,6 +82,7 @@ export class PdfService {
 
     this.browserLaunchPromise = puppeteer
       .launch({
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         headless: true,
         args: [
           "--no-sandbox",

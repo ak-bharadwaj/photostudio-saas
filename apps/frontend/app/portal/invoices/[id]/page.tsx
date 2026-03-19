@@ -176,7 +176,7 @@ export default function InvoiceDetailPage() {
   }
 
   const status = STATUS_CFG[invoice.status] || STATUS_CFG.DRAFT;
-  const paidAmount = invoice.payments.reduce((s, p) => s + p.amount, 0);
+  const paidAmount = (invoice.payments ?? []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const balance = invoice.total - paidAmount;
 
   return (

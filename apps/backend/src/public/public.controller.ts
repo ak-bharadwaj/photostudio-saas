@@ -55,6 +55,7 @@ export class PublicController {
     @Param("slug") slug: string,
     @Param("serviceId") serviceId: string,
     @Query("date") date: string,
+    @Query("duration") duration?: string,
   ) {
     // Validate date format (YYYY-MM-DD) before passing to service
     if (!date) {
@@ -72,7 +73,12 @@ export class PublicController {
         "date must be in YYYY-MM-DD format (e.g. 2024-01-31)",
       );
     }
-    return this.publicService.getAvailableTimeSlots(slug, serviceId, date);
+    return this.publicService.getAvailableTimeSlots(
+      slug,
+      serviceId,
+      date,
+      duration ? parseInt(duration) : undefined,
+    );
   }
 
   /**

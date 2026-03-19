@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { partnersApi, authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
-import { Save, Building2, User, Sparkles, Lock, Wand2, Copy, ExternalLink, CheckCircle2, AlertCircle, Globe } from 'lucide-react';
+import { Save, Building2, User, Sparkles, Lock, Wand2, Copy, ExternalLink, CheckCircle2, AlertCircle, Globe, Mail } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 
 interface Studio {
@@ -40,6 +40,14 @@ interface ProfileForm {
   website: string;
   description: string;
   slug: string;
+  defaultTerms: string;
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpPassword: string;
+  smtpFromEmail: string;
+  smtpFromName: string;
+  smtpSecure: boolean;
 }
 
 // ─── Branding form state ──────────────────────────────────────────────────────
@@ -79,6 +87,14 @@ export default function SettingsPage() {
     website: '',
     description: '',
     slug: '',
+    defaultTerms: '',
+    smtpHost: '',
+    smtpPort: '',
+    smtpUser: '',
+    smtpPassword: '',
+    smtpFromEmail: '',
+    smtpFromName: '',
+    smtpSecure: false,
   });
 
   const [brandingForm, setBrandingForm] = useState<BrandingForm>({
@@ -145,6 +161,14 @@ export default function SettingsPage() {
           website: studioData.website || '',
           description: studioData.description || '',
           slug: studioData.slug || '',
+          defaultTerms: studioData.defaultTerms || '',
+          smtpHost: studioData.smtpHost || '',
+          smtpPort: String(studioData.smtpPort || ''),
+          smtpUser: studioData.smtpUser || '',
+          smtpPassword: studioData.smtpPassword || '',
+          smtpFromEmail: studioData.smtpFromEmail || '',
+          smtpFromName: studioData.smtpFromName || '',
+          smtpSecure: !!studioData.smtpSecure,
         });
         setSlugChanged(false);
 
@@ -223,6 +247,14 @@ export default function SettingsPage() {
         website: profileForm.website,
         description: profileForm.description,
         slug: profileForm.slug,
+        defaultTerms: profileForm.defaultTerms,
+        smtpHost: profileForm.smtpHost || null,
+        smtpPort: profileForm.smtpPort ? parseInt(profileForm.smtpPort) : null,
+        smtpUser: profileForm.smtpUser || null,
+        smtpPassword: profileForm.smtpPassword || null,
+        smtpFromEmail: profileForm.smtpFromEmail || null,
+        smtpFromName: profileForm.smtpFromName || null,
+        smtpSecure: profileForm.smtpSecure,
       });
 
       await loadStudio();
@@ -609,6 +641,89 @@ export default function SettingsPage() {
                 value={profileForm.description}
                 onChange={handleProfileChange}
               />
+            </div>
+
+            {/* SMTP Configuration Section */}
+            <div className="pt-8 border-t border-[var(--border)]">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center">
+                  <Mail className="h-5 w-5 text-[var(--primary)]" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-[var(--foreground)]">Email Infrastructure (SMTP)</h4>
+                  <p className="text-xs text-[var(--foreground-secondary)]">Configure your own email server to maintain deliverability and branding.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Input
+                  label="SMTP Host"
+                  id="smtpHost"
+                  name="smtpHost"
+                  type="text"
+                  value={profileForm.smtpHost}
+                  onChange={handleProfileChange}
+                  placeholder="smtp.gmail.com"
+                />
+                <Input
+                  label="SMTP Port"
+                  id="smtpPort"
+                  name="smtpPort"
+                  type="text"
+                  value={profileForm.smtpPort}
+                  onChange={handleProfileChange}
+                  placeholder="587"
+                />
+                <Input
+                  label="SMTP User"
+                  id="smtpUser"
+                  name="smtpUser"
+                  type="text"
+                  value={profileForm.smtpUser}
+                  onChange={handleProfileChange}
+                  placeholder="user@example.com"
+                />
+                <Input
+                  label="SMTP Password"
+                  id="smtpPassword"
+                  name="smtpPassword"
+                  type="password"
+                  value={profileForm.smtpPassword}
+                  onChange={handleProfileChange}
+                  placeholder="••••••••"
+                />
+                <Input
+                  label="From Email"
+                  id="smtpFromEmail"
+                  name="smtpFromEmail"
+                  type="email"
+                  value={profileForm.smtpFromEmail}
+                  onChange={handleProfileChange}
+                  placeholder="hello@yourstudio.com"
+                />
+                <Input
+                  label="From Name"
+                  id="smtpFromName"
+                  name="smtpFromName"
+                  type="text"
+                  value={profileForm.smtpFromName}
+                  onChange={handleProfileChange}
+                  placeholder="Your Studio Name"
+                />
+                <div className="flex items-center space-x-2 pt-8">
+                  <input
+                    type="checkbox"
+                    id="smtpSecure"
+                    name="smtpSecure"
+                    checked={profileForm.smtpSecure}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, smtpSecure: e.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                  />
+                  <label htmlFor="smtpSecure" className="text-sm font-medium text-[var(--foreground)]">
+                    Use Secure Connection (TLS/SSL)
+                  </label>
+                </div>
+              </div>
             </div>
 
             {/* Save Button */}

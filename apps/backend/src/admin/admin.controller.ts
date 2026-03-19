@@ -139,4 +139,30 @@ export class AdminController {
       isNaN(parsedLimit) || parsedLimit < 1 ? 20 : Math.min(parsedLimit, 100),
     );
   }
+
+  // User Management
+  @UseGuards(JwtAuthGuard)
+  @Get("users")
+  async getAllUsers(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("role") role?: string,
+    @Query("search") search?: string,
+  ) {
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 100;
+    return this.adminService.getAllUsers(
+      isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage,
+      isNaN(parsedLimit) || parsedLimit < 1 ? 100 : parsedLimit,
+      role,
+      search,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("users/:id/reset-password")
+  @HttpCode(HttpStatus.OK)
+  async resetUserPassword(@Param("id") id: string) {
+    return this.adminService.resetUserPassword(id);
+  }
 }

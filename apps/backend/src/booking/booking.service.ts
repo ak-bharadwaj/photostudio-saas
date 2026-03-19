@@ -17,8 +17,8 @@ import {
   CreateInternalBookingDto,
   SendQuoteDto,
 } from "./dto/booking.dto";
-import { BookingStatus } from '@prisma/client';
-import { Prisma } from '@prisma/client';
+import { BookingStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { InvoiceService } from "../invoice/invoice.service";
 import { PdfService } from "../pdf/pdf.service";
@@ -79,7 +79,13 @@ export class BookingService {
     if (isNaN(scheduledAt.getTime())) {
       throw new BadRequestException("Invalid scheduled date");
     }
-    await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
+    await this.checkConflicts(
+      studio.id,
+      scheduledAt,
+      service.durationMinutes,
+      undefined,
+      dto.assignedToUserId,
+    );
 
     // Create booking
     const booking = await this.prisma.$transaction(
@@ -92,6 +98,7 @@ export class BookingService {
             scheduledAt,
             status: "CONFIRMED", // Internal bookings are usually confirmed
             customerNotes: dto.notes,
+            assignedToUserId: dto.assignedToUserId,
           },
           include: {
             customer: true,
@@ -149,35 +156,53 @@ export class BookingService {
 
     // Check for schedule conflicts
     const scheduledAt = new Date(dto.scheduledDate);
-    await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes);
+    await this.checkConflicts(studio.id, scheduledAt, service.durationMinutes, undefined, undefined);
 
     // Normalize phone number (digits only, last 10 digits for local matching if needed, but here we just take all digits)
-    const normalizedPhone = dto.customerPhone.replace(/\D/g, '');
-    const searchPhone = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+    const normalizedPhone = dto.customerPhone.replace(/\D/g, "");
+    const searchPhone =
+      normalizedPhone.length >= 10
+        ? normalizedPhone.slice(-10)
+        : normalizedPhone;
 
     // Find or create customer AND create booking atomically inside one transaction.
     const booking = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         let customer = null;
         // SMART MERGE: Independently search by email and phone to handle cross-matches
-        const byEmail = dto.customerEmail ? await tx.customer.findFirst({
-          where: { studioId: studio.id, email: { equals: dto.customerEmail, mode: 'insensitive' } }
-        }) : null;
-        
+        const processedEmail = dto.customerEmail?.trim() || null;
+        const byEmail = processedEmail
+          ? await tx.customer.findFirst({
+              where: {
+                studioId: studio.id,
+                email: { equals: processedEmail, mode: "insensitive" },
+              },
+            })
+          : null;
+
         const byPhone = await tx.customer.findFirst({
-          where: { studioId: studio.id, phone: { contains: searchPhone } }
+          where: { studioId: studio.id, phone: { contains: searchPhone } },
         });
 
         if (byEmail && byPhone && byEmail.id !== byPhone.id) {
           // If both match different records, merge the 'phone' record into the 'email' record
           const globalUserId = byEmail.globalUserId || byPhone.globalUserId;
-          
-          await tx.booking.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
-          await tx.invoice.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
-          await tx.review.updateMany({ where: { customerId: byPhone.id }, data: { customerId: byEmail.id } });
-          
+
+          await tx.booking.updateMany({
+            where: { customerId: byPhone.id },
+            data: { customerId: byEmail.id },
+          });
+          await tx.invoice.updateMany({
+            where: { customerId: byPhone.id },
+            data: { customerId: byEmail.id },
+          });
+          await tx.review.updateMany({
+            where: { customerId: byPhone.id },
+            data: { customerId: byEmail.id },
+          });
+
           await tx.customer.delete({ where: { id: byPhone.id } });
-          
+
           // Ensure the primary record has the globalUserId if either had it
           customer = await tx.customer.update({
             where: { id: byEmail.id },
@@ -191,7 +216,7 @@ export class BookingService {
           customer = await tx.customer.create({
             data: {
               name: dto.customerName,
-              email: dto.customerEmail,
+              email: processedEmail,
               phone: dto.customerPhone,
               studioId: studio.id,
             },
@@ -200,10 +225,10 @@ export class BookingService {
           // Update existing customer info
           customer = await tx.customer.update({
             where: { id: customer.id },
-            data: { 
-              name: dto.customerName, 
-              email: dto.customerEmail || customer.email,
-              phone: dto.customerPhone 
+            data: {
+              name: dto.customerName,
+              email: processedEmail || customer.email,
+              phone: dto.customerPhone,
             },
           });
         }
@@ -279,6 +304,7 @@ export class BookingService {
           studioEmail: studio.email,
           studioPhone: studio.phone,
           bookingId: booking.id,
+          studioId: studio.id,
         });
       } catch (error: unknown) {
         // Log error but don't fail the booking creation
@@ -349,12 +375,14 @@ export class BookingService {
             });
             return { ...b, status: "IN_PROGRESS" as BookingStatus };
           } catch (e) {
-            this.logger.error(`Failed to auto-update booking ${b.id} to IN_PROGRESS: ${e instanceof Error ? e.message : String(e)}`);
+            this.logger.error(
+              `Failed to auto-update booking ${b.id} to IN_PROGRESS: ${e instanceof Error ? e.message : String(e)}`,
+            );
             return b;
           }
         }
         return b;
-      })
+      }),
     );
 
     return {
@@ -401,6 +429,11 @@ export class BookingService {
         statusLogs: {
           orderBy: { createdAt: "desc" },
         },
+        bookingItems: {
+          include: {
+            service: true,
+          },
+        },
       },
     });
 
@@ -417,7 +450,9 @@ export class BookingService {
         });
         booking.status = "IN_PROGRESS";
       } catch (e) {
-        this.logger.error(`Failed to auto-update booking ${booking.id} to IN_PROGRESS (findOne): ${e instanceof Error ? e.message : String(e)}`);
+        this.logger.error(
+          `Failed to auto-update booking ${booking.id} to IN_PROGRESS (findOne): ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
     }
 
@@ -450,6 +485,7 @@ export class BookingService {
         newDate,
         service?.durationMinutes || 60,
         id,
+        dto.assignedTo || (booking.assignedToUserId ?? undefined),
       );
     }
 
@@ -460,6 +496,8 @@ export class BookingService {
     if (dto.assignedTo)
       updateData.assignedTo = { connect: { id: dto.assignedTo } };
     if (dto.notes) updateData.internalNotes = dto.notes;
+    if (dto.deliveryUrl !== undefined) updateData.deliveryUrl = dto.deliveryUrl;
+
 
     const updated = await this.prisma.booking.update({
       where: { id },
@@ -491,7 +529,10 @@ export class BookingService {
       ? { id, studioId }
       : { id };
 
-    const booking = await this.prisma.booking.findFirst({ where });
+    const booking = await this.prisma.booking.findFirst({
+      where,
+      include: { service: true },
+    });
 
     if (!booking) {
       throw new NotFoundException("Booking not found");
@@ -499,14 +540,21 @@ export class BookingService {
 
     // For studio owners, we allow manual overrides to any status
     if (studioId) {
-      // Basic check: completed or cancelled bookings can be moved back if owner really wants to
-      // but we still want to log it
+      if (dto.status === "CONFIRMED") {
+        await this.checkConflicts(
+          booking.studioId,
+          booking.scheduledAt,
+          booking.service?.durationMinutes || 60,
+          id,
+          booking.assignedToUserId || undefined,
+        );
+      }
     } else {
       // Validate status transitions for non-owners/automation
       const validTransitions: Record<string, BookingStatus[]> = {
         INQUIRY: ["QUOTED", "CONFIRMED", "CANCELLED"],
         QUOTED: ["CONFIRMED", "CANCELLED"],
-        CONFIRMED: ["IN_PROGRESS", "CANCELLED"],
+        CONFIRMED: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
         IN_PROGRESS: ["COMPLETED", "CANCELLED"],
         COMPLETED: [],
         CANCELLED: [],
@@ -553,8 +601,9 @@ export class BookingService {
       studioId: string;
       scheduledAt: Date;
       customer: { email: string | null; name: string };
-      service: { name: string };
+      service: { name: string; durationMinutes: number };
       studio: { name: string; email: string; phone: string | null };
+      assignedToUserId: string | null;
     },
     status: BookingStatus,
     notes?: string,
@@ -566,6 +615,19 @@ export class BookingService {
     if (status === "CONFIRMED") {
       try {
         const fullBooking = await this.findOne(booking.id, booking.studioId);
+        const items = (fullBooking as any).bookingItems || [];
+        const multiServiceName =
+          items.length > 0
+            ? items.map((i: any) => i.service.name).join(" + ")
+            : fullBooking.service.name;
+        const totalPrice = fullBooking.quoteAmount
+          ? Number(fullBooking.quoteAmount)
+          : items.length > 0
+            ? items.reduce(
+                (acc: number, i: any) => acc + (Number(i.originalPrice) || 0),
+                0,
+              )
+            : Number(fullBooking.service.price);
 
         const pdfBuffer = await this.pdfService.generateContractPdf({
           studioName: fullBooking.studio.name,
@@ -574,10 +636,16 @@ export class BookingService {
           customerName: fullBooking.customer.name,
           customerEmail: fullBooking.customer.email || undefined,
           customerPhone: fullBooking.customer.phone,
-          serviceName: fullBooking.service.name,
-          serviceDescription: fullBooking.service.description || undefined,
+          serviceName: multiServiceName,
+          serviceDescription:
+            fullBooking.bookingItems?.length > 0
+              ? fullBooking.bookingItems
+                  .map((i) => i.service.description)
+                  .filter(Boolean)
+                  .join("\n\n")
+              : fullBooking.service?.description || undefined,
           scheduledAt: fullBooking.scheduledAt,
-          price: Number(fullBooking.service.price),
+          price: totalPrice,
           terms: fullBooking.studio.defaultTerms || "Standard Terms Apply",
           bookingId: fullBooking.id,
           acceptedAt: new Date(),
@@ -608,14 +676,22 @@ export class BookingService {
     // Send status update email to customer
     if (booking.customer.email) {
       try {
+        const fullBooking = await this.findOne(booking.id, booking.studioId);
+        const items = (fullBooking as any).bookingItems || [];
+        const multiServiceName =
+          items.length > 0
+            ? items.map((i: any) => i.service.name).join(" + ")
+            : booking.service.name;
+
         await this.notificationService.sendBookingStatusUpdate({
           to: booking.customer.email,
           customerName: booking.customer.name,
           studioName: booking.studio.name,
-          serviceName: booking.service.name,
+          serviceName: multiServiceName,
           scheduledDate: booking.scheduledAt,
           newStatus: status,
           notes: notes,
+          studioId: booking.studioId,
         });
       } catch (error: unknown) {
         this.logger.error(
@@ -642,31 +718,54 @@ export class BookingService {
         );
 
         // Auto-generate invoice if not exists
-        const fullBooking: any = await this.findOne(booking.id, booking.studioId);
-        if (fullBooking) {
-          const existingInvoice = await this.prisma.invoice.findFirst({
-            where: { bookingId: booking.id }
-          });
-          
-          if (!existingInvoice) {
-            const unitPrice = fullBooking.quoteAmount ? Number(fullBooking.quoteAmount) : Number(fullBooking.service.price);
-            try {
-               await this.invoiceService.create({
-                  customerId: fullBooking.customer.id,
-                  bookingId: fullBooking.id,
-                  lineItems: [{
-                     description: fullBooking.service.name + (fullBooking.quoteAmount ? ' (Negotiated Rate)' : ''),
-                     quantity: 1,
-                     rate: unitPrice,
-                     amount: unitPrice
-                  }],
-                  dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                  notes: "Auto-generated upon completion.",
-               }, fullBooking.studioId);
-               this.logger.log(`Auto-generated invoice for completed booking ${booking.id}`);
-            } catch(err) {
-               this.logger.error("Failed to auto-generate invoice:", err);
-            }
+        const fullBooking: any = await this.findOne(
+          booking.id,
+          booking.studioId,
+        );
+        if (
+          fullBooking &&
+          (!fullBooking.invoices || fullBooking.invoices.length === 0)
+        ) {
+          const items = fullBooking.bookingItems || [];
+          const lineItems =
+            items.length > 0
+              ? items.map((i: any) => ({
+                  description: i.service.name,
+                  quantity: 1,
+                  rate: Number(i.quotedAmount ?? i.originalPrice),
+                  amount: Number(i.quotedAmount ?? i.originalPrice),
+                }))
+              : [
+                  {
+                    description: fullBooking.service.name,
+                    quantity: 1,
+                    rate: Number(
+                      fullBooking.quoteAmount ?? fullBooking.service.price,
+                    ),
+                    amount: Number(
+                      fullBooking.quoteAmount ?? fullBooking.service.price,
+                    ),
+                  },
+                ];
+
+          try {
+            await this.invoiceService.create(
+              {
+                customerId: fullBooking.customer.id,
+                bookingId: fullBooking.id,
+                lineItems,
+                dueDate: new Date(
+                  Date.now() + 7 * 24 * 60 * 60 * 1000,
+                ).toISOString(),
+                notes: "Auto-generated upon completion.",
+              },
+              fullBooking.studioId,
+            );
+            this.logger.log(
+              `Auto-generated invoice for completed booking ${booking.id}`,
+            );
+          } catch (err) {
+            this.logger.error("Failed to auto-generate invoice:", err);
           }
         }
       }
@@ -752,6 +851,7 @@ export class BookingService {
   async sendQuote(id: string, studioId: string, dto: SendQuoteDto) {
     const booking = await this.prisma.booking.findFirst({
       where: { id, studioId },
+      include: { bookingItems: { include: { service: true } } },
     });
 
     if (!booking) throw new NotFoundException("Booking not found");
@@ -765,6 +865,31 @@ export class BookingService {
 
     const updated = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
+        let serviceQuotesJson = booking.serviceQuotes;
+
+        if (dto.serviceQuotes && dto.serviceQuotes.length > 0) {
+          // Update the JSON structure for the booking
+          serviceQuotesJson = dto.serviceQuotes.map((sq) => {
+            const item = booking.bookingItems.find(
+              (bi) => bi.serviceId === sq.serviceId,
+            );
+            return {
+              serviceId: sq.serviceId,
+              serviceName: item?.service?.name || "Service",
+              originalPrice: item?.originalPrice || 0,
+              quotedAmount: sq.amount,
+            };
+          }) as any;
+
+          // Sync individual booking item records
+          for (const sq of dto.serviceQuotes) {
+            await tx.bookingItem.updateMany({
+              where: { bookingId: id, serviceId: sq.serviceId },
+              data: { quotedAmount: sq.amount },
+            });
+          }
+        }
+
         const b = await tx.booking.update({
           where: { id },
           data: {
@@ -773,6 +898,7 @@ export class BookingService {
             quoteNotes: dto.notes,
             quoteRejectionNotes: null,
             quotedAt: new Date(),
+            serviceQuotes: serviceQuotesJson || undefined,
           },
           include: { customer: true, studio: true, service: true },
         });
@@ -789,6 +915,7 @@ export class BookingService {
       },
     );
 
+    // Invalidate relevant caches
     await this.cacheService.del(`studio:${studioId}:bookings`);
 
     if (updated.customer.email) {
@@ -801,6 +928,7 @@ export class BookingService {
           scheduledDate: updated.scheduledAt,
           newStatus: "QUOTED",
           notes: dto.notes,
+          studioId: updated.studio.id,
         });
       } catch (err: unknown) {
         this.logger.error(
@@ -816,7 +944,7 @@ export class BookingService {
     const customerIds = await this.getCustomerIdsByUserId(userId);
     const booking = await this.prisma.booking.findFirst({
       where: { id, customerId: { in: customerIds } },
-      include: { studio: true, service: true, customer: true }
+      include: { studio: true, service: true, customer: true },
     });
 
     if (!booking) throw new NotFoundException("Booking not found");
@@ -858,6 +986,7 @@ export class BookingService {
         customerName: updated.customer.name,
         serviceName: updated.service?.name ?? "Service",
         notes,
+        studioId: updated.studio.id,
       });
     }
 
@@ -869,10 +998,10 @@ export class BookingService {
   private async getCustomerIdsByUserId(userId: string) {
     let records = await this.prisma.customer.findMany({
       where: { globalUserId: userId },
-      select: { id: true }
+      select: { id: true },
     });
-    
-    let ids = records.map(r => r.id);
+
+    let ids = records.map((r) => r.id);
 
     if (ids.length === 0) {
       const globalUser = await this.prisma.user.findUnique({
@@ -882,13 +1011,14 @@ export class BookingService {
       if (globalUser?.email) {
         records = await this.prisma.customer.findMany({
           where: { email: globalUser.email },
-          select: { id: true }
+          select: { id: true },
         });
-        ids = records.map(r => r.id);
+        ids = records.map((r) => r.id);
       }
     }
 
-    if (ids.length === 0) throw new ForbiddenException("No customer record found");
+    if (ids.length === 0)
+      throw new ForbiddenException("No customer record found");
     return ids;
   }
 
@@ -901,6 +1031,24 @@ export class BookingService {
     if (!booking) throw new NotFoundException("Booking not found");
     if (booking.status !== "QUOTED")
       throw new BadRequestException("Only quoted bookings can be accepted");
+
+    // Check for schedule conflicts before confirming
+    const fullBooking = await this.findOne(id, booking.studioId);
+    const totalDuration =
+      fullBooking.bookingItems && fullBooking.bookingItems.length > 0
+        ? fullBooking.bookingItems.reduce(
+            (acc, item) => acc + Number(item.service.durationMinutes || 0),
+            0,
+          )
+        : fullBooking.service?.durationMinutes || 0;
+
+    await this.checkConflicts(
+      booking.studioId,
+      booking.scheduledAt,
+      totalDuration,
+      id,
+      booking.assignedToUserId || undefined,
+    );
 
     const updated = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
@@ -972,37 +1120,47 @@ export class BookingService {
     return updated;
   }
 
-
   private async checkConflicts(
     studioId: string,
     scheduledAt: Date,
     durationMinutes: number,
     excludeBookingId?: string,
+    assignedToUserId?: string,
   ) {
     const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
 
     // Fetch all active bookings for the studio that could potentially overlap.
-    // We join service to get durationMinutes so we can compute each booking's endAt.
     const candidates = await this.prisma.booking.findMany({
       where: {
         studioId,
         status: { in: ["INQUIRY", "QUOTED", "CONFIRMED"] },
         id: excludeBookingId ? { not: excludeBookingId } : undefined,
-        // Optimisation: a booking starting on or after our endAt can never overlap
         scheduledAt: { lt: endAt },
+        // If assignedToUserId is provided, check only for that staff's overlaps.
+        // If it's undefined (Prisma behavior), it omits the filter and checks studio-wide.
+        assignedToUserId: assignedToUserId || undefined,
       },
       select: {
         scheduledAt: true,
-        service: {
-          select: { durationMinutes: true },
+        service: { select: { durationMinutes: true } },
+        bookingItems: {
+          select: { service: { select: { durationMinutes: true } } },
         },
       },
     });
 
     for (const candidate of candidates) {
+      // Use bookingItems duration if available, otherwise fallback to primary service
+      const candidateDuration =
+        candidate.bookingItems && candidate.bookingItems.length > 0
+          ? candidate.bookingItems.reduce(
+              (acc, item) => acc + Number(item.service.durationMinutes || 0),
+              0,
+            )
+          : candidate.service?.durationMinutes || 0;
+
       const candidateEnd = new Date(
-        candidate.scheduledAt.getTime() +
-          candidate.service.durationMinutes * 60000,
+        candidate.scheduledAt.getTime() + candidateDuration * 60000,
       );
 
       // True overlap: new booking starts before candidate ends AND ends after candidate starts

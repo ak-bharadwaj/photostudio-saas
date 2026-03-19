@@ -117,20 +117,20 @@ export default function NewInvoicePage() {
         id: crypto.randomUUID(),
         description: service.name,
         quantity: 1,
-        rate: Number(service.price),
-        amount: Number(service.price),
+        rate: Number(service.price || 0),
+        amount: Number(service.price || 0),
       };
       setLineItems((prev) => [...prev, newItem]);
     }
   };
 
   const calculateSubtotal = () =>
-    lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
+    lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const taxAmount = (subtotal * Number(formData.tax)) / 100;
-    return Math.max(0, subtotal + taxAmount - Number(formData.discount));
+    const taxAmount = (subtotal * (Number(formData.tax) || 0)) / 100;
+    return Math.max(0, subtotal + taxAmount - (Number(formData.discount) || 0));
   };
 
   const handleSendClick = () => {

@@ -6,7 +6,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto } from "./dto/payment.dto";
 
-import { InvoiceStatus, PaymentMethod, Prisma } from '@prisma/client';
+import { InvoiceStatus, PaymentMethod, Prisma } from "@prisma/client";
 
 @Injectable()
 export class PaymentService {
@@ -36,7 +36,7 @@ export class PaymentService {
     // Calculate total paid so far
     const totalPaid = invoice.payments.reduce(
       (sum: number, payment: { amount: unknown }) =>
-        sum + Number(payment.amount),
+        sum + Number(payment.amount || 0),
       0,
     );
 
@@ -199,7 +199,7 @@ export class PaymentService {
 
       // Calculate new total paid
       const totalPaid = remainingPayments.reduce(
-        (sum: number, p: { amount: unknown }) => sum + Number(p.amount),
+        (sum: number, p: { amount: unknown }) => sum + Number(p.amount || 0),
         0,
       );
 

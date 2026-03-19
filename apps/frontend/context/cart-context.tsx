@@ -76,7 +76,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setItems([]);
     };
 
-    const total = items.reduce((acc, item) => acc + item.price, 0);
+    const total = items.reduce((acc, item) => acc + Number(item.price || 0), 0);
 
     const toggleCart = () => setIsOpen(!isOpen);
 

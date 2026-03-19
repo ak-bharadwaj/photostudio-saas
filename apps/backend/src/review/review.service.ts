@@ -12,7 +12,10 @@ export class ReviewService {
   /**
    * Get all reviews for a studio (scoped to the logged-in user's studio)
    */
-  async findAll(studioId: string, params?: { rating?: number; isVisible?: boolean }) {
+  async findAll(
+    studioId: string,
+    params?: { rating?: number; isVisible?: boolean },
+  ) {
     const where: Record<string, unknown> = { studioId };
     if (params?.rating !== undefined) where.rating = params.rating;
     if (params?.isVisible !== undefined) where.isVisible = params.isVisible;
@@ -21,7 +24,9 @@ export class ReviewService {
       this.prisma.review.findMany({
         where,
         include: {
-          customer: { select: { id: true, name: true, email: true, phone: true } },
+          customer: {
+            select: { id: true, name: true, email: true, phone: true },
+          },
           booking: {
             select: {
               id: true,
@@ -42,7 +47,10 @@ export class ReviewService {
     });
     const avgRating =
       allReviews.length > 0
-        ? allReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / allReviews.length
+        ? allReviews.reduce(
+            (sum: number, r: any) => sum + Number(r.rating || 0),
+            0,
+          ) / allReviews.length
         : 0;
 
     const dist = [5, 4, 3, 2, 1].map((star: number) => ({
@@ -57,8 +65,12 @@ export class ReviewService {
         avgRating: parseFloat(avgRating.toFixed(1)),
         totalReviews: allReviews.length,
         distribution: dist,
-        visibleCount: await this.prisma.review.count({ where: { studioId, isVisible: true } }),
-        pendingReplyCount: await this.prisma.review.count({ where: { studioId, reply: null } }),
+        visibleCount: await this.prisma.review.count({
+          where: { studioId, isVisible: true },
+        }),
+        pendingReplyCount: await this.prisma.review.count({
+          where: { studioId, reply: null },
+        }),
       },
     };
   }
@@ -70,7 +82,9 @@ export class ReviewService {
     const review = await this.prisma.review.findFirst({
       where: { id, studioId },
       include: {
-        customer: { select: { id: true, name: true, email: true, phone: true } },
+        customer: {
+          select: { id: true, name: true, email: true, phone: true },
+        },
         booking: {
           select: {
             id: true,
@@ -89,7 +103,9 @@ export class ReviewService {
    * Reply to a review
    */
   async reply(id: string, studioId: string, reply: string) {
-    const review = await this.prisma.review.findFirst({ where: { id, studioId } });
+    const review = await this.prisma.review.findFirst({
+      where: { id, studioId },
+    });
     if (!review) throw new NotFoundException("Review not found");
 
     return this.prisma.review.update({
@@ -105,7 +121,9 @@ export class ReviewService {
    * Toggle visibility of a review
    */
   async toggleVisibility(id: string, studioId: string) {
-    const review = await this.prisma.review.findFirst({ where: { id, studioId } });
+    const review = await this.prisma.review.findFirst({
+      where: { id, studioId },
+    });
     if (!review) throw new NotFoundException("Review not found");
 
     return this.prisma.review.update({
@@ -118,7 +136,9 @@ export class ReviewService {
    * Delete a review (studio owner can delete)
    */
   async remove(id: string, studioId: string) {
-    const review = await this.prisma.review.findFirst({ where: { id, studioId } });
+    const review = await this.prisma.review.findFirst({
+      where: { id, studioId },
+    });
     if (!review) throw new NotFoundException("Review not found");
 
     await this.prisma.review.delete({ where: { id } });

@@ -32,6 +32,8 @@ async function main() {
     
     console.log('Deleting bookings...');
     await prisma.booking.deleteMany({});
+    const finalCount = await prisma.booking.count();
+    console.log('Booking count after delete:', finalCount);
     
     console.log('Transactional data successfully deleted.');
     

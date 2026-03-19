@@ -20,9 +20,13 @@ export class CreatePublicBookingDto {
   @IsString()
   customerPhone: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  serviceId: string;
+  serviceId?: string;
+
+  @IsOptional()
+  @IsString({ each: true })
+  serviceIds?: string[];
 
   @IsNotEmpty()
   @IsDateString()

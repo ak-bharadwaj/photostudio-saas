@@ -31,8 +31,13 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     // Block access if studio is EXPIRED or SUSPENDED
-    if (user.studio.status === 'EXPIRED' || user.studio.status === 'SUSPENDED') {
-      throw new ForbiddenException(`Studio access is ${user.studio.status.toLowerCase()}`);
+    if (
+      user.studio.status === "EXPIRED" ||
+      user.studio.status === "SUSPENDED"
+    ) {
+      throw new ForbiddenException(
+        `Studio access is ${user.studio.status.toLowerCase()}`,
+      );
     }
 
     // Check expiry date

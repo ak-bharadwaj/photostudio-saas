@@ -7,7 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationService } from "../notification/notification.service";
 import { CreatePublicBookingDto } from "./dto/public-booking.dto";
-import { BookingStatus, Prisma } from '@prisma/client';
+import { BookingStatus, Prisma } from "@prisma/client";
 
 @Injectable()
 export class PublicService {
@@ -124,20 +124,34 @@ export class PublicService {
       );
     }
 
-    // Verify service exists and is active
-    const service = await this.prisma.service.findFirst({
+    // Handle multiple services
+    const serviceIds = (
+      dto.serviceIds && dto.serviceIds.length > 0
+        ? dto.serviceIds
+        : [dto.serviceId]
+    ) as string[];
+
+    // Verify all services exist and belong to the studio
+    const services = await this.prisma.service.findMany({
       where: {
-        id: dto.serviceId,
+        id: { in: serviceIds },
         studioId: studio.id,
         isActive: true,
       },
     });
 
-    if (!service) {
-      throw new NotFoundException("Service not found or not available");
+    if (services.length === 0) {
+      throw new NotFoundException("No valid services found");
     }
 
-    // Validate and parse scheduledAt — reject invalid date strings before any comparison
+    // Sort found services to match input order if possible, though not strictly required
+    const primaryService = services[0];
+    const totalDuration = services.reduce(
+      (acc, s) => acc + Number(s.durationMinutes || 0),
+      0,
+    );
+
+    // Validate and parse scheduledAt
     const scheduledAt = new Date(dto.scheduledAt);
     if (isNaN(scheduledAt.getTime())) {
       throw new BadRequestException("Invalid scheduledAt date");
@@ -146,10 +160,8 @@ export class PublicService {
       throw new BadRequestException("Scheduled time must be in the future");
     }
 
-    // Check for scheduling conflicts using correct overlap algorithm
-    const endAt = new Date(
-      scheduledAt.getTime() + service.durationMinutes * 60000,
-    );
+    // Check for scheduling conflicts using total duration
+    const endAt = new Date(scheduledAt.getTime() + totalDuration * 60000);
     const candidates = await this.prisma.booking.findMany({
       where: {
         studioId: studio.id,
@@ -160,93 +172,142 @@ export class PublicService {
             BookingStatus.CONFIRMED,
           ],
         },
-        // Optimisation: booking starting on or after endAt can never overlap
         scheduledAt: { lt: endAt },
       },
       select: {
         scheduledAt: true,
-        service: {
-          select: { durationMinutes: true },
+        service: { select: { durationMinutes: true } },
+        // Also check sibling bookings or booking items if they exist
+        bookingItems: {
+          select: { service: { select: { durationMinutes: true } } },
         },
       },
     });
 
     for (const candidate of candidates) {
+      // If the candidate has bookingItems, sum their durations. Otherwise use candidate.service.durationMinutes
+      const candidateDuration =
+        candidate.bookingItems && candidate.bookingItems.length > 0
+          ? candidate.bookingItems.reduce(
+              (acc, item) => acc + Number(item.service.durationMinutes || 0),
+              0,
+            )
+          : candidate.service?.durationMinutes || 0;
+
       const candidateEnd = new Date(
-        candidate.scheduledAt.getTime() +
-          candidate.service.durationMinutes * 60000,
+        candidate.scheduledAt.getTime() + candidateDuration * 60000,
       );
-      // True overlap: new booking starts before candidate ends AND new booking ends after candidate starts
+
       if (scheduledAt < candidateEnd && endAt > candidate.scheduledAt) {
-        throw new BadRequestException("This time slot is not available");
+        throw new BadRequestException(
+          "This time slot is not available for the selected services' total duration",
+        );
       }
     }
 
-    // Find or create customer + create booking atomically in one transaction
+    // Find or create customer + create booking atomically
     const booking = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        // Check both separately to avoid P2002 unique constraint violations
-        let customerByPhone = await tx.customer.findFirst({
-          where: { studioId: studio.id, phone: dto.customerPhone },
+        const normalizedPhone = dto.customerPhone.replace(/\D/g, "");
+        const searchPhone =
+          normalizedPhone.length >= 10
+            ? normalizedPhone.slice(-10)
+            : normalizedPhone;
+        const processedEmail = dto.customerEmail?.trim() || null;
+
+        const customerByPhone = await tx.customer.findFirst({
+          where: { studioId: studio.id, phone: { contains: searchPhone } },
         });
-        let customerByEmail = dto.customerEmail ? await tx.customer.findFirst({
-          where: { studioId: studio.id, email: dto.customerEmail },
-        }) : null;
+
+        const customerByEmail = processedEmail
+          ? await tx.customer.findFirst({
+              where: {
+                studioId: studio.id,
+                email: { equals: processedEmail, mode: "insensitive" },
+              },
+            })
+          : null;
 
         let customer;
-        if (customerByPhone && customerByEmail) {
-          // Both exists. If they are different records, we link the current booking to the email-matched one
-          // and update its phone to match the current booking.
+
+        if (
+          customerByPhone &&
+          customerByEmail &&
+          customerByPhone.id !== customerByEmail.id
+        ) {
+          // Both match DIFFERENT records, merge phone record into email record
+          const mergedGlobalUserId =
+            globalUserId ||
+            customerByEmail.globalUserId ||
+            customerByPhone.globalUserId ||
+            undefined;
+
+          await tx.booking.updateMany({
+            where: { customerId: customerByPhone.id },
+            data: { customerId: customerByEmail.id },
+          });
+          await tx.invoice.updateMany({
+            where: { customerId: customerByPhone.id },
+            data: { customerId: customerByEmail.id },
+          });
+          await tx.review.updateMany({
+            where: { customerId: customerByPhone.id },
+            data: { customerId: customerByEmail.id },
+          });
+          await tx.customer.delete({ where: { id: customerByPhone.id } });
+
           customer = await tx.customer.update({
             where: { id: customerByEmail.id },
             data: {
-              globalUserId: globalUserId || customerByEmail.globalUserId || undefined,
-              name: dto.customerName,
-              phone: dto.customerPhone,
-            },
-          });
-        } else if (customerByPhone) {
-          // Found by phone only. Update email if safe (we know customerByEmail was null).
-          customer = await tx.customer.update({
-            where: { id: customerByPhone.id },
-            data: {
-              globalUserId: globalUserId || customerByPhone.globalUserId || undefined,
-              name: dto.customerName,
-              email: dto.customerEmail,
-            },
-          });
-        } else if (customerByEmail) {
-          // Found by email only. Update phone.
-          customer = await tx.customer.update({
-            where: { id: customerByEmail.id },
-            data: {
-              globalUserId: globalUserId || customerByEmail.globalUserId || undefined,
+              globalUserId: mergedGlobalUserId,
               name: dto.customerName,
               phone: dto.customerPhone,
             },
           });
         } else {
-          // New customer
-          customer = await tx.customer.create({
-            data: {
-              studioId: studio.id,
-              globalUserId: globalUserId || undefined,
-              name: dto.customerName,
-              email: dto.customerEmail,
-              phone: dto.customerPhone,
-            },
-          });
+          customer = customerByEmail || customerByPhone;
+
+          if (!customer) {
+            customer = await tx.customer.create({
+              data: {
+                studioId: studio.id,
+                globalUserId: globalUserId || undefined,
+                name: dto.customerName,
+                email: processedEmail,
+                phone: dto.customerPhone,
+              },
+            });
+          } else {
+            customer = await tx.customer.update({
+              where: { id: customer.id },
+              data: {
+                globalUserId:
+                  globalUserId || customer.globalUserId || undefined,
+                name: dto.customerName,
+                email: processedEmail || customer.email,
+                phone: dto.customerPhone,
+              },
+            });
+          }
         }
 
+        // Create the single booking record
         const newBooking = await tx.booking.create({
           data: {
             studioId: studio.id,
             customerId: customer.id,
-            serviceId: service.id,
+            serviceId: primaryService.id, // Use the first service as primary for compatibility
             scheduledAt,
             status: BookingStatus.INQUIRY,
             customerNotes: dto.customerNotes,
             acceptedTerms: dto.acceptedTerms ?? false,
+            // Initialize empty serviceQuotes for all services
+            serviceQuotes: services.map((s) => ({
+              serviceId: s.id,
+              serviceName: s.name,
+              originalPrice: s.price,
+              quotedAmount: null,
+            })) as any,
           },
           include: {
             service: true,
@@ -254,11 +315,20 @@ export class PublicService {
           },
         });
 
+        // Create BookingItem records for all services
+        await (tx as any).bookingItem.createMany({
+          data: services.map((s) => ({
+            bookingId: newBooking.id,
+            serviceId: s.id,
+            originalPrice: s.price,
+          })),
+        });
+
         await tx.bookingStatusLog.create({
           data: {
             bookingId: newBooking.id,
             status: BookingStatus.INQUIRY,
-            notes: "Booking created via public form",
+            notes: `Booking created with ${services.length} services via public form`,
           },
         });
 
@@ -266,40 +336,62 @@ export class PublicService {
       },
     );
 
-    // TODO: Send confirmation email to customer
-    // TODO: Send notification to studio
-
     // Send confirmation email to customer (non-blocking)
-    if (booking.customer.email) {
+    const multiServiceName =
+      services.length > 1
+        ? services.map((s) => s.name).join(" + ")
+        : services[0]?.name || "Service";
+
+    if ((booking as any).customer.email) {
       this.notificationService
         .sendBookingConfirmation({
-          to: booking.customer.email,
-          customerName: booking.customer.name,
+          to: (booking as any).customer.email,
+          customerName: (booking as any).customer.name,
           studioName: studio.name,
-          serviceName: service.name,
-          scheduledDate: scheduledAt,
           studioEmail: studio.email,
           studioPhone: studio.phone ?? "",
           bookingId: booking.id,
+          serviceName: multiServiceName,
+          scheduledDate: scheduledAt,
+          studioId: studio.id,
         })
         .catch(() => {
           // Non-critical — do not fail the request if email delivery fails
         });
     }
 
+    // Send notification to studio (non-blocking)
+    this.notificationService
+      .sendNewBookingInquiry({
+        to: studio.email,
+        studioName: studio.name,
+        customerName: (booking as any).customer.name,
+        customerPhone: (booking as any).customer.phone, // Use the phone from the created/updated customer
+        serviceName: multiServiceName,
+        scheduledDate: scheduledAt,
+        bookingId: booking.id,
+        studioId: studio.id,
+      })
+      .catch(() => {
+        // Non-critical
+      });
+
     return {
       id: booking.id,
       scheduledAt: booking.scheduledAt,
       status: booking.status,
       service: {
-        name: service.name,
-        price: service.price,
-        durationMinutes: service.durationMinutes,
+        name: multiServiceName,
+        price: services.reduce((acc, s) => acc + Number(s.price || 0), 0),
+        durationMinutes: services.reduce(
+          (acc, s) => acc + Number(s.durationMinutes || 0),
+          0,
+        ),
       },
       customer: {
-        name: booking.customer.name,
-        email: booking.customer.email,
-        phone: booking.customer.phone,
+        name: (booking as any).customer.name,
+        email: (booking as any).customer.email,
+        phone: (booking as any).customer.phone,
       },
     };
   }
@@ -307,7 +399,12 @@ export class PublicService {
   /**
    * Get available time slots for a service on a specific date
    */
-  async getAvailableTimeSlots(slug: string, serviceId: string, date: string) {
+  async getAvailableTimeSlots(
+    slug: string,
+    serviceId: string,
+    date: string,
+    durationOverride?: number,
+  ) {
     const studio = await this.prisma.studio.findUnique({
       where: { slug },
     });
@@ -353,10 +450,16 @@ export class PublicService {
         },
       },
       select: {
+        id: true,
         scheduledAt: true,
         service: {
           select: {
             durationMinutes: true,
+          },
+        },
+        bookingItems: {
+          select: {
+            service: { select: { durationMinutes: true } },
           },
         },
       },
@@ -366,7 +469,9 @@ export class PublicService {
     const slots: { time: string; available: boolean }[] = [];
     const currentTime = new Date();
 
-    for (let hour = 9; hour < 18; hour++) {
+    const checkDuration = durationOverride || service.durationMinutes;
+
+    for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const slotTime = new Date(year, month - 1, day, hour, minute, 0, 0);
 
@@ -376,26 +481,27 @@ export class PublicService {
         }
 
         // Check if slot conflicts with existing bookings
-        const hasConflict = existingBookings.some(
-          (booking: {
-            scheduledAt: Date;
-            service: { durationMinutes: number };
-          }) => {
-            const bookingEnd = new Date(
-              booking.scheduledAt.getTime() +
-                booking.service.durationMinutes * 60000,
-            );
-            const slotEnd = new Date(
-              slotTime.getTime() + service.durationMinutes * 60000,
-            );
+        const hasConflict = existingBookings.some((booking: any) => {
+          const bookingDuration =
+            booking.bookingItems && booking.bookingItems.length > 0
+              ? booking.bookingItems.reduce(
+                  (acc: number, item: any) =>
+                    acc + Number(item.service.durationMinutes || 0),
+                  0,
+                )
+              : booking.service?.durationMinutes || 0;
 
-            return (
-              (slotTime >= booking.scheduledAt && slotTime < bookingEnd) ||
-              (slotEnd > booking.scheduledAt && slotEnd <= bookingEnd) ||
-              (slotTime <= booking.scheduledAt && slotEnd >= bookingEnd)
-            );
-          },
-        );
+          const bookingEnd = new Date(
+            booking.scheduledAt.getTime() + bookingDuration * 60000,
+          );
+          const slotEnd = new Date(slotTime.getTime() + checkDuration * 60000);
+
+          return (
+            (slotTime >= booking.scheduledAt && slotTime < bookingEnd) ||
+            (slotEnd > booking.scheduledAt && slotEnd <= bookingEnd) ||
+            (slotTime <= booking.scheduledAt && slotEnd >= bookingEnd)
+          );
+        });
 
         if (!hasConflict) {
           slots.push({
@@ -410,7 +516,7 @@ export class PublicService {
       date,
       serviceId,
       serviceName: service.name,
-      durationMinutes: service.durationMinutes,
+      durationMinutes: checkDuration,
       slots,
     };
   }
@@ -507,14 +613,16 @@ export class PublicService {
     // (Though normally Prisma handles this, it's safer for this specific requirement)
 
     const itemsWithStats = finalItems.map((item: any) => {
-      const studioReviews = (item.studio as any).reviews || [];
+      const studioReviews = item.studio.reviews || [];
       const avgRating =
         studioReviews.length > 0
-          ? studioReviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
-            studioReviews.length
+          ? studioReviews.reduce(
+              (acc: number, r: any) => acc + Number(r.rating || 0),
+              0,
+            ) / studioReviews.length
           : 0;
 
-      const { reviews: _, ...studioWithoutReviews } = item.studio as any;
+      const { reviews: _, ...studioWithoutReviews } = item.studio;
 
       return {
         ...item,
@@ -587,7 +695,10 @@ export class PublicService {
       const reviews = item.reviews || [];
       const avgRating =
         reviews.length > 0
-          ? reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / reviews.length
+          ? reviews.reduce(
+              (acc: number, r: any) => acc + Number(r.rating || 0),
+              0,
+            ) / reviews.length
           : 0;
 
       const { reviews: _, ...studioWithoutReviews } = item;
@@ -671,8 +782,10 @@ export class PublicService {
     const reviews = (service.studio as any).reviews || [];
     const avgRating =
       reviews.length > 0
-        ? reviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
-          reviews.length
+        ? reviews.reduce(
+            (acc: number, r: any) => acc + Number(r.rating || 0),
+            0,
+          ) / reviews.length
         : 0;
 
     const { reviews: _, ...studioWithoutReviews } = service.studio as any;

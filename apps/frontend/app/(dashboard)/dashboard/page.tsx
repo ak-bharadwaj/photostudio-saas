@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { addToast } = useToast();
 
-  const loadData = useCallback(async (silent = false) => {
+  const loadData = useCallback(async (silent = false, retryCount = 0) => {
     try {
       if (!silent) setIsLoading(true);
       const [bookingsRes, customersRes, invoicesRes, invoiceStatsRes] = await Promise.all([
@@ -107,11 +107,16 @@ export default function DashboardPage() {
         totalBookings: bookingsRes.data?.meta?.total || 0,
         totalCustomers: customersRes.data?.meta?.total || 0,
         totalRevenue: statsData.totalRevenue ?? 0,
-        pendingInvoices: statsData.totalInvoices - statsData.paidInvoices, // All non-paid invoices
+        pendingInvoices: statsData.totalInvoices - statsData.paidInvoices,
       });
       setRecentInvoices(invoicesRes.data?.data || []);
     } catch (error) {
       console.error('Dashboard load failed', error);
+      // Auto-retry once after 2.5s to handle DB cold-start delays (Neon serverless)
+      if (retryCount < 1) {
+        setTimeout(() => loadData(silent, retryCount + 1), 2500);
+        return;
+      }
       if (!silent) addToast('error', 'Failed to synchronize dashboard telemetry');
     } finally {
       if (!silent) setIsLoading(false);

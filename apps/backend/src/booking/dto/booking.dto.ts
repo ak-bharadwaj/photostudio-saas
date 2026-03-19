@@ -10,9 +10,11 @@ import {
   Validate,
   ValidatorConstraint,
   ValidatorConstraintInterface,
+  IsArray,
+  ValidateNested,
 } from "class-validator";
-import { Transform } from "class-transformer";
-import { BookingStatus } from '@prisma/client';
+import { Transform, Type } from "class-transformer";
+import { BookingStatus } from "@prisma/client";
 
 @ValidatorConstraint({ name: "isFutureDate", async: false })
 class IsFutureDateConstraint implements ValidatorConstraintInterface {
@@ -85,6 +87,12 @@ export class UpdateBookingDto {
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   notes?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  deliveryUrl?: string; // Link to photos/drive
+
 }
 
 export class UpdateBookingStatusDto {
@@ -115,8 +123,23 @@ export class CreateInternalBookingDto {
   @IsString()
   @IsOptional()
   @Transform(({ value }) => value?.trim())
+  assignedToUserId?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
   notes?: string;
 }
+export class ServiceQuoteItemDto {
+  @IsString()
+  @IsNotEmpty()
+  serviceId: string;
+
+  @IsNumber()
+  @Min(0)
+  amount: number;
+}
+
 export class SendQuoteDto {
   @IsNumber()
   @Min(0.01)
@@ -125,6 +148,12 @@ export class SendQuoteDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ServiceQuoteItemDto)
+  serviceQuotes?: ServiceQuoteItemDto[];
 }
 
 export class AcceptQuoteDto {

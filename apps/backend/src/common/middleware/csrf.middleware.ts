@@ -14,7 +14,7 @@ export class CsrfMiddleware implements NestMiddleware {
       res.cookie("XSRF-TOKEN", token, {
         httpOnly: false, // Must be readable by frontend if not using header cache
         secure: isSecure || isProduction,
-        sameSite: (isSecure || isProduction) ? "none" : "lax",
+        sameSite: isSecure || isProduction ? "none" : "lax",
       });
       res.setHeader("X-CSRF-Token", token);
       req.cookies = { ...req.cookies, "XSRF-TOKEN": token };
@@ -22,7 +22,7 @@ export class CsrfMiddleware implements NestMiddleware {
       // Even if cookie exists, also expose it as header and ensure it has correct flags for cross-domain
       const existingToken = req.cookies["XSRF-TOKEN"];
       res.setHeader("X-CSRF-Token", existingToken);
-      
+
       // Refresh the cookie with correct flags if it's a production/secure flow
       if (isSecure || isProduction) {
         res.cookie("XSRF-TOKEN", existingToken, {
@@ -51,9 +51,11 @@ export class CsrfMiddleware implements NestMiddleware {
       ) {
         return next();
       }
-      
-      console.error(`[CSRF] Failure: Header[${csrfToken}] vs Cookie[${cookieToken}] on ${req.method} ${req.originalUrl}`);
-      
+
+      console.error(
+        `[CSRF] Failure: Header[${csrfToken}] vs Cookie[${cookieToken}] on ${req.method} ${req.originalUrl}`,
+      );
+
       return res.status(403).json({
         message: "Invalid or missing CSRF token. Please refresh the page.",
         error: "Forbidden",

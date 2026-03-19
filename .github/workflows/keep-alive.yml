@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Ping Backend
         run: |
-          curl -I https://photostudio-saas.onrender.com/api/health
+          curl -I https://reviewsfeedback-backend.onrender.com/api/health
       
       - name: Ping Frontend (Optional)
         run: |

@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from "@prisma/client";
 import { getCurrentStudioId, isCurrentUserAdmin } from "./tenant-context";
 
 /**
@@ -56,7 +56,7 @@ export const tenantExtension = Prisma.defineExtension((client: any) => {
             // injectTenantFilter on findMany/findFirst already enforces isolation at the DB
             // layer; findUnique bypasses that path so we check post-fetch here.
             if (studioId && !admin) {
-              const resultStudioId = (result as any).studioId;
+              const resultStudioId = result.studioId;
               if (resultStudioId !== undefined && resultStudioId !== studioId) {
                 return null;
               }
@@ -90,8 +90,7 @@ export const tenantExtension = Prisma.defineExtension((client: any) => {
                 studioId: record.studioId || studioId,
               }));
             } else {
-              (args.data as any).studioId =
-                (args.data as any).studioId || studioId;
+              args.data.studioId = args.data.studioId || studioId;
             }
           }
           return query(args);

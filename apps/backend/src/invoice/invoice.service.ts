@@ -11,8 +11,7 @@ import { PdfService } from "../pdf/pdf.service";
 import { NotificationService } from "../notification/notification.service";
 import { QueueService } from "../queue/queue.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
-import { InvoiceStatus, Prisma } from '@prisma/client';
-
+import { InvoiceStatus, Prisma } from "@prisma/client";
 
 /** Shape of a single invoice line item stored in the JSON column. */
 interface InvoiceLineItem {
@@ -64,7 +63,10 @@ export class InvoiceService {
     }
 
     // Calculate totals
-    const subtotal = dto.lineItems.reduce((sum, item) => sum + item.amount, 0);
+    const subtotal = dto.lineItems.reduce(
+      (sum, item) => sum + Number(item.amount || 0),
+      0,
+    );
 
     // If bookingId is provided, check for a quoteAmount to apply bargaining discount
     let discount = dto.discount || 0;
@@ -223,7 +225,7 @@ export class InvoiceService {
 
     if (dto.lineItems) {
       const subtotal = dto.lineItems.reduce(
-        (sum, item) => sum + item.amount,
+        (sum, item) => sum + Number(item.amount || 0),
         0,
       );
       const tax = dto.tax !== undefined ? dto.tax : Number(invoice.tax);
@@ -260,7 +262,7 @@ export class InvoiceService {
     if (dto.dueDate) {
       updateData.dueDate = new Date(dto.dueDate);
     }
-    
+
     if (dto.notes !== undefined) {
       updateData.notes = dto.notes;
     }
@@ -366,6 +368,7 @@ export class InvoiceService {
           total: Number(invoice.total),
           dueDate: invoice.dueDate || undefined,
           invoiceUrl: pdfUrl,
+          studioId: invoice.studio.id,
         });
       } catch (error: unknown) {
         this.logger.error(

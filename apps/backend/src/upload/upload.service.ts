@@ -30,7 +30,9 @@ export class UploadService {
     // Cloudflare R2 / S3 Configuration
     // -------------------------------------------------------------------------
     const r2AccessKeyId = this.configService.get<string>("R2_ACCESS_KEY_ID");
-    const r2SecretAccessKey = this.configService.get<string>("R2_SECRET_ACCESS_KEY");
+    const r2SecretAccessKey = this.configService.get<string>(
+      "R2_SECRET_ACCESS_KEY",
+    );
     const r2Endpoint = this.configService.get<string>("R2_ENDPOINT");
     this.r2BucketName = this.configService.get<string>("R2_BUCKET_NAME") || "";
     this.r2PublicUrl = this.configService.get<string>("R2_PUBLIC_URL") || "";
@@ -107,7 +109,11 @@ export class UploadService {
     }
 
     if (this.s3Client) {
-      return this.uploadToR2(file.buffer, `studios/${studioId}/logo/${uuidv4()}${this.extFromMime(file.mimetype)}`, file.mimetype);
+      return this.uploadToR2(
+        file.buffer,
+        `studios/${studioId}/logo/${uuidv4()}${this.extFromMime(file.mimetype)}`,
+        file.mimetype,
+      );
     }
 
     try {
@@ -137,7 +143,11 @@ export class UploadService {
     }
 
     if (this.s3Client) {
-      return this.uploadToR2(file.buffer, `studios/${studioId}/portfolio/${uuidv4()}${this.extFromMime(file.mimetype)}`, file.mimetype);
+      return this.uploadToR2(
+        file.buffer,
+        `studios/${studioId}/portfolio/${uuidv4()}${this.extFromMime(file.mimetype)}`,
+        file.mimetype,
+      );
     }
 
     try {
@@ -169,7 +179,11 @@ export class UploadService {
     }
 
     if (this.s3Client) {
-      return this.uploadToR2(file.buffer, `studios/${studioId}/services/${uuidv4()}${this.extFromMime(file.mimetype)}`, file.mimetype);
+      return this.uploadToR2(
+        file.buffer,
+        `studios/${studioId}/services/${uuidv4()}${this.extFromMime(file.mimetype)}`,
+        file.mimetype,
+      );
     }
 
     try {
@@ -200,7 +214,11 @@ export class UploadService {
     }
 
     if (this.s3Client) {
-      return this.uploadToR2(buffer, `studios/${studioId}/contracts/contract_${bookingId}.pdf`, "application/pdf");
+      return this.uploadToR2(
+        buffer,
+        `studios/${studioId}/contracts/contract_${bookingId}.pdf`,
+        "application/pdf",
+      );
     }
 
     try {
@@ -228,7 +246,11 @@ export class UploadService {
     }
 
     if (this.s3Client) {
-      return this.uploadToR2(buffer, `studios/${studioId}/invoices/invoice_${invoiceNumber}.pdf`, "application/pdf");
+      return this.uploadToR2(
+        buffer,
+        `studios/${studioId}/invoices/invoice_${invoiceNumber}.pdf`,
+        "application/pdf",
+      );
     }
 
     try {
@@ -357,7 +379,9 @@ export class UploadService {
       return `${baseUrl}/${key}`;
     } catch (error) {
       this.logger.error(`R2 Upload failed for ${key}:`, error);
-      throw new InternalServerErrorException("Failed to upload to cloud storage");
+      throw new InternalServerErrorException(
+        "Failed to upload to cloud storage",
+      );
     }
   }
 }

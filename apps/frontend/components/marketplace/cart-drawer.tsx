@@ -123,7 +123,12 @@ export function CartDrawer() {
                                     const firstItem = items[0];
                                     if (firstItem) {
                                         setIsOpen(false);
-                                        router.push(`/studio/${firstItem.studio.slug}?service=${firstItem.id}`);
+                                        // Collect all service IDs to pass to the studio page
+                                        const serviceIds = items
+                                            .filter(i => i.studio.id === firstItem.studio.id)
+                                            .map(i => i.id)
+                                            .join(',');
+                                        router.push(`/studio/${firstItem.studio.slug}?services=${serviceIds}`);
                                     }
                                 }}
                             >

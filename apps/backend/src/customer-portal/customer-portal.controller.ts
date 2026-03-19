@@ -64,8 +64,11 @@ export class CustomerPortalController {
     const skip = (page - 1) * safeLimit;
 
     // Normalize phone for searching
-    const normalizedPhone = phone?.replace(/\D/g, '');
-    const searchPhone = normalizedPhone && normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+    const normalizedPhone = phone?.replace(/\D/g, "");
+    const searchPhone =
+      normalizedPhone && normalizedPhone.length >= 10
+        ? normalizedPhone.slice(-10)
+        : normalizedPhone;
 
     // Find all potential customer records that might belong to this person
     // Rule: same phone or same email means same customer identity.
@@ -82,10 +85,10 @@ export class CustomerPortalController {
       throw new NotFoundException("Customer not found");
     }
 
-    // Security: at least one record must match BOTH for verification, 
-    // or we verify they have access to this identity. 
+    // Security: at least one record must match BOTH for verification,
+    // or we verify they have access to this identity.
     // Given the user request "same mail or phno mean 1 customer", we treat them as one.
-    const customerIds = customers.map(c => c.id);
+    const customerIds = customers.map((c) => c.id);
 
     const [bookings, total] = await Promise.all([
       this.prisma.booking.findMany({
@@ -151,8 +154,11 @@ export class CustomerPortalController {
     const skip = (page - 1) * safeLimit;
 
     // Normalize phone for searching
-    const normalizedPhone = phone?.replace(/\D/g, '');
-    const searchPhone = normalizedPhone && normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+    const normalizedPhone = phone?.replace(/\D/g, "");
+    const searchPhone =
+      normalizedPhone && normalizedPhone.length >= 10
+        ? normalizedPhone.slice(-10)
+        : normalizedPhone;
 
     const customers = await this.prisma.customer.findMany({
       where: {
@@ -167,7 +173,7 @@ export class CustomerPortalController {
       throw new NotFoundException("Customer not found");
     }
 
-    const customerIds = customers.map(c => c.id);
+    const customerIds = customers.map((c) => c.id);
 
     const [invoices, total] = await Promise.all([
       this.prisma.invoice.findMany({

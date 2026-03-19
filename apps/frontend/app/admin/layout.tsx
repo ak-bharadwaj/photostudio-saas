@@ -11,7 +11,8 @@ import {
   Building2,
   LogOut,
   Shield,
-  ClipboardList
+  ClipboardList,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/studios', label: 'Studios', icon: Building2 },
   { href: '/admin/requests', label: 'Requests', icon: ClipboardList },
+  { href: '/admin/users', label: 'Users', icon: Users },
 ];
 
 export default function AdminLayout({

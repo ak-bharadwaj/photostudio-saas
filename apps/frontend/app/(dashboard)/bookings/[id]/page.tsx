@@ -25,8 +25,24 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  FolderDown,
+  Link as LinkIcon
 } from 'lucide-react';
 import Link from 'next/link';
+
+interface BookingItem {
+  id: string;
+  serviceId: string;
+  originalPrice: number | string;
+  quotedAmount: number | string | null;
+  service: {
+    id: string;
+    name: string;
+    description?: string;
+    price: number | string;
+    durationMinutes: number;
+  };
+}
 
 interface Booking {
   id: string | number;
@@ -39,7 +55,9 @@ interface Booking {
   quoteNotes?: string;
   quoteRejectionNotes?: string;
   negotiationRounds?: number;
+  deliveryUrl?: string;
   customer: {
+
     id: string | number;
     name: string;
     email: string;
@@ -49,8 +67,15 @@ interface Booking {
     id: string | number;
     name: string;
     description?: string;
-    price: number;
+    price: number | string;
     duration?: number;
+  };
+  bookingItems?: BookingItem[];
+  serviceQuotes?: any;
+  studio: {
+    id: string | number;
+    name: string;
+    currency: string;
   };
   createdAt: string;
   updatedAt: string;
@@ -72,10 +97,10 @@ export default function BookingDetailsPage() {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancellationNotes, setCancellationNotes] = useState('');
 
-  // Quote modal
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
+  const [serviceQuotes, setServiceQuotes] = useState<Record<string, string>>({});
   const [isSendingQuote, setIsSendingQuote] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
@@ -84,7 +109,13 @@ export default function BookingDetailsPage() {
   const [newDate, setNewDate] = useState('');
   const [isRescheduling, setIsRescheduling] = useState(false);
 
+  // Deliverables
+  const [isDeliverablesModalOpen, setIsDeliverablesModalOpen] = useState(false);
+  const [deliveryUrl, setDeliveryUrl] = useState('');
+  const [isSavingDeliveryUrl, setIsSavingDeliveryUrl] = useState(false);
+
   const abortRef = useRef<AbortController | null>(null);
+
 
   useEffect(() => {
     loadBooking(true);
@@ -163,22 +194,28 @@ export default function BookingDetailsPage() {
       addToast('error', 'Please enter a valid quote amount');
       return;
     }
+
+    const payload: any = { amount, notes: quoteNotes };
+    
+    // Add service breakdown if multiple services
+    if (booking.bookingItems && booking.bookingItems.length > 0) {
+      payload.serviceQuotes = Object.entries(serviceQuotes).map(([serviceId, amountStr]) => ({
+        serviceId,
+        amount: parseFloat(amountStr) || 0
+      }));
+      
+      // Ensure total amount matches sum of service quotes
+      payload.amount = payload.serviceQuotes.reduce((sum: number, q: any) => sum + (Number(q.amount) || 0), 0);
+    }
+
     try {
       setIsSendingQuote(true);
-      // Try the dedicated quote endpoint first; fall back to updateStatus
-      try {
-        await bookingsApi.sendQuote(booking.id.toString(), { amount, notes: quoteNotes });
-      } catch {
-        await bookingsApi.updateStatus(booking.id.toString(), {
-          status: 'QUOTED',
-          quoteAmount: amount,
-          quoteNotes: quoteNotes || undefined,
-        });
-      }
+      await bookingsApi.sendQuote(booking.id.toString(), payload);
       addToast('success', 'Quote sent successfully! The client will be notified.');
       setIsQuoteModalOpen(false);
       setQuoteAmount('');
       setQuoteNotes('');
+      setServiceQuotes({});
       refresh();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -188,20 +225,46 @@ export default function BookingDetailsPage() {
     }
   };
 
+  const handleSaveDeliveryUrl = async () => {
+    if (!booking) return;
+    setIsSavingDeliveryUrl(true);
+    try {
+      await bookingsApi.update(booking.id.toString(), {
+        deliveryUrl, // Note: backend dto must process this.
+      });
+      addToast('success', 'Deliverables link saved successfully!');
+      setIsDeliverablesModalOpen(false);
+      refresh();
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      addToast('error', err.response?.data?.message || 'Failed to save deliverables link');
+    } finally {
+      setIsSavingDeliveryUrl(false);
+    }
+  };
+
   const handleGenerateInvoice = async () => {
     if (!booking) return;
     setGeneratingInvoice(true);
     try {
-      const unitPrice = Number(booking.service.price);
+      const lineItems = booking.bookingItems && booking.bookingItems.length > 0
+        ? booking.bookingItems.map(item => ({
+            description: item.service.name,
+            quantity: 1,
+            rate: Number(item.quotedAmount ?? item.originalPrice),
+            amount: Number(item.quotedAmount ?? item.originalPrice),
+          }))
+        : [{
+            description: booking.service.name,
+            quantity: 1,
+            rate: Number(booking.quoteAmount ?? booking.service.price),
+            amount: Number(booking.quoteAmount ?? booking.service.price),
+          }];
+
       await invoicesApi.create({
         bookingId: booking.id.toString(),
         customerId: booking.customer.id.toString(),
-        lineItems: [{
-          description: booking.service.name,
-          quantity: 1,
-          rate: unitPrice,
-          amount: unitPrice,
-        }],
+        lineItems,
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
       addToast('success', 'Invoice generated successfully!');
@@ -296,6 +359,16 @@ export default function BookingDetailsPage() {
                   onClick={() => {
                     setQuoteAmount(booking.quoteAmount ? booking.quoteAmount.toString() : '');
                     setQuoteNotes(booking.quoteNotes || '');
+                    
+                    // Initialize breakdown if bookingItems exist
+                    if (booking.bookingItems && booking.bookingItems.length > 0) {
+                      const breakdown: Record<string, string> = {};
+                      booking.bookingItems.forEach(item => {
+                        breakdown[item.serviceId] = item.quotedAmount ? item.quotedAmount.toString() : item.originalPrice.toString();
+                      });
+                      setServiceQuotes(breakdown);
+                    }
+                    
                     setIsQuoteModalOpen(true);
                   }}
                   className="border-violet-500/30 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30"
@@ -319,7 +392,19 @@ export default function BookingDetailsPage() {
               </Button>
               <Button
                 variant="outline"
+                onClick={() => {
+                  setDeliveryUrl(booking.deliveryUrl || '');
+                  setIsDeliverablesModalOpen(true);
+                }}
+                className="border-indigo-500/30 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+              >
+                <FolderDown className="h-4 w-4 mr-2" />
+                {booking.deliveryUrl ? 'Edit Link' : 'Add Link'}
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleGenerateInvoice}
+
                 disabled={generatingInvoice}
                 className="text-[var(--success)]"
               >
@@ -360,7 +445,7 @@ export default function BookingDetailsPage() {
                     <h3 className="text-sm font-bold text-[var(--foreground)]">Quote Sent</h3>
                     <Badge variant="info" dot>QUOTED</Badge>
                   </div>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)] tabular-nums">{formatCurrency(booking.quoteAmount)}</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)] tabular-nums">{formatCurrency(booking.quoteAmount, booking.studio.currency)}</p>
                   {booking.quoteNotes && (
                     <p className="text-sm text-[var(--foreground-secondary)] mt-1 leading-relaxed">{booking.quoteNotes}</p>
                   )}
@@ -415,21 +500,58 @@ export default function BookingDetailsPage() {
               <div className="flex items-start gap-3">
                 <Wrench className="h-5 w-5 text-[var(--foreground-tertiary)] mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-[var(--foreground-secondary)]">Service</p>
-                  <p className="text-base font-semibold text-[var(--foreground)]">{booking?.service?.name || 'N/A'}</p>
-                  {booking?.service?.description && (
-                    <p className="text-sm text-[var(--foreground-secondary)] mt-1">{booking.service.description}</p>
+                  <p className="text-sm font-medium text-[var(--foreground-secondary)] mb-2">Services</p>
+                  
+                  {booking.bookingItems && booking.bookingItems.length > 0 ? (
+                    <div className="space-y-4">
+                      {booking.bookingItems.map((item) => (
+                        <div key={item.id} className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-1)]">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-semibold text-[var(--foreground)]">{item.service.name}</p>
+                              {item.service.description && (
+                                <p className="text-xs text-[var(--foreground-secondary)] mt-0.5">{item.service.description}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm font-bold text-[var(--foreground)]">
+                                  {formatCurrency(item.quotedAmount ?? item.originalPrice, booking.studio.currency)}
+                                </p>
+                              <p className="text-[10px] text-[var(--foreground-tertiary)] uppercase font-bold">
+                                {item.service.durationMinutes} min
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center pt-2 border-t border-dashed border-[var(--border)]">
+                        <span className="text-sm font-bold text-[var(--foreground-secondary)]">Total Original</span>
+                        <span className="text-sm font-bold text-[var(--foreground)]">
+                          {formatCurrency(
+                            booking.bookingItems.reduce((acc, item) => acc + (Number(item.originalPrice) || 0), 0),
+                            booking.studio.currency
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-base font-semibold text-[var(--foreground)]">{booking?.service?.name || 'N/A'}</p>
+                      {booking?.service?.description && (
+                        <p className="text-sm text-[var(--foreground-secondary)] mt-1">{booking.service.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 mt-2">
+                        <p className="text-sm text-[var(--foreground)]">
+                          <span className="font-medium">Price:</span> {formatCurrency(booking.quoteAmount ?? (booking?.service?.price || 0), booking.studio.currency)}
+                        </p>
+                        {booking?.service?.duration && (
+                          <p className="text-sm text-[var(--foreground)]">
+                            <span className="font-medium">Duration:</span> {booking.service.duration} min
+                          </p>
+                        )}
+                      </div>
+                    </>
                   )}
-                  <div className="flex items-center gap-4 mt-2">
-                    <p className="text-sm text-[var(--foreground)]">
-                      <span className="font-medium">Price:</span> {formatCurrency(booking.quoteAmount ?? (booking?.service?.price || 0))}
-                    </p>
-                    {booking?.service?.duration && (
-                      <p className="text-sm text-[var(--foreground)]">
-                        <span className="font-medium">Duration:</span> {booking.service.duration} min
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -582,19 +704,53 @@ export default function BookingDetailsPage() {
         description="The client will receive a notification and can accept or reject your quote from their booking page."
       >
         <div className="space-y-4">
-          {/* Amount */}
-          <Input
-            id="quote-amount-input"
-            label="Quote Amount"
-            type="number"
-            min="0"
-            step="0.01"
-            value={quoteAmount}
-            onChange={(e) => setQuoteAmount(e.target.value)}
-            placeholder="e.g. 450.00"
-            helperText="Enter the price you're quoting for this session"
-            leftIcon={<IndianRupee className="h-4 w-4" />}
-          />
+          {/* Multi-service breakdown */}
+          {booking?.bookingItems && booking.bookingItems.length > 0 ? (
+            <div className="space-y-4 p-4 rounded-2xl bg-[var(--surface-1)] border border-[var(--border)]">
+              <p className="text-xs font-black uppercase tracking-widest text-[var(--foreground-secondary)] mb-2">Service Breakdown</p>
+              {booking.bookingItems.map((item) => (
+                <div key={item.id} className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-[var(--foreground)]">{item.service.name}</label>
+                    <span className="text-[10px] text-[var(--foreground-tertiary)] font-bold">Orig: {formatCurrency(item.originalPrice, booking?.studio?.currency)}</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={serviceQuotes[item.serviceId] || ''}
+                    onChange={(e) => {
+                      const newBreakdown = { ...serviceQuotes, [item.serviceId]: e.target.value };
+                      setServiceQuotes(newBreakdown);
+                      
+                      // Auto-sum labels
+                      const total = Object.values(newBreakdown).reduce((sum, val) => sum + (parseFloat(val as string) || 0), 0);
+                      setQuoteAmount(total.toFixed(2));
+                    }}
+                    placeholder="Enter price for this service"
+                    leftIcon={<IndianRupee className="h-3.5 w-3.5" />}
+                  />
+                </div>
+              ))}
+              <div className="pt-3 border-t border-dashed border-[var(--border)] flex justify-between items-center">
+                <span className="text-sm font-black text-[var(--foreground)]">Total Quote</span>
+                <span className="text-lg font-black text-violet-600">{formatCurrency(parseFloat(quoteAmount) || 0, booking?.studio?.currency)}</span>
+              </div>
+            </div>
+          ) : (
+            <Input
+              id="quote-amount-input"
+              label="Quote Amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={quoteAmount}
+              onChange={(e) => setQuoteAmount(e.target.value)}
+              placeholder="e.g. 450.00"
+              helperText="Enter the price you're quoting for this session"
+              leftIcon={<IndianRupee className="h-4 w-4" />}
+            />
+          )}
 
           {/* Notes */}
           <Textarea
@@ -613,7 +769,7 @@ export default function BookingDetailsPage() {
               <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wide mb-1">Preview — what the client sees</p>
               <p className="text-sm font-semibold text-[var(--foreground)]">
                 {booking?.customer?.name} will see a quote for{' '}
-                <span className="text-violet-600 font-extrabold">{formatCurrency(parseFloat(quoteAmount))}</span>
+                <span className="text-violet-600 font-extrabold">{formatCurrency(parseFloat(quoteAmount), booking?.studio?.currency)}</span>
                 {quoteNotes && ` · "${quoteNotes.slice(0, 60)}${quoteNotes.length > 60 ? '…' : ''}"`}
               </p>
             </div>
@@ -726,6 +882,40 @@ export default function BookingDetailsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* ── Deliverables Modal ── */}
+      <Modal
+        isOpen={isDeliverablesModalOpen}
+        onClose={() => setIsDeliverablesModalOpen(false)}
+        title="Share Final Deliverables"
+        description="Share a secure link to the final photos or files with your client."
+      >
+        <div className="space-y-4">
+          <Input
+            label="Delivery URL"
+            value={deliveryUrl}
+            onChange={(e) => setDeliveryUrl(e.target.value)}
+            placeholder="https://drive.google.com/... or pixieset.com/..."
+            helperText="The client will see a button to access this link."
+            leftIcon={<LinkIcon className="h-4 w-4" />}
+          />
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setIsDeliverablesModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveDeliveryUrl}
+              isLoading={isSavingDeliveryUrl}
+              disabled={isSavingDeliveryUrl}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Save Link
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }
+

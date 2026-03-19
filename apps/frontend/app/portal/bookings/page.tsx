@@ -277,6 +277,12 @@ export default function BookingsPage() {
     if (!quotingBooking || !quoteAction) return;
     setIsSubmittingQuote(true);
     try {
+      // Warm up CSRF token by making a GET first (in case the cookie hasn't been set yet)
+      const csrfToken = safeGetItem('csrfToken');
+      if (!csrfToken) {
+        await axios.get(`${API_URL}/health`).catch(() => {});
+      }
+      
       if (quoteAction === 'accept') {
         await portalApi.acceptQuote(quotingBooking.id);
         addToast('success', 'Quote accepted! Your booking is now confirmed.');
@@ -291,9 +297,10 @@ export default function BookingsPage() {
       setQuoteAction(null);
       setQuoteNotes('');
       load();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Quote action failed', err);
-      addToast('error', 'Failed to process quote action');
+      const msg = err?.response?.data?.message || 'Failed to process quote action. Please try again.';
+      addToast('error', msg);
     } finally {
       setIsSubmittingQuote(false);
     }

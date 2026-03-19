@@ -70,8 +70,7 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const frontendUrl =
-      this.configService.get<string>("FRONTEND_URL") ||
-      "http://localhost:3000";
+      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
 
     if (!req.user) {
       return res.redirect(`${frontendUrl}/portal/login?error=oauth_failed`);
@@ -80,23 +79,25 @@ export class AuthController {
     const authData = await this.authService.validateOAuthUser(req.user);
 
     // Read returnTo from the cookie set in googleAuth, then clear it.
-    const cookieReturnTo = req.cookies?.['oauth_return_to'] || '';
-    res.clearCookie('oauth_return_to');
+    const cookieReturnTo = req.cookies?.["oauth_return_to"] || "";
+    res.clearCookie("oauth_return_to");
 
     // Fall back chain: cookie → OAuth state param → /portal
     const rawReturn =
-      (cookieReturnTo && cookieReturnTo.startsWith('/') ? cookieReturnTo : '') ||
-      (req.query?.state ? decodeURIComponent(req.query.state as string) : '') ||
-      '/';
+      (cookieReturnTo && cookieReturnTo.startsWith("/")
+        ? cookieReturnTo
+        : "") ||
+      (req.query?.state ? decodeURIComponent(req.query.state as string) : "") ||
+      "/";
 
     // Guard against open-redirect: only allow relative paths
-    const safeReturnUrl = rawReturn.startsWith('/') ? rawReturn : '/';
+    const safeReturnUrl = rawReturn.startsWith("/") ? rawReturn : "/";
 
     // Tokens go in the URL *fragment* (#) — never logged by servers or proxy
     const fragment = [
       `token=${encodeURIComponent(authData.accessToken)}`,
       `refreshToken=${encodeURIComponent(authData.refreshToken)}`,
-    ].join('&');
+    ].join("&");
 
     return res.redirect(
       `${frontendUrl}/auth/callback?returnTo=${encodeURIComponent(safeReturnUrl)}#${fragment}`,

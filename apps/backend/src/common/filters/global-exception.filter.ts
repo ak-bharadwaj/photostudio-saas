@@ -7,7 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { Prisma } from '@prisma/client';
+import { Prisma } from "@prisma/client";
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -48,7 +48,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // Handle Prisma Known Request Errors
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      const prismaErr = exception as Prisma.PrismaClientKnownRequestError;
+      const prismaErr = exception;
       status = HttpStatus.BAD_REQUEST;
       error = "Database Error";
 
@@ -87,7 +87,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         `Prisma error ${prismaErr.code}: ${prismaErr.message}`,
         prismaErr.stack,
       );
-      
+
       // Specifically helpful for the user to see the exact field or constraint that failed
       if (prismaErr.meta && (prismaErr.meta as any).target) {
         message = `${message}: ${(prismaErr.meta as any).target}`;
@@ -95,7 +95,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // Handle Prisma validation errors
     else if (exception instanceof Prisma.PrismaClientValidationError) {
-      const prismaErr = exception as Prisma.PrismaClientValidationError;
+      const prismaErr = exception;
       status = HttpStatus.BAD_REQUEST;
       error = "Validation Error";
       message = "Invalid data provided to database";
@@ -133,7 +133,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Always include prismaCode if available for easier debugging
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      errorResponse.prismaCode = (exception as Prisma.PrismaClientKnownRequestError).code;
+      errorResponse.prismaCode = exception.code;
     }
 
     if (process.env.NODE_ENV !== "production" && exception instanceof Error) {

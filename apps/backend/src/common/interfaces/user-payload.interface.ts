@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client';
+import { UserRole } from "@prisma/client";
 
 /**
  * Represents the authenticated user attached to the request by the JWT strategy.

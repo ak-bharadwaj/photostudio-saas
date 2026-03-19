@@ -12,6 +12,7 @@ interface BookingConfirmationEmailData {
   studioEmail: string;
   studioPhone: string;
   bookingId: string;
+  studioId: string;
 }
 
 interface BookingStatusUpdateEmailData {
@@ -22,6 +23,7 @@ interface BookingStatusUpdateEmailData {
   scheduledDate: Date;
   newStatus: string;
   notes?: string;
+  studioId: string;
 }
 
 interface InvoiceEmailData {
@@ -30,6 +32,7 @@ interface InvoiceEmailData {
   studioName: string;
   invoiceNumber: string;
   total: number;
+  studioId: string;
   dueDate?: Date;
   invoiceUrl?: string;
   /** ISO 4217 currency code for formatting the amount (e.g. "INR", "USD"). Defaults to "INR". */
@@ -41,7 +44,7 @@ interface BookingReminderData {
   customerNotes?: string | null;
   customer: { name: string; email: string | null };
   service: { name: string };
-  studio: { name: string; email: string; phone: string | null };
+  studio: { id: string; name: string; email: string; phone: string | null };
 }
 
 interface PaymentReminderData {
@@ -52,6 +55,7 @@ interface PaymentReminderData {
   payments: Array<{ amount: unknown }>;
   customer: { name: string; email: string | null };
   studio: {
+    id: string;
     name: string;
     email: string;
     phone: string | null;
@@ -62,8 +66,16 @@ interface PaymentReminderData {
 interface FollowUpEmailData {
   customer: { name: string; email: string | null };
   service: { name: string };
-  studio: { name: string; email: string; phone: string | null; slug: string };
+  studio: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    slug: string;
+  };
 }
+
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class NotificationService {
@@ -100,7 +112,10 @@ export class NotificationService {
     }
   }
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {
     const apiKey = this.configService.get<string>("email.resendApiKey");
     this.fromEmail =
       this.configService.get<string>("email.fromEmail") ||
@@ -140,16 +155,75 @@ export class NotificationService {
     }
   }
 
-  private async sendEmail(options: { to: string; subject: string; html: string }) {
-    if (this.transporter) {
+  private studioTransporters = new Map<string, nodemailer.Transporter>();
+
+  private async getStudioTransporter(
+    studioId: string,
+  ): Promise<{ transporter: nodemailer.Transporter; from: string } | null> {
+    const studio = await this.prisma.studio.findUnique({
+      where: { id: studioId },
+    });
+
+    if (
+      !studio ||
+      !studio.smtpHost ||
+      !studio.smtpUser ||
+      !studio.smtpPassword
+    ) {
+      return null;
+    }
+
+    const cacheKey = `${studioId}-${studio.smtpUser}-${studio.smtpHost}`;
+    let transporter = this.studioTransporters.get(cacheKey);
+
+    if (!transporter) {
+      transporter = nodemailer.createTransport({
+        host: studio.smtpHost,
+        port: studio.smtpPort || 587,
+        secure: studio.smtpSecure || studio.smtpPort === 465,
+        auth: {
+          user: studio.smtpUser,
+          pass: studio.smtpPassword,
+        },
+      });
+      this.studioTransporters.set(cacheKey, transporter);
+    }
+
+    const from = studio.smtpFromName
+      ? `${studio.smtpFromName} <${studio.smtpFromEmail || studio.email}>`
+      : studio.smtpFromEmail || studio.email;
+
+    return { transporter, from };
+  }
+
+  private async sendEmail(options: {
+    to: string;
+    subject: string;
+    html: string;
+    studioId?: string;
+  }) {
+    let transporter = this.transporter;
+    let from = `ReviewsFeedback <${this.fromEmail}>`;
+
+    if (options.studioId) {
+      const studioConfig = await this.getStudioTransporter(options.studioId);
+      if (studioConfig) {
+        transporter = studioConfig.transporter;
+        from = studioConfig.from;
+      }
+    }
+
+    if (transporter) {
       try {
-        const info = await this.transporter.sendMail({
-          from: `ReviewsFeedback <${this.fromEmail}>`,
+        const info = await transporter.sendMail({
+          from,
           to: options.to,
           subject: options.subject,
           html: options.html,
         });
-        this.logger.log(`Email sent via SMTP to ${options.to}: ${info.messageId}`);
+        this.logger.log(
+          `Email sent via SMTP to ${options.to}: ${info.messageId}`,
+        );
         return { data: { id: info.messageId } };
       } catch (error) {
         this.logger.error("Failed to send email via SMTP", error);
@@ -158,12 +232,14 @@ export class NotificationService {
     } else if (this.resend) {
       try {
         const result = await this.resend.emails.send({
-          from: `ReviewsFeedback <${this.fromEmail}>`,
+          from,
           to: options.to,
           subject: options.subject,
           html: options.html,
         });
-        this.logger.log(`Email sent via Resend to ${options.to}: ${result.data?.id}`);
+        this.logger.log(
+          `Email sent via Resend to ${options.to}: ${result.data?.id}`,
+        );
         return result;
       } catch (error) {
         this.logger.error("Failed to send email via Resend", error);
@@ -189,6 +265,7 @@ export class NotificationService {
       const result = await this.sendEmail({
         to: data.to,
         subject: `Booking Confirmation - ${data.studioName}`,
+        studioId: data.studioId,
         html: `
           <!DOCTYPE html>
           <html>
@@ -287,6 +364,7 @@ export class NotificationService {
       const result = await this.sendEmail({
         to: data.to,
         subject: `${statusInfo.title} - ${data.studioName}`,
+        studioId: data.studioId,
         html: `
           <!DOCTYPE html>
           <html>
@@ -338,6 +416,7 @@ export class NotificationService {
       const result = await this.sendEmail({
         to: data.to,
         subject: `Invoice ${data.invoiceNumber} - ${data.studioName}`,
+        studioId: data.studioId,
         html: `
           <!DOCTYPE html>
           <html>
@@ -480,6 +559,7 @@ export class NotificationService {
       const result = await this.sendEmail({
         to: booking.customer.email,
         subject: `Reminder: Your ${booking.service.name} session tomorrow`,
+        studioId: booking.studio.id,
         html: `
           <!DOCTYPE html>
           <html>
@@ -563,7 +643,7 @@ export class NotificationService {
 
       const paidAmount = invoice.payments.reduce(
         (sum: number, payment: { amount: unknown }) =>
-          sum + Number(payment.amount),
+          sum + Number(payment.amount || 0),
         0,
       );
       const remainingAmount = Number(invoice.total) - paidAmount;
@@ -571,6 +651,7 @@ export class NotificationService {
       const result = await this.sendEmail({
         to: invoice.customer.email,
         subject: `Payment Reminder - Invoice #${invoice.invoiceNumber}`,
+        studioId: invoice.studio.id,
         html: `
           <!DOCTYPE html>
           <html>
@@ -654,6 +735,7 @@ export class NotificationService {
       const result = await this.sendEmail({
         to: booking.customer.email,
         subject: `Thank you for choosing ${booking.studio.name}!`,
+        studioId: booking.studio.id,
         html: `
           <!DOCTYPE html>
           <html>
@@ -768,11 +850,13 @@ export class NotificationService {
     customerName: string;
     serviceName: string;
     notes: string;
+    studioId: string;
   }) {
     try {
       await this.sendEmail({
         to: data.to,
         subject: `Negotiation Requested - ${data.customerName}`,
+        studioId: data.studioId,
         html: `
           <!DOCTYPE html>
           <html>
@@ -799,6 +883,63 @@ export class NotificationService {
       });
     } catch (error: unknown) {
       this.logger.error("Failed to send negotiation alert email", error);
+    }
+  }
+
+  async sendNewBookingInquiry(data: {
+    to: string;
+    studioName: string;
+    customerName: string;
+    customerPhone: string;
+    serviceName: string;
+    scheduledDate: Date;
+    bookingId: string;
+    studioId: string;
+  }) {
+    try {
+      const formattedDate = data.scheduledDate.toLocaleString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      await this.sendEmail({
+        to: data.to,
+        subject: `New Booking Inquiry - ${data.customerName}`,
+        studioId: data.studioId,
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
+                <h1 style="color: #3498db; margin-top: 0;">New Booking Received!</h1>
+                <p>Hi ${this.esc(data.studioName)},</p>
+                <p>You have received a new booking inquiry from <strong>${this.esc(data.customerName)}</strong>.</p>
+                
+                <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h2 style="color: #2c3e50; font-size: 18px; margin-top: 0;">Booking Details</h2>
+                  <p><strong>Customer:</strong> ${this.esc(data.customerName)}</p>
+                  <p><strong>Phone:</strong> ${this.esc(data.customerPhone)}</p>
+                  <p><strong>Service(s):</strong> ${this.esc(data.serviceName)}</p>
+                  <p><strong>Date & Time:</strong> ${this.esc(formattedDate)}</p>
+                  <p><strong>Booking ID:</strong> ${this.esc(data.bookingId)}</p>
+                </div>
+
+                <p>Please log in to your dashboard to review this request and provide a quote.</p>
+                
+                <p style="color: #7f8c8d; font-size: 14px; margin-top: 30px;">
+                  Best regards,<br>ReviewsFeedback Team
+                </p>
+              </div>
+            </body>
+          </html>
+        `,
+      });
+    } catch (error: unknown) {
+      this.logger.error("Failed to send new booking inquiry email", error);
     }
   }
 }

@@ -3,6 +3,8 @@ import {
   UnauthorizedException,
   NotFoundException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
@@ -13,7 +15,7 @@ import {
   StudioStatus,
   BillingModel,
   CommissionType,
-} from '@prisma/client';
+} from "@prisma/client";
 import {
   CreateAdminDto,
   AdminLoginDto,
@@ -21,6 +23,7 @@ import {
   CreateStudioWithOwnerDto,
 } from "./dto/admin.dto";
 import { CacheService } from "../cache/cache.service";
+import { AuthService } from "../auth/auth.service";
 
 @Injectable()
 export class AdminService {
@@ -28,6 +31,7 @@ export class AdminService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private cacheService: CacheService,
+    @Inject(forwardRef(() => AuthService)) private authService: AuthService,
   ) {}
 
   // Admin Authentication
@@ -128,7 +132,8 @@ export class AdminService {
             brandingConfig: dto.brandingConfig || {},
             defaultTerms: dto.defaultTerms,
             subscriptionExpiresAt: new Date(
-              Date.now() + (dto.subscriptionDurationDays || 14) * 24 * 60 * 60 * 1000,
+              Date.now() +
+                (dto.subscriptionDurationDays || 14) * 24 * 60 * 60 * 1000,
             ), // custom duration or 14 days trial
           },
         });
@@ -154,18 +159,24 @@ export class AdminService {
   }
 
   // Studio Management
-  async getAllStudios(page = 1, limit = 1000, status?: string, tier?: string, search?: string) {
+  async getAllStudios(
+    page = 1,
+    limit = 1000,
+    status?: string,
+    tier?: string,
+    search?: string,
+  ) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.StudioWhereInput = {};
     if (status) where.status = status as StudioStatus;
     if (tier) where.subscriptionTier = tier as SubscriptionTier;
-    
+
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { slug: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { slug: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -174,7 +185,7 @@ export class AdminService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           _count: {
             select: {
@@ -205,7 +216,7 @@ export class AdminService {
       include: {
         users: {
           take: 1000,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           select: {
             id: true,
             email: true,
@@ -243,7 +254,7 @@ export class AdminService {
 
     const updateData: Prisma.StudioUpdateInput = {};
     if (updateStudioDto.name) updateData.name = updateStudioDto.name;
-    
+
     if (updateStudioDto.slug && updateStudioDto.slug !== studio.slug) {
       const existing = await this.prisma.studio.findUnique({
         where: { slug: updateStudioDto.slug.toLowerCase() },
@@ -262,7 +273,9 @@ export class AdminService {
       updateData.subscriptionTier =
         updateStudioDto.subscriptionTier as SubscriptionTier;
     if (updateStudioDto.subscriptionExpiresAt)
-      updateData.subscriptionExpiresAt = new Date(updateStudioDto.subscriptionExpiresAt);
+      updateData.subscriptionExpiresAt = new Date(
+        updateStudioDto.subscriptionExpiresAt,
+      );
     if (updateStudioDto.isRecommended !== undefined)
       updateData.isRecommended = updateStudioDto.isRecommended;
     if (updateStudioDto.defaultTerms !== undefined)
@@ -425,22 +438,68 @@ export class AdminService {
       take: limit,
       orderBy: { createdAt: "desc" },
       include: {
-        studio: {
-          select: {
-            name: true,
-          },
-        },
-        customer: {
-          select: {
-            name: true,
-          },
-        },
+        studio: { select: { name: true } },
+        customer: { select: { name: true } },
       },
     });
 
+    return { recentStudios, recentBookings };
+  }
+
+  // User Management
+  async getAllUsers(page = 1, limit = 100, role?: string, search?: string) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.UserWhereInput = {};
+    if (role) where.role = role as any;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          studio: { select: { id: true, name: true, slug: true } },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    // Omit passwords
+    const sanitizedUsers = users.map(({ passwordHash, ...u }) => u);
+
     return {
-      recentStudios,
-      recentBookings,
+      data: sanitizedUsers,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async resetUserPassword(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    if (!user.email)
+      throw new ConflictException(
+        "User has no email address. Cannot send reset link.",
+      );
+
+    // Uses the forgotPassword flow which generates a token and emails them.
+    await this.authService.forgotPassword(user.email);
+
+    return {
+      success: true,
+      message: `Password reset email sent to ${user.email}`,
     };
   }
 }

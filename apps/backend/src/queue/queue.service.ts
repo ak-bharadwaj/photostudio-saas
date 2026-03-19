@@ -68,9 +68,9 @@ export class QueueService {
       const pastDue = await this.prisma.booking.findMany({
         where: {
           status: "CONFIRMED",
-          scheduledAt: { lte: now }
+          scheduledAt: { lte: now },
         },
-        select: { id: true }
+        select: { id: true },
       });
 
       if (pastDue.length > 0) {
@@ -78,14 +78,14 @@ export class QueueService {
           await this.prisma.$transaction(async (tx) => {
             await tx.booking.update({
               where: { id: b.id },
-              data: { status: "IN_PROGRESS" }
+              data: { status: "IN_PROGRESS" },
             });
             await tx.bookingStatusLog.create({
               data: {
                 bookingId: b.id,
                 status: "IN_PROGRESS",
-                notes: "Automatically moved to In Progress (time reached)"
-              }
+                notes: "Automatically moved to In Progress (time reached)",
+              },
             });
           });
           this.logger.log(`Auto-updated booking ${b.id} to IN_PROGRESS`);
@@ -274,7 +274,8 @@ export class QueueService {
           data: {
             bookingId: booking.id,
             status: "IN_PROGRESS",
-            notes: "Automatically moved to In Progress (scheduled time reached)",
+            notes:
+              "Automatically moved to In Progress (scheduled time reached)",
           },
         });
         this.logger.log(`Auto-advanced booking ${booking.id} to IN_PROGRESS`);

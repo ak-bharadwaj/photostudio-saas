@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Admin {
@@ -45,6 +47,16 @@ model Studio {
   isPublic              Boolean          @default(true) @map("is_public")
   hotDeal               String?          @map("hot_deal")
   isRecommended         Boolean          @default(false) @map("is_recommended")
+  
+  // Custom SMTP Configuration
+  smtpHost              String?          @map("smtp_host")
+  smtpPort              Int?             @map("smtp_port")
+  smtpUser              String?          @map("smtp_user")
+  smtpPassword          String?          @map("smtp_password")
+  smtpFromEmail         String?          @map("smtp_from_email")
+  smtpFromName          String?          @map("smtp_from_name")
+  smtpSecure            Boolean          @default(false) @map("smtp_secure")
+  
   bookings              Booking[]
   commissions           Commission[]
   customers             Customer[]
@@ -146,22 +158,23 @@ model Customer {
 }
 
 model Service {
-  id              String    @id @default(uuid())
-  studioId        String    @map("studio_id")
+  id              String        @id @default(uuid())
+  studioId        String        @map("studio_id")
   name            String
   description     String?
-  price           Decimal   @db.Decimal(10, 2)
-  durationMinutes Int       @map("duration_minutes")
-  isActive        Boolean   @default(true) @map("is_active")
-  sortOrder       Int       @default(0) @map("sort_order")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  coverImage      String?   @map("cover_image")
+  price           Decimal       @db.Decimal(10, 2)
+  durationMinutes Int           @map("duration_minutes")
+  isActive        Boolean       @default(true) @map("is_active")
+  sortOrder       Int           @default(0) @map("sort_order")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  coverImage      String?       @map("cover_image")
   occasion        String?
-  categoryId      String?   @map("category_id")
+  categoryId      String?       @map("category_id")
   bookings        Booking[]
-  category        Category? @relation(fields: [categoryId], references: [id])
-  studio          Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  bookingItems    BookingItem[]
+  category        Category?     @relation(fields: [categoryId], references: [id])
+  studio          Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@index([studioId])
   @@index([isActive])
@@ -186,9 +199,16 @@ model Booking {
   quoteAcceptedAt     DateTime?          @map("quote_accepted_at")
   quoteAmount         Decimal?           @map("quote_amount") @db.Decimal(10, 2)
   quoteNotes          String?            @map("quote_notes")
-  negotiationRounds    Int                @default(0) @map("negotiation_rounds")
+  negotiationRounds   Int                @default(0) @map("negotiation_rounds")
   quotedAt            DateTime?          @map("quoted_at")
   quoteRejectionNotes String?            @map("quote_rejection_notes")
+  /// JSON array of {serviceId, serviceName, originalPrice, quotedAmount} for multi-service quotes
+  serviceQuotes       Json?              @map("service_quotes")
+  /// Links multiple services booked together under one group (shared groupId)
+  groupId             String?            @map("group_id")
+  /// External link for final asset delivery (Google Drive, Dropbox, Pixieset, etc.)
+  deliveryUrl         String?            @map("delivery_url")
+  bookingItems        BookingItem[]
   statusLogs          BookingStatusLog[]
   assignedTo          User?              @relation("AssignedBookings", fields: [assignedToUserId], references: [id])
   customer            Customer           @relation(fields: [customerId], references: [id])
@@ -208,7 +228,24 @@ model Booking {
   @@index([status, scheduledAt])
   @@index([studioId, customerId])
   @@index([studioId, createdAt])
+  @@index([groupId])
   @@map("bookings")
+}
+
+/// Line item for a multi-service booking. One row per service per booking.
+model BookingItem {
+  id          String   @id @default(uuid())
+  bookingId   String   @map("booking_id")
+  serviceId   String   @map("service_id")
+  originalPrice Decimal @map("original_price") @db.Decimal(10, 2)
+  quotedAmount  Decimal? @map("quoted_amount") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service     Service  @relation(fields: [serviceId], references: [id])
+
+  @@index([bookingId])
+  @@index([serviceId])
+  @@map("booking_items")
 }
 
 model BookingStatusLog {

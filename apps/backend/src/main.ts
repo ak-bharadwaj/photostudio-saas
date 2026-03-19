@@ -17,7 +17,7 @@ async function bootstrap() {
   });
 
   // Enable trust proxy for Render/Vercel
-  (app.getHttpAdapter().getInstance() as any).set("trust proxy", 1);
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
 
   const configService = app.get(ConfigService);
   const port = configService.get("PORT") || 3001;
@@ -47,20 +47,19 @@ async function bootstrap() {
   // stash the returnTo query param in a short-lived HttpOnly cookie.
   // Passport's redirect to Google consumes the response immediately, so we
   // cannot set cookies from inside the route handler.
-  app.use('/auth/google', (req: Request, res: Response, next: NextFunction) => {
-    if (req.method === 'GET' && !req.path.includes('/callback')) {
-      const returnTo = (req.query?.returnTo as string) || '/portal';
-      const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/portal';
-      res.cookie('oauth_return_to', safeReturnTo, {
+  app.use("/auth/google", (req: Request, res: Response, next: NextFunction) => {
+    if (req.method === "GET" && !req.path.includes("/callback")) {
+      const returnTo = (req.query?.returnTo as string) || "/portal";
+      const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/portal";
+      res.cookie("oauth_return_to", safeReturnTo, {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: "lax",
         maxAge: 5 * 60 * 1000, // 5 minutes
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === "production",
       });
     }
     next();
   });
-
 
   // Global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter());
@@ -91,7 +90,7 @@ async function bootstrap() {
   );
   // Allow any Vercel preview deployment for this project
   const vercelPreviewPattern =
-    /^https:\/\/reviewsfeedback-saas-frontend-[a-z0-9]+-s-projects-2f2710cf\.vercel\.app$/;
+    /^https:\/\/reviewsfeedback-frontend-[a-z0-9]+-s-projects-[a-z0-9]+\.vercel\.app$/;
 
   app.enableCors({
     origin: (
@@ -106,7 +105,12 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-xsrf-token", "x-csrf-token"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-xsrf-token",
+      "x-csrf-token",
+    ],
     exposedHeaders: ["x-csrf-token"],
   });
 
@@ -137,7 +141,9 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== "production") {
     const config = new DocumentBuilder()
       .setTitle("ReviewsFeedback SaaS API")
-      .setDescription("API documentation for ReviewsFeedback Management Platform")
+      .setDescription(
+        "API documentation for ReviewsFeedback Management Platform",
+      )
       .setVersion("1.0")
       .addBearerAuth(
         {

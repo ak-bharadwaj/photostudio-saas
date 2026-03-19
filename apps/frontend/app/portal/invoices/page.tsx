@@ -246,8 +246,8 @@ export default function InvoicesPage() {
   }
 
   /* Derived totals */
-  const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + Number(i.total), 0);
-  const totalOwed = invoices.filter(i => i.status !== 'PAID' && i.status !== 'DRAFT').reduce((s, i) => s + Number(i.total), 0);
+  const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + (Number(i.total) || 0), 0);
+  const totalOwed = invoices.filter(i => i.status !== 'PAID' && i.status !== 'DRAFT').reduce((s, i) => s + (Number(i.total) || 0), 0);
   const overdueCount = invoices.filter(i => i.status === 'OVERDUE').length;
   const paidCount = invoices.filter(i => i.status === 'PAID').length;
 
@@ -305,7 +305,7 @@ export default function InvoicesPage() {
             {
               icon: TrendingUp,
               label: 'Total Invoiced',
-              value: formatCurrency(invoices.reduce((s, i) => s + Number(i.total), 0)),
+              value: formatCurrency(invoices.reduce((s, i) => s + (Number(i.total) || 0), 0)),
               sub: `${invoices.length} invoice${invoices.length !== 1 ? 's' : ''} total`,
               gradFrom: '#7c3aed',
               gradTo: '#a855f7',
@@ -357,7 +357,7 @@ export default function InvoicesPage() {
           {invoices.map((invoice, index) => {
             const cfg = STATUS_CFG[invoice.status] ?? STATUS_CFG.DRAFT;
             const StatusIcon = cfg.icon;
-            const paidAmount = (invoice.payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
+            const paidAmount = (invoice.payments ?? []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
             const isOverdue = invoice.status === 'OVERDUE';
 
             return (

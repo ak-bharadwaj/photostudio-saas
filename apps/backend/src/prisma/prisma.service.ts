@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   Logger,
 } from "@nestjs/common";
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { tenantExtension } from "../common/tenant";
 
@@ -32,9 +32,11 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       // Neon free tier: max 10 connections per compute unit.
       // Reserve 2 for admin/migrations — keep 8 for the app.
       max: 8,
-      min: 1,
-      idleTimeoutMillis: 20000, // release idle connections after 20 s
-      connectionTimeoutMillis: 5000, // fail fast if pool is exhausted
+      min: 2, // Keep at least 2 warm connections to avoid cold starts
+      idleTimeoutMillis: 120000, // release idle connections after 2 min (longer = warmer pool)
+      connectionTimeoutMillis: 10000, // wait up to 10s for a pooled connection
+      keepAlive: true, // send keepalive probes so Neon doesn't drop idle connections
+      keepAliveInitialDelayMillis: 10000, // start keepalive after 10s
     });
     const adapter = new PrismaPg(pool);
     this._baseClient = new PrismaClient({ adapter });
@@ -68,6 +70,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
   get booking() {
     return this._client.booking;
+  }
+  get bookingItem() {
+    return this._client.bookingItem;
   }
   get bookingStatusLog() {
     return this._client.bookingStatusLog;
@@ -129,6 +134,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
     // Delete in order to respect FK constraints
     await this._baseClient.bookingStatusLog.deleteMany();
+    await (this._baseClient as any).bookingItem.deleteMany();
     await this._baseClient.payment.deleteMany();
     await this._baseClient.commission.deleteMany();
     await this._baseClient.invoice.deleteMany();

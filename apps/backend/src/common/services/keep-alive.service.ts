@@ -16,7 +16,7 @@ export class KeepAliveService implements OnModuleInit {
   private startPinging() {
     // Initial ping
     this.ping();
-    
+
     // Scheduled pings
     setInterval(async () => {
       await this.ping();
@@ -25,7 +25,9 @@ export class KeepAliveService implements OnModuleInit {
 
   private async ping() {
     // We ping the /ping endpoint which is ultra-lightweight
-    const backendUrl = this.configService.get<string>("BACKEND_URL") || `http://localhost:${this.configService.get("PORT") || 3001}`;
+    const backendUrl =
+      this.configService.get<string>("BACKEND_URL") ||
+      `http://localhost:${this.configService.get("PORT") || 3001}`;
     const pingUrl = `${backendUrl}/ping`;
 
     try {
